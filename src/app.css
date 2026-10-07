@@ -1,0 +1,283 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand: hsl(355 85% 45%);
+    --brand-hover: hsl(355 85% 40%);
+    --secondary: hsl(40 80% 52%);
+    --gold: hsl(40 80% 52%);
+    --cream: hsl(40 30% 96%);
+    --paper: hsl(0 0% 100%);
+    --ink: hsl(210 15% 12%);
+    --muted: hsl(210 10% 45%);
+    --border: hsl(210 20% 90%);
+    --shadow: 0 20px 40px hsl(210 25% 20% / 0.08), 0 0 0 hsl(0 0% 0 / 0.03);
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+
+  body {
+    @apply bg-cream text-ink font-body antialiased;
+    margin: 0;
+    min-height: 100dvh;
+  }
+
+  #root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 640px) {
+    html {
+      font-size: 15.5px;
+    }
+  }
+}
+
+@layer components {
+  .page-card {
+    @apply w-full max-w-md bg-paper rounded-2xl shadow-xl;
+    box-shadow: var(--shadow);
+    border: 1px solid hsl(210 20% 92%);
+    animation: fade-in 0.35s ease-out both;
+  }
+
+  .progress-track {
+    @apply h-1.5 w-full bg-border-soft rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-border-soft bg-cream text-ink placeholder-muted focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply w-full rounded-full text-paper font-medium py-3.5 text-base transition-all duration-200 ease-out active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed;
+    background-color: var(--brand, #E53935);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(0.92);
+  }
+
+  .btn-secondary {
+    @apply w-full rounded-full font-medium py-3.5 text-base transition-all duration-200 ease-out active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed;
+    background-color: var(--secondary, #42A5F5);
+  }
+
+  .btn-ghost {
+    @apply w-full rounded-full font-medium text-ink py-3.5 text-base transition-colors duration-200;
+  }
+
+  .btn-ghost:hover {
+    @apply bg-border-soft;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes bounce-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    70% {
+      transform: scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+     
+    }
+  }
+
+  .reward-badge {
+    animation: bounce-in 0.5s ease-out both 0.2s both;
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-up {
+    animation: fade-up 0.5s ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-card {
+      animation: none;
+    }
+    .progress-fill {
+      transition: none;
+    }
+    .btn-primary:hover {
+      filter: none;
+    }
+  }
+}
+
+@layer utilities {
+  .border-border-soft {
+    border-color: hsl(210 20% 92%);
+  }
+
+  @media (max-height: 820px) {
+    #root {
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .customer-flow-card {
+      margin-top: 0.25rem;
+    }
+
+    .customer-flow-header {
+      padding-top: 0.75rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .customer-flow-header .store-logo-image {
+      width: 140px;
+    }
+  }
+
+  @media (max-width: 640px) and (max-height: 820px) {
+    #root {
+      padding: 0.5rem;
+    }
+
+    .customer-flow-card {
+      margin-top: 0.25rem;
+    }
+
+    .customer-flow-header {
+      padding-top: 0.5rem;
+      padding-bottom: 0.25rem;
+    }
+
+    .customer-flow-header .store-logo-image {
+      width: 100px;
+    }
+
+    .customer-flow-header > div {
+      margin-top: 0.25rem;
+    }
+
+    .customer-flow-spin .customer-flow-header > div:last-child > span.mt-1 {
+      display: none;
+    }
+
+    .customer-flow-progress {
+      padding-bottom: 0.25rem;
+    }
+
+    .customer-flow-progress .mt-2 {
+      margin-top: 0.25rem;
+    }
+
+    .spin-win-content {
+      gap: 0.5rem;
+    }
+
+    .spin-win-content h2 {
+      font-size: 1.125rem;
+      line-height: 1.5rem;
+    }
+
+    .spin-win-content > div.rounded-xl {
+      padding: 0.375rem 0.75rem;
+    }
+  }
+  .bg-border-soft {
+    background-color: hsl(210 20% 95%);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .wheel.spinning {
+    pointer-events: none;
+  }
+  .wheel-pointer {
+    filter: drop-shadow(0 4px 8px hsl(0 0% 0 / 0.15));
+  }
+
+  .spin-center {
+    z-index: 2;
+    background: radial-gradient(circle, hsl(355 85% 48%) 0%, hsl(355 85% 45%) 100%);
+    box-shadow:
+      0 0 0 3px hsl(40 80% 56%),
+      0 0 0 7px hsl(0 0% 100% / 0.85),
+      0 8px 20px hsl(210 25% 20% / 0.22);
+  }
+  .spin-center:hover {
+    filter: brightness(1.08);
+  }
+  .spin-center:disabled {
+    filter: grayscale(0.2) brightness(0.9);
+  }
+
+  .spin-idle {
+    animation: breath 2.4s ease-in-out infinite;
+  }
+  @keyframes breath {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.03);
+    }
+  }
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .wheel-pointer {
+    filter: drop-shadow(0 4px 8px hsl(0 0% 0 / 0.15));
+    pointer-events: none;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.35s ease-out both;
+  }
+
+  .step-enter {
+    animation: fade-in 0.4s ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .step-enter {
+      animation: none;
+    }
+  }
+}
