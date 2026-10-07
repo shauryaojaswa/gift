@@ -1,24 +1,8 @@
-import { useEffect } from 'react'
 import { useCustomerFlow } from '../store'
-import { useStoreConfigValue } from '../StoreContext'
+import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 export function ReviewInvitationScreen() {
-  const store = useStoreConfigValue()
-  const {
-    reviewCtaShown,
-    setReviewCtaShown,
-    setReviewCtaClicked,
-    setStep,
-  } = useCustomerFlow((s) => ({
-    reviewCtaShown: s.reviewCtaShown,
-    setReviewCtaShown: s.setReviewCtaShown,
-    setReviewCtaClicked: s.setReviewCtaClicked,
-    setStep: s.setStep,
-  }))
-
-  useEffect(() => {
-    if (!reviewCtaShown) setReviewCtaShown(true)
-  }, [reviewCtaShown, setReviewCtaShown])
+  const setStep = useCustomerFlow((s) => s.setStep)
 
   const handleContinue = () => setStep('SPIN')
 
@@ -30,25 +14,12 @@ export function ReviewInvitationScreen() {
           <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
-      <h2 className="font-display text-xl font-bold text-ink">ENJOYED YOUR EXPERIENCE?</h2>
+      <h2 className="font-display text-xl font-bold text-ink">SHARE YOUR EXPERIENCE</h2>
       <p className="font-body text-balance text-sm text-muted max-w-sm">
-        We'd love to hear about your experience. Tap below to share a genuine review on Google —
-        this opens in a new tab and takes just a moment.
+        If you want, share an honest review about your visit. A review is optional, and your reward is not affected.
       </p>
 
-      {store.googleReviewUrl ? (
-        <a
-          href={store.googleReviewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => setReviewCtaClicked(true)}
-          className="tap-target inline-flex w-full items-center justify-center rounded-full bg-brand px-6 py-3.5 text-base font-medium text-paper transition-all duration-200 ease-out hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 active:scale-95"
-        >
-          LEAVE A GOOGLE REVIEW
-        </a>
-      ) : (
-        <p className="font-body text-xs text-muted">Review link not configured by this store.</p>
-      )}
+      <GoogleReviewAssistant className="tap-target inline-flex min-h-11 w-full items-center justify-center rounded-full bg-brand px-6 py-3.5 text-base font-medium text-paper transition-colors hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" />
 
       <button type="button" className="btn-ghost mt-1 text-sm" onClick={handleContinue}>
         CONTINUE TO SPIN

@@ -4,6 +4,7 @@ import { useStoreConfigValue } from '../StoreContext'
 import { useDataProvider } from '@/providers/DataProviderContext'
 import { Confetti, FadeUp } from '@/components/ui/Confetti'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
+import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 export function RewardScreen() {
   const store = useStoreConfigValue()
@@ -16,8 +17,6 @@ export function RewardScreen() {
     purchaseAmount,
     phoneNumber,
     fullName,
-    reviewCtaShown,
-    reviewCtaClicked,
     setSubmissionId,
     submissionId,
     setStep,
@@ -26,8 +25,6 @@ export function RewardScreen() {
     purchaseAmount: s.purchaseAmount,
     phoneNumber: s.phoneNumber,
     fullName: s.fullName,
-    reviewCtaShown: s.reviewCtaShown,
-    reviewCtaClicked: s.reviewCtaClicked,
     setSubmissionId: s.setSubmissionId,
     submissionId: s.submissionId,
     setStep: s.setStep,
@@ -51,8 +48,8 @@ export function RewardScreen() {
           purchaseAmount: purchaseAmount ?? 0,
           reward: rewardResult.reward,
           tier: rewardResult.tier,
-          reviewCtaShown,
-          reviewCtaClicked,
+          reviewCtaShown: false,
+          reviewCtaClicked: false,
         })
         setSubmissionId(res.id)
       } catch (error) {
@@ -70,8 +67,6 @@ export function RewardScreen() {
     fullName,
     phoneNumber,
     purchaseAmount,
-    reviewCtaShown,
-    reviewCtaClicked,
     setSubmissionId,
     submissionAttempt,
     setStep,
@@ -166,16 +161,7 @@ export function RewardScreen() {
       )}
 
       <FadeUp delay={500}>
-        <button
-          type="button"
-          className="btn-ghost text-sm"
-          onClick={() =>
-            store.googleReviewUrl &&
-            window.open(store.googleReviewUrl, '_blank', 'noopener,noreferrer')
-          }
-        >
-          {store.googleReviewUrl ? 'Leave a Google Review' : 'Reviews not configured'}
-        </button>
+        <GoogleReviewAssistant className="btn-ghost tap-target min-h-11 text-sm" />
       </FadeUp>
     </div>
   )

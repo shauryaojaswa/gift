@@ -47,7 +47,8 @@ export default function Privacy() {
         <p className="font-body">
           Leaving a Google Review is <strong>completely optional</strong>. Your reward is calculated solely from
           your purchase amount and is never influenced by whether you leave a review, what you write, or your star rating.
-          We record only that the review call-to-action was shown and/or clicked.
+          Review suggestions and drafts stay in your browser and are not sent to this website. We do not collect your
+          review text, Google sign-in details, or rating. Google handles your review and any sign-in on its own website.
         </p>
         <h2 className="font-display text-lg text-ink">Marketing</h2>
         <p className="font-body">

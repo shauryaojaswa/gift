@@ -11,11 +11,13 @@ export function StoreSettingsPage() {
   const [logoUrl, setLogoUrl] = useState(store?.logoUrl ?? '')
   const [primaryColor, setPrimaryColor] = useState(store?.primaryColor ?? '')
   const [secondaryColor, setSecondaryColor] = useState(store?.secondaryColor ?? '')
-  const [googleReviewUrl, setGoogleReviewUrl] = useState(store?.googleReviewUrl ?? '')
+  const [googleReviewUrlDraft, setGoogleReviewUrlDraft] = useState<string | null>(null)
   const [campaignBadge, setCampaignBadge] = useState(store?.campaignBadge ?? '')
   const [minSpinAmount, setMinSpinAmount] = useState(store?.minSpinAmount ?? 10000)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
+  const googleReviewUrl = googleReviewUrlDraft ?? store?.googleReviewUrl ?? ''
 
   if (loading) return <Spinner />
   if (!store) return <p className="text-muted">Unable to load store config.</p>
@@ -30,7 +32,7 @@ export function StoreSettingsPage() {
         logoUrl,
         primaryColor,
         secondaryColor,
-        googleReviewUrl,
+        googleReviewUrl: googleReviewUrl.trim() || null,
         campaignBadge,
         minSpinAmount,
       })
@@ -65,7 +67,16 @@ export function StoreSettingsPage() {
           <input className="field-input py-2" placeholder="hsl(200 90% 55%)" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} />
         </FormField>
         <FormField label="Google Review URL">
-          <input className="field-input py-2" placeholder="https://..." value={googleReviewUrl} onChange={(e) => setGoogleReviewUrl(e.target.value)} />
+          <input
+            className="field-input py-2"
+            type="url"
+            placeholder="https://search.google.com/local/writereview?placeid=..."
+            value={googleReviewUrl}
+            onChange={(e) => setGoogleReviewUrlDraft(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-muted">
+            Use this store's Google review or Business Profile link. VITE_GOOGLE_REVIEW_URL overrides this setting when configured.
+          </p>
         </FormField>
         <FormField label="Campaign badge">
           <input className="field-input py-2" placeholder="LUCKY REWARD" value={campaignBadge} onChange={(e) => setCampaignBadge(e.target.value)} />

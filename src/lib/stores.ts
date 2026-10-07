@@ -10,7 +10,7 @@ export const JOLLY_ENTERPRISES: StoreConfig = {
   logoUrl: '/assets/brand-logo.png',
   primaryColor: 'hsl(355 85% 45%)',
   secondaryColor: 'hsl(40 80% 50%)',
-  googleReviewUrl: 'https://www.google.com/search?client=ms-android-samsung-gj-rev1&cs=0&hl=en-GB&sxsrf=APpeQnvltq_txMN187NzrlXBBgKiQwsbWw:1791370704978&si=APenkKm7iecQ4G6P-TsbSMFKIQtv3EFIqRAFw-i8uEbk55Z-_wK1r6R0JfuShgfoO-cQGi5ivdwczJYvolWPJe205B5ym_RXhaYgC3Zp5h1IJKQ6hyqY9Ttyvi50sjhkMuYKzdsATmG7&q=Shree+Jewellers+Reviews&biw=1280&bih=551&dpr=1.5#lrd=0x3bc11d000be053c1:0xebcd9fadee301ec,3,,,,',
+  googleReviewUrl: null,
   campaignBadge: 'SPIN & WIN',
   minSpinAmount: 10000,
   rewards: [

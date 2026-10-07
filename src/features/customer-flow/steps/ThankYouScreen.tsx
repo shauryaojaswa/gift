@@ -4,6 +4,7 @@ import { useCustomerFlow } from '../store'
 import { useStoreConfigValue } from '../StoreContext'
 import { formatINR } from '@/lib/currency'
 import { Confetti } from '@/components/ui/Confetti'
+import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 function maskPhone(value: string): string {
   if (!value) return '—'
@@ -93,15 +94,7 @@ export function ThankYouScreen() {
         >
           DONE
         </button>
-        {store.googleReviewUrl && (
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => window.open(store.googleReviewUrl!, '_blank', 'noopener,noreferrer')}
-          >
-            Leave us a Google Review
-          </button>
-        )}
+        <GoogleReviewAssistant className="btn-ghost tap-target min-h-11 text-sm" />
         <button type="button" className="btn-ghost text-sm" onClick={() => resetAll()}>
           Submit another response
         </button>

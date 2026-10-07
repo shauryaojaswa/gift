@@ -30,3 +30,20 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Google review assistant
+
+The customer review helper uses `VITE_GOOGLE_REVIEW_URL` when it is set. Copy
+`.env.example` to `.env.local` and replace `YOUR_PLACE_ID` with the business's
+Google review URL, or add `VITE_GOOGLE_REVIEW_URL` to the deployment
+environment (for Vercel: **Project Settings → Environment Variables**) and
+redeploy. The URL must use HTTPS and point to a Google review or Business
+Profile page.
+
+The admin **Store Settings → Google Review URL** field is also supported when
+the environment variable is not set. The environment variable takes precedence.
+Changing a Vite environment variable requires a new production build.
+
+The assistant only copies the customer's optional, editable text and opens
+Google's review page. Customers choose their own rating and submit their review
+on Google; the app does not submit reviews or interact with Google's form.

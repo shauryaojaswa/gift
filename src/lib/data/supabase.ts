@@ -234,7 +234,7 @@ export class SupabaseDataProvider implements DataProvider {
     if (patch.logoUrl) updates.logo_url = patch.logoUrl
     if (patch.primaryColor) updates.primary_color = patch.primaryColor
     if (patch.secondaryColor) updates.secondary_color = patch.secondaryColor
-    if (patch.googleReviewUrl) updates.google_review_url = patch.googleReviewUrl
+    if (patch.googleReviewUrl !== undefined) updates.google_review_url = patch.googleReviewUrl
     if (patch.campaignBadge !== undefined) updates.campaign_badge = patch.campaignBadge
     if (patch.minSpinAmount) updates.min_spin_amount = patch.minSpinAmount
     updates.updated_at = new Date().toISOString()
