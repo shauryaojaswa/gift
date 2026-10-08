@@ -55,4 +55,7 @@ unchanged.
 The assistant copies the customer's optional, editable text and opens Google's
 review page. Customers paste their text, choose their own rating, and submit
 their review on Google; the app does not submit reviews or interact with
-Google's form.
+Google's form. On the pre-spin invitation, returning to the original tab after
+Google was opened automatically closes the review helper and advances to the
+wheel. This detects a tab return only; it does not verify whether Google
+accepted or published a review.

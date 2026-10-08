@@ -84,6 +84,7 @@ describe('customer-flow session recovery', () => {
     const stale = useCustomerFlow.getState()
     stale.spinStatus = 'spinning'
     stale.hasSpun = true
+    stale.reviewReturnDetected = true
     window.sessionStorage.setItem(KEY, JSON.stringify(stale))
 
     useCustomerFlow.getState().init(JOLLY_ENTERPRISES_SLUG)
@@ -91,6 +92,7 @@ describe('customer-flow session recovery', () => {
     expect(s.step).toBe('REWARD')
     expect(s.spinStatus).toBe('completed')
     expect(s.hasSpun).toBe(true)
+    expect(s.reviewReturnDetected).toBe(false)
     expect(s.rewardResult?.reward.id).toBe('reward_4')
   })
 

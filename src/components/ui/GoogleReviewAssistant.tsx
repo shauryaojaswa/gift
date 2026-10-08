@@ -32,12 +32,31 @@ const reviewOptions = [
 
 type CopyState = 'idle' | 'copying' | 'copied' | 'failed'
 
-export function GoogleReviewAssistant({ className = 'btn-primary' }: { className?: string }) {
+interface GoogleReviewAssistantProps {
+  className?: string
+  onGoogleReturn?: () => void
+}
+
+interface PendingReviewReturn {
+  armed: boolean
+}
+
+const REVIEW_RETURN_KEY = 'gift:review-return'
+
+export function GoogleReviewAssistant({
+  className = 'btn-primary',
+  onGoogleReturn,
+}: GoogleReviewAssistantProps) {
   const store = useStoreConfigValue()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const reviewTextRef = useRef<HTMLTextAreaElement>(null)
   const fallbackTextRef = useRef<HTMLTextAreaElement>(null)
+  const onGoogleReturnRef = useRef(onGoogleReturn)
+  const returnPendingRef = useRef(false)
+  const returnArmedRef = useRef(false)
+  const tabAwayRef = useRef(false)
+  const returnHandledRef = useRef(false)
   const [isOpen, setIsOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [reviewText, setReviewText] = useState('')
@@ -53,6 +72,94 @@ export function GoogleReviewAssistant({ className = 'btn-primary' }: { className
   const selectedSentence = selectedOption === null ? null : reviewOptions[selectedOption].text
   const textIsCopied = Boolean(reviewText.trim()) && copiedText === reviewText
   const canOpenGoogle = Boolean(reviewLink.url)
+
+  useEffect(() => {
+    onGoogleReturnRef.current = onGoogleReturn
+  }, [onGoogleReturn])
+
+  useEffect(() => {
+    if (!onGoogleReturn) return
+    const storageKey = `${REVIEW_RETURN_KEY}:${store.slug}`
+    const markTabAway = () => {
+      if (returnPendingRef.current) tabAwayRef.current = true
+    }
+    const handleReturn = () => {
+      if (
+        document.visibilityState === 'hidden' ||
+        !returnPendingRef.current ||
+        !returnArmedRef.current ||
+        !tabAwayRef.current ||
+        returnHandledRef.current
+      ) {
+        return
+      }
+
+      returnHandledRef.current = true
+      returnPendingRef.current = false
+      returnArmedRef.current = false
+      tabAwayRef.current = false
+      try {
+        window.sessionStorage.removeItem(storageKey)
+      } catch {
+        // Keep the in-memory return flow available when session storage is blocked.
+      }
+      setIsOpen(false)
+      onGoogleReturnRef.current?.()
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') markTabAway()
+      else handleReturn()
+    }
+
+    window.addEventListener('blur', markTabAway)
+    window.addEventListener('focus', handleReturn)
+    window.addEventListener('pageshow', handleReturn)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('blur', markTabAway)
+      window.removeEventListener('focus', handleReturn)
+      window.removeEventListener('pageshow', handleReturn)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [onGoogleReturn, store.slug])
+
+  const beginGoogleReturnFlow = () => {
+    returnPendingRef.current = true
+    returnArmedRef.current = false
+    tabAwayRef.current = false
+    returnHandledRef.current = false
+    try {
+      window.sessionStorage.setItem(
+        `${REVIEW_RETURN_KEY}:${store.slug}`,
+        JSON.stringify({ armed: false } satisfies PendingReviewReturn),
+      )
+    } catch {
+      // Continue with in-memory return detection if session storage is unavailable.
+    }
+  }
+
+  const armGoogleReturnFlow = () => {
+    returnArmedRef.current = true
+    try {
+      window.sessionStorage.setItem(
+        `${REVIEW_RETURN_KEY}:${store.slug}`,
+        JSON.stringify({ armed: true } satisfies PendingReviewReturn),
+      )
+    } catch {
+      // The active tab can still complete this flow without persistent storage.
+    }
+  }
+
+  const cancelGoogleReturnFlow = () => {
+    returnPendingRef.current = false
+    returnArmedRef.current = false
+    tabAwayRef.current = false
+    try {
+      window.sessionStorage.removeItem(`${REVIEW_RETURN_KEY}:${store.slug}`)
+    } catch {
+      // The return marker is best-effort only.
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) return
@@ -108,10 +215,12 @@ export function GoogleReviewAssistant({ className = 'btn-primary' }: { className
 
   const openGoogle = () => {
     if (!reviewLink.url) return false
+    beginGoogleReturnFlow()
     try {
       const reviewTab = window.open(reviewLink.url, '_blank')
       if (reviewTab) {
         reviewTab.opener = null
+        armGoogleReturnFlow()
         setPopupBlocked(false)
         setError(null)
         setSuccessMessage(
@@ -136,6 +245,7 @@ export function GoogleReviewAssistant({ className = 'btn-primary' }: { className
       return
     }
     let reviewTab: Window | null = null
+    beginGoogleReturnFlow()
     try {
       reviewTab = window.open('', '_blank')
       if (reviewTab) reviewTab.opener = null
@@ -144,6 +254,7 @@ export function GoogleReviewAssistant({ className = 'btn-primary' }: { className
     }
 
     if (reviewTab) {
+      armGoogleReturnFlow()
       setPopupBlocked(false)
       setError(null)
     } else {
@@ -162,6 +273,7 @@ export function GoogleReviewAssistant({ className = 'btn-primary' }: { className
         }
       } catch {
         reviewTab.close()
+        cancelGoogleReturnFlow()
         setPopupBlocked(true)
         setSuccessMessage(null)
         setError('Google could not be opened automatically.')
@@ -376,13 +488,6 @@ export function GoogleReviewAssistant({ className = 'btn-primary' }: { className
                   onClick={openReadyButton ? openGoogle : copyAndOpenGoogle}
                 >
                   {primaryLabel}
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost tap-target min-h-11 text-sm"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Not now
                 </button>
               </footer>
             </section>

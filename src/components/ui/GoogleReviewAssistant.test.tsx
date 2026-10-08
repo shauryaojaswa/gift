@@ -8,10 +8,10 @@ import { DEFAULT_GOOGLE_REVIEW_URL } from '../../lib/google-review'
 const reviewUrl = DEFAULT_GOOGLE_REVIEW_URL
 const firstOption = 'Beautiful jewellery collection.'
 
-function renderAssistant(url: string | null = reviewUrl) {
+function renderAssistant(url: string | null = reviewUrl, onGoogleReturn?: () => void) {
   return render(
     <StoreConfigProvider store={{ ...JOLLY_ENTERPRISES, googleReviewUrl: url }}>
-      <GoogleReviewAssistant />
+      <GoogleReviewAssistant onGoogleReturn={onGoogleReturn} />
     </StoreConfigProvider>,
   )
 }
@@ -41,6 +41,7 @@ function mockClipboard(writeText?: ReturnType<typeof vi.fn>) {
 
 beforeEach(() => {
   vi.stubEnv('VITE_GOOGLE_REVIEW_URL', '')
+  window.sessionStorage.removeItem('gift:review-return:jolly-enterprises')
 })
 
 afterEach(() => {
@@ -80,6 +81,58 @@ describe('Google review assistant', () => {
     expect(screen.getByText(
       'Your review is copied. Paste it into Google and choose the rating that matches your experience.',
     )).toBeInTheDocument()
+  })
+
+  it('advances only after the customer returns from an opened Google tab', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const onGoogleReturn = vi.fn()
+    mockClipboard(writeText)
+    const { open } = mockReviewTab()
+    renderAssistant(reviewUrl, onGoogleReturn)
+    openAssistant()
+
+    fireEvent.click(screen.getByRole('button', { name: firstOption }))
+    await waitFor(() => screen.getByRole('button', { name: 'Open Google →' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Google →' }))
+
+    expect(JSON.parse(window.sessionStorage.getItem('gift:review-return:jolly-enterprises')!))
+      .toEqual({ armed: true })
+    expect(open).toHaveBeenCalledWith(reviewUrl, '_blank')
+
+    fireEvent.focus(window)
+    expect(onGoogleReturn).not.toHaveBeenCalled()
+    fireEvent.blur(window)
+    fireEvent.focus(window)
+
+    expect(onGoogleReturn).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog', { name: 'Share Your Experience' })).not.toBeInTheDocument()
+    expect(window.sessionStorage.getItem('gift:review-return:jolly-enterprises')).toBeNull()
+  })
+
+  it('does not advance for focus after a blocked popup or after a page reload', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const onGoogleReturn = vi.fn()
+    mockClipboard(writeText)
+    const { open } = mockReviewTab()
+    open.mockReturnValueOnce(null)
+    renderAssistant(reviewUrl, onGoogleReturn)
+    openAssistant()
+
+    fireEvent.click(screen.getByRole('button', { name: firstOption }))
+    await waitFor(() => screen.getByRole('button', { name: 'Open Google →' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Google →' }))
+    fireEvent.blur(window)
+    fireEvent.focus(window)
+    expect(onGoogleReturn).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Google Review' }))
+    expect(JSON.parse(window.sessionStorage.getItem('gift:review-return:jolly-enterprises')!))
+      .toEqual({ armed: true })
+    fireEvent.blur(window)
+    cleanup()
+    renderAssistant(reviewUrl, onGoogleReturn)
+    fireEvent.focus(window)
+    expect(onGoogleReturn).not.toHaveBeenCalled()
   })
 
   it('shows all twelve large, simple sentence options without requiring a topic choice', () => {

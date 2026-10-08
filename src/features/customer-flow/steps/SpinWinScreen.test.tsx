@@ -36,6 +36,7 @@ beforeEach(() => {
     consent: { dataConsent: true, marketingConsent: false },
     reviewCtaShown: false,
     reviewCtaClicked: false,
+    reviewReturnDetected: false,
     rewardResult: null,
     spinStatus: 'idle',
     currentRotation: 0,
@@ -62,6 +63,30 @@ async function drainFrames() {
 }
 
 describe('Spin & Win — tap to reward', () => {
+  it('shows the automatic return welcome and uses the existing spin result logic', async () => {
+    useCustomerFlow.getState().setReviewReturnDetected(true)
+    render(
+      <StoreConfigProvider store={JOLLY_ENTERPRISES}>
+        <SpinWinScreen />
+      </StoreConfigProvider>,
+    )
+
+    expect(screen.getByRole('heading', { name: 'WELCOME BACK!' })).toBeInTheDocument()
+    expect(screen.getByText("Ready to see what you've won?")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Spin Now' })).toBeEnabled()
+    expect(useCustomerFlow.getState().reviewReturnDetected).toBe(true)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Spin Now' }))
+    })
+
+    const spinning = useCustomerFlow.getState()
+    expect(spinning.spinStatus).toBe('spinning')
+    expect(spinning.hasSpun).toBe(true)
+    expect(spinning.reviewReturnDetected).toBe(false)
+    expect(spinning.rewardResult?.reward.id).toBe('reward_5')
+  })
+
   it('taps the real SPIN button, spins the wheel, and lands on the reward', async () => {
     render(
       <StoreConfigProvider store={JOLLY_ENTERPRISES}>

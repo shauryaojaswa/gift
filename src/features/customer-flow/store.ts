@@ -15,6 +15,7 @@ export interface CustomerFlowState {
   consent: ConsentState
   reviewCtaShown: boolean
   reviewCtaClicked: boolean
+  reviewReturnDetected: boolean
   rewardResult: RewardResult | null
   spinStatus: SpinStatus
   currentRotation: number
@@ -33,6 +34,7 @@ export interface CustomerFlowActions {
   setConsent: (consent: ConsentState) => void
   setReviewCtaShown: (shown: boolean) => void
   setReviewCtaClicked: (clicked: boolean) => void
+  setReviewReturnDetected: (detected: boolean) => void
   setRewardResult: (result: RewardResult) => void
   startSpin: () => boolean
   completeSpin: (finalRotation: number) => void
@@ -54,6 +56,7 @@ const initial: CustomerFlowState = {
   consent: { dataConsent: false, marketingConsent: false },
   reviewCtaShown: false,
   reviewCtaClicked: false,
+  reviewReturnDetected: false,
   rewardResult: null,
   spinStatus: 'idle',
   currentRotation: 0,
@@ -135,11 +138,17 @@ export const useCustomerFlow = create<CustomerFlowStore>()(
       setConsent: (consent) => set((s) => persist(s, { consent })),
       setReviewCtaShown: (shown) => set((s) => persist(s, { reviewCtaShown: shown })),
       setReviewCtaClicked: (clicked) => set((s) => persist(s, { reviewCtaClicked: clicked })),
+      setReviewReturnDetected: (detected) =>
+        set((s) => persist(s, { reviewReturnDetected: detected })),
       setRewardResult: (result) => set((s) => persist(s, { rewardResult: result })),
       startSpin: () => {
         const current = get()
         if (current.hasSpun || current.spinStatus !== 'idle') return false
-        set((s) => persist(s, { spinStatus: 'spinning', hasSpun: true }))
+        set((s) => persist(s, {
+          spinStatus: 'spinning',
+          hasSpun: true,
+          reviewReturnDetected: false,
+        }))
         return true
       },
       completeSpin: (finalRotation) =>
@@ -173,6 +182,7 @@ function persist(s: CustomerFlowState, patch: Partial<CustomerFlowState>): Custo
 
 function recover(saved: CustomerFlowState, slug: string): CustomerFlowState {
   if (!saved.slug) saved.slug = slug
+  saved.reviewReturnDetected = false
 
   if (saved.step === 'WELCOME') {
     return { ...initial, slug, createdAt: saved.createdAt || new Date().toISOString() }

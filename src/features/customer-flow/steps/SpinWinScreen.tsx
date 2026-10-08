@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useCustomerFlow } from '../store'
 import { useStoreConfigValue } from '../StoreContext'
 import { SpinWheel } from '@/components/ui/SpinWheel'
+import { PrimaryButton } from '@/components/ui/PrimaryButton'
 import { buildSegments, evaluateReward } from '@/lib/reward-engine'
 import { formatINR } from '@/lib/currency'
 import type { WheelSegment } from '@/types'
@@ -17,6 +18,7 @@ export function SpinWinScreen() {
     purchaseAmount,
     hasSpun,
     spinStatus,
+    reviewReturnDetected,
     setRewardResult,
     startSpin,
     completeSpin,
@@ -24,6 +26,7 @@ export function SpinWinScreen() {
     purchaseAmount: s.purchaseAmount,
     hasSpun: s.hasSpun,
     spinStatus: s.spinStatus,
+    reviewReturnDetected: s.reviewReturnDetected,
     setRewardResult: s.setRewardResult,
     startSpin: s.startSpin,
     completeSpin: s.completeSpin,
@@ -32,12 +35,19 @@ export function SpinWinScreen() {
   const segments: WheelSegment[] = useMemo(() => buildSegments(store), [store])
   const [targetSegment, setTargetSegment] = useState<number | null>(null)
   const [wheelSize, setWheelSize] = useState(getWheelSize)
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     const updateWheelSize = () => setWheelSize(getWheelSize())
     window.addEventListener('resize', updateWheelSize)
     return () => window.removeEventListener('resize', updateWheelSize)
   }, [])
+
+  useEffect(() => {
+    if (!reviewReturnDetected) return
+    headingRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    headingRef.current?.focus({ preventScroll: true })
+  }, [reviewReturnDetected])
 
   const isSpinning = spinStatus === 'spinning'
   const canSpin = !hasSpun && !isSpinning && purchaseAmount !== null && purchaseAmount > 0
@@ -62,9 +72,13 @@ export function SpinWinScreen() {
           {store.campaignBadge}
         </span>
       )}
-      <h2 className="font-display text-3xl font-bold text-ink">YOUR REWARD IS READY</h2>
+      <h2 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-bold text-ink">
+        {reviewReturnDetected || isSpinning ? 'WELCOME BACK!' : 'YOUR REWARD IS READY'}
+      </h2>
       <p className="font-body text-balance text-center text-sm text-muted max-w-xs">
-        Your purchase has unlocked a special reward.
+        {reviewReturnDetected || isSpinning
+          ? "Ready to see what you've won?"
+          : 'Your purchase has unlocked a special reward.'}
       </p>
 
       {purchaseAmount != null && purchaseAmount > 0 && (
@@ -83,6 +97,16 @@ export function SpinWinScreen() {
         size={wheelSize}
         disabled={!canSpin}
       />
+
+      {reviewReturnDetected && !isSpinning && !hasSpun && (
+        <PrimaryButton
+          className="max-w-sm"
+          disabled={!canSpin}
+          onClick={handleSpinRequested}
+        >
+          Spin Now
+        </PrimaryButton>
+      )}
 
       {isSpinning && !canSpin && (
         <p className="font-body text-sm text-muted font-medium">Spinning… your reward is on its way!</p>
