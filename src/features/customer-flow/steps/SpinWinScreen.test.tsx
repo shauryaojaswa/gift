@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { useCustomerFlow } from '../store'
 import { StoreConfigProvider } from '../StoreContext'
 import { SpinWinScreen } from './SpinWinScreen'
@@ -84,16 +84,20 @@ describe('Spin & Win — tap to reward', () => {
     expect(mid.rewardResult!.reward.id).toBe('reward_5') // ₹1,25,000 -> ₹1,000 VOUCHER
     // button now disabled + relabeled (no double-spin)
     expect(spinBtn).toBeDisabled()
-    expect(spinBtn).toHaveAttribute('aria-label', 'Spinning')
+    expect(spinBtn).toHaveAttribute('aria-label', 'Spinning...')
 
     // 16-21. ANIMATION RUNS + COMPLETES via requestAnimationFrame loop
     await drainFrames()
+
+    expect(document.querySelector('.wheel-segment-won')).not.toBeNull()
+    expect(useCustomerFlow.getState().spinStatus).toBe('spinning')
+    await waitFor(() => expect(useCustomerFlow.getState().step).toBe('REWARD'))
 
     // 12-14. COMPLETION -> REWARD STEP
     const final = useCustomerFlow.getState()
     expect(final.step).toBe('REWARD')
     expect(final.spinStatus).toBe('completed')
-    expect(final.currentRotation).toBeGreaterThan(1800) // 5 full turns + settling
+    expect(final.currentRotation).toBeGreaterThan(2160) // 6 full turns + settling
     expect(
       normalizeAngle(
         segmentCenterDegrees(final.rewardResult!.targetSegment, 8) + final.currentRotation,

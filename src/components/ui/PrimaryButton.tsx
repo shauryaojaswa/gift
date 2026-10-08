@@ -17,10 +17,10 @@ export function PrimaryButton({
   disabled?: boolean
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
   const base =
-    'tap-target inline-flex w-full items-center justify-center rounded-full font-medium transition-all duration-200 ease-out active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
+    'tap-target inline-flex w-full items-center justify-center rounded-[8px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
   const variants = {
     primary: 'bg-brand hover:bg-brandHover text-paper focus-visible:ring-brand/40',
-    secondary: 'bg-secondary hover:bg-secondary/85 text-paper focus-visible:ring-secondary/40',
+    secondary: 'border border-gold bg-cream hover:bg-border-soft text-ink focus-visible:ring-secondary/40',
     outline: 'border border-border-soft bg-transparent hover:bg-border-soft text-ink focus-visible:ring-brand/40',
   }
   const sizes = {

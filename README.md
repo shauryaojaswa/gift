@@ -33,17 +33,25 @@ See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rule
 
 ## Google review assistant
 
-The customer review helper uses `VITE_GOOGLE_REVIEW_URL` when it is set. Copy
-`.env.example` to `.env.local` and replace `YOUR_PLACE_ID` with the business's
-Google review URL, or add `VITE_GOOGLE_REVIEW_URL` to the deployment
-environment (for Vercel: **Project Settings → Environment Variables**) and
-redeploy. The URL must use HTTPS and point to a Google review or Business
-Profile page.
+The customer review helper and the in-store review QR code use
+`VITE_GOOGLE_REVIEW_URL` when it is set. The supplied Shree Jewellers Google
+reviews link is configured as its direct review-writing destination in
+`.env.example` and the app, so reviews work before adding an environment
+override. To replace it, update
+`VITE_GOOGLE_REVIEW_URL` in the hosting environment (for Vercel:
+**Project Settings → Environment Variables**) and redeploy.
 
-The admin **Store Settings → Google Review URL** field is also supported when
-the environment variable is not set. The environment variable takes precedence.
-Changing a Vite environment variable requires a new production build.
+The URL must use HTTPS and point to a Google review or Business Profile page.
+The admin **Store Settings → Google Review URL** field is supported when the
+environment variable is not set, and takes precedence over the built-in
+destination. The environment variable takes precedence over both. Changing a
+Vite environment variable requires a new production build.
 
-The assistant only copies the customer's optional, editable text and opens
-Google's review page. Customers choose their own rating and submit their review
-on Google; the app does not submit reviews or interact with Google's form.
+The `/standee/:slug` page includes a separate QR code that points directly to
+this official Google review link. Its existing Spin & Win QR code remains
+unchanged.
+
+The assistant copies the customer's optional, editable text and opens Google's
+review page. Customers paste their text, choose their own rating, and submit
+their review on Google; the app does not submit reviews or interact with
+Google's form.

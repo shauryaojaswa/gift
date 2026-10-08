@@ -38,8 +38,34 @@ function describeAnnulus(
   return `M ${p1.x} ${p1.y} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x} ${p4.y} Z`
 }
 
-function truncateLabel(name: string, max = 24): string {
-  return name.length > max ? `${name.slice(0, max - 1).trim()}…` : name.toUpperCase()
+function displayLabel(name: string, maxPerLine: number): string[] {
+  const words = name.toUpperCase().trim().split(/\s+/)
+  const lines: string[] = []
+  let line = ''
+  let wasTruncated = false
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (candidate.length <= maxPerLine) {
+      line = candidate
+    } else {
+      if (lines.length === 0) {
+        if (line) lines.push(line)
+        line = word.length > maxPerLine ? word.slice(0, maxPerLine) : word
+        wasTruncated = word.length > maxPerLine
+      } else {
+        wasTruncated = true
+        break
+      }
+    }
+  }
+
+  if (line) {
+    if (lines.length < 2) lines.push(line)
+    else wasTruncated = true
+  }
+  if (wasTruncated && lines.length > 0) lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, maxPerLine - 1)}…`
+  return lines
 }
 
 function prefersReducedMotion(): boolean {
@@ -60,6 +86,8 @@ export function SpinWheel({
   const rotationRef = useRef(rotation)
   const controllerRef = useRef<SpinController | null>(null)
   const completedRef = useRef(false)
+  const resultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [landedSegment, setLandedSegment] = useState<number | null>(null)
   useEffect(() => {
     rotationRef.current = rotation
   }, [rotation])
@@ -78,13 +106,22 @@ export function SpinWheel({
     if (completedRef.current) return
 
     const startAngle = rotationRef.current
-    const { finalRotation, durationMs, fullSpins } = computeTargetRotation(targetSegment, segments.length)
+    setLandedSegment(null)
+    const { finalRotation, durationMs, fullSpins } = computeTargetRotation(
+      targetSegment,
+      segments.length,
+      { fullSpins: 6, durationMs: 6000 },
+    )
     const targetAngle = startAngle + normalizeSpinDelta(startAngle, finalRotation, fullSpins)
 
     if (prefersReducedMotion()) {
       setRotation(normalizeAngle(targetAngle))
       completedRef.current = true
-      onSpinComplete(targetAngle)
+      setLandedSegment(targetSegment)
+      resultTimerRef.current = setTimeout(() => {
+        onSpinComplete(targetAngle)
+        resultTimerRef.current = null
+      }, 400)
       return
     }
 
@@ -98,12 +135,20 @@ export function SpinWheel({
         setRotation(normalizeAngle(targetAngle))
         completedRef.current = true
         controllerRef.current = null
-        onSpinComplete(targetAngle)
+        setLandedSegment(targetSegment)
+        resultTimerRef.current = setTimeout(() => {
+          onSpinComplete(targetAngle)
+          resultTimerRef.current = null
+        }, 400)
       },
     )
 
     return () => {
       controllerRef.current?.cancel()
+      if (resultTimerRef.current) {
+        clearTimeout(resultTimerRef.current)
+        resultTimerRef.current = null
+      }
     }
   }, [targetSegment, segments.length, onSpinComplete])
 
@@ -114,7 +159,7 @@ export function SpinWheel({
   return (
     <div
       className="relative mx-auto aspect-square"
-      style={{ width: `min(${size}px, calc(100vw - 80px))` }}
+      style={{ width: `min(${size}px, calc(100vw - 64px))` }}
     >
       <svg
         width={size}
@@ -124,9 +169,9 @@ export function SpinWheel({
         aria-label={`Win wheel with ${segments.length} rewards`}
         className={cn(
           'wheel',
-          'absolute inset-0 h-full w-full drop-shadow-xl',
+          'absolute inset-0 h-full w-full',
           'pointer-events-none',
-          isSpinning && 'spinning drop-shadow-[0_0_28px_hsl(40_80%_56%/0.55)]',
+          isSpinning && 'spinning',
           !isSpinning && canSpin && 'spin-idle',
         )}
       >
@@ -138,7 +183,8 @@ export function SpinWheel({
         </defs>
 
         <g transform={`translate(${cx} ${cy})`}>
-          <circle cx={0} cy={0} r={R_outer + 5} fill="hsl(48 60% 88%)" stroke="hsl(40 80% 56%)" strokeWidth={3} />
+          <circle cx={0} cy={0} r={R_outer + 5} fill="hsl(39 34% 94%)" stroke="hsl(39 34% 59%)" strokeWidth={4} />
+          <circle cx={0} cy={0} r={R_outer + 1} fill="none" stroke="hsl(350 48% 27%)" strokeWidth={1.5} />
           <g
             className="wheel-rotor"
             transform={`rotate(${rotation})`}
@@ -150,38 +196,53 @@ export function SpinWheel({
               const mid = polarToCartesian(0, 0, labelRadius, center)
               const flipped = center > 180 && center < 360
               const rotationDeg = flipped ? center + 180 : center
+              const lines = displayLabel(seg.rewardName, segments.length > 9 ? 10 : 14)
+              const labelFontSize = segments.length > 9 ? 11 : 13
               return (
-                <g key={seg.index} className="wheel-segment">
+                <g
+                  key={seg.index}
+                  className={cn('wheel-segment', landedSegment === seg.index && 'wheel-segment-won')}
+                >
                   <path
                     d={describeAnnulus(0, 0, R_inner, R_outer, start, end)}
                     fill={seg.color}
-                    stroke="hsl(40 80% 56%/0.45)"
+                    stroke="hsl(39 34% 59%/0.55)"
                     strokeWidth={1.5}
                   />
                   <path d={describeAnnulus(0, 0, R_inner, R_outer, start, end)} fill="url(#wheel-gloss)" opacity={0.55} />
                   <text
                     x={mid.x}
-                    y={mid.y + 4}
+                    y={mid.y + (lines.length > 1 ? -1 : 4)}
                     transform={`rotate(${rotationDeg} ${mid.x} ${mid.y})`}
                     textAnchor="middle"
-                    fontSize={size < 240 ? 9 : 11}
-                    fontWeight={700}
-                    fill="white"
+                    fontSize={labelFontSize}
+                    fontWeight={600}
+                    letterSpacing={0.15}
+                    fill="hsl(40 33% 99%)"
                     paintOrder="stroke"
-                    stroke="rgba(0,0,0,0.55)"
-                    strokeWidth={0.4}
+                    stroke="rgba(35, 22, 20, 0.58)"
+                    strokeWidth={0.7}
                   >
-                    {truncateLabel(seg.rewardName)}
+                    {lines.map((line, lineIndex) => (
+                      <tspan key={`${seg.index}-${lineIndex}`} x={mid.x} dy={lineIndex === 0 ? 0 : labelFontSize + 1}>
+                        {line}
+                      </tspan>
+                    ))}
                   </text>
                 </g>
               )
             })}
           </g>
-          <circle cx={0} cy={0} r={buttonRadius + 4} fill="none" stroke="hsl(40 80% 56%)" strokeWidth={3} />
+          <circle cx={0} cy={0} r={buttonRadius + 4} fill="none" stroke="hsl(39 34% 59%)" strokeWidth={3} />
+          <circle cx={0} cy={0} r={R_inner} fill="none" stroke="hsl(39 34% 74%)" strokeWidth={1.5} />
+          <circle cx={0} cy={0} r={buttonRadius + 10} fill="none" stroke="hsl(39 34% 59%/0.7)" strokeWidth={1} />
         </g>
 
-        <g transform={`translate(${cx} ${cy})`} className="wheel-pointer">
-          <polygon points={`${-20},${-R_outer - 12} ${20},${-R_outer - 12} 0,${-R_outer + 16 - 12}`} fill="hsl(355 85% 45%)" stroke="hsl(40 80% 56%)" strokeWidth={2} />
+        <g transform={`translate(${cx} ${cy})`}>
+          <g className={cn('wheel-pointer', isSpinning && 'wheel-pointer-spinning')}>
+            <polygon points={`${-22},${-R_outer - 12} ${22},${-R_outer - 12} 0,${-R_outer + 19 - 12}`} fill="hsl(350 48% 27%)" stroke="hsl(39 34% 59%)" strokeWidth={2.5} />
+            <circle cx={0} cy={-R_outer - 8} r={3} fill="hsl(39 34% 78%)" />
+          </g>
         </g>
       </svg>
 
@@ -190,11 +251,11 @@ export function SpinWheel({
         className={cn(
           'spin-center',
           'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10',
-          'flex items-center justify-center rounded-full text-white font-extrabold tracking-wider',
-          'transition-all duration-200 ease-out active:scale-95',
+          'flex items-center justify-center rounded-full text-paper font-semibold tracking-wider',
+          'transition-[transform,background-color,box-shadow] duration-200 ease-out active:scale-95',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
           canSpin
-            ? 'cursor-pointer hover:brightness-110'
+            ? 'cursor-pointer hover:brightness-110 hover:shadow-md'
             : 'cursor-default opacity-70',
         )}
         style={{
@@ -203,10 +264,10 @@ export function SpinWheel({
         }}
         disabled={!canSpin}
         onClick={handleSpin}
-        aria-label={canSpin ? 'Spin the wheel' : 'Spinning'}
+        aria-label={canSpin ? 'Spin the wheel' : 'Spinning...'}
       >
         {isSpinning ? (
-          <span className="pointer-events-none text-xs uppercase">SPINNING…</span>
+        <span className="pointer-events-none text-[10px] uppercase">Spinning...</span>
         ) : (
           <>
             <span className="pointer-events-none block text-xs leading-none">▲</span>

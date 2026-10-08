@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import { useDataProvider } from '@/providers/DataProviderContext'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
+import { GoogleReviewQrCode } from '@/components/ui/GoogleReviewQrCode'
 
 export default function Standee() {
   const { slug = 'jolly-enterprises' } = useParams<{ slug: string }>()
@@ -63,6 +64,7 @@ export default function Standee() {
           Scan &middot; 60 Seconds &middot; Spin &amp; Win
         </div>
         <p className="font-body text-xs text-muted break-all">{copy}</p>
+        <GoogleReviewQrCode />
         <button type="button" className="btn-primary" onClick={() => window.print()}>
           Print Standee
         </button>

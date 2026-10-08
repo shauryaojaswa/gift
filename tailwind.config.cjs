@@ -4,15 +4,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: 'hsl(355 85% 45%)',
-        brandHover: 'hsl(355 85% 40%)',
-        cream: 'hsl(40 40% 98%)',
-        paper: 'hsl(0 0% 100%)',
-        ink: 'hsl(210 10% 12%)',
-        muted: 'hsl(210 10% 45%)',
+        brand: 'hsl(350 48% 27%)',
+        brandHover: 'hsl(350 50% 21%)',
+        gold: 'hsl(39 34% 59%)',
+        cream: 'hsl(38 36% 96%)',
+        paper: 'hsl(40 33% 99%)',
+        ink: 'hsl(25 14% 17%)',
+        muted: 'hsl(26 8% 45%)',
       },
       fontFamily: {
-        display: ['"Playfair Display"', 'Georgia', 'Times New Roman', 'serif'],
+        display: ['"Cormorant Garamond"', '"Playfair Display"', 'Georgia', 'Times New Roman', 'serif'],
         body: [
           'Inter',
           '-apple-system',

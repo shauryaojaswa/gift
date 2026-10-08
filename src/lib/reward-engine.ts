@@ -69,14 +69,14 @@ export function buildSegments(config: StoreConfig): WheelSegment[] {
 }
 
 const SEGMENT_COLORS = [
-  'hsl(40 80% 56%)',
-  'hsl(355 82% 48%)',
-  'hsl(48 60% 88%)',
-  'hsl(35 75% 48%)',
-  'hsl(345 80% 40%)',
-  'hsl(50 55% 90%)',
-  'hsl(45 70% 52%)',
-  'hsl(350 75% 45%)',
+  'hsl(350 48% 27%)',
+  'hsl(34 31% 40%)',
+  'hsl(350 28% 38%)',
+  'hsl(28 35% 34%)',
+  'hsl(345 36% 30%)',
+  'hsl(38 30% 42%)',
+  'hsl(18 31% 37%)',
+  'hsl(350 42% 33%)',
 ]
 
 export function segmentColor(index: number): string {

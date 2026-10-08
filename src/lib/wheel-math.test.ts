@@ -46,6 +46,12 @@ describe('wheel-math target rotation', () => {
     expect(result.finalRotation).toBeGreaterThanOrEqual(5 * 360)
   })
 
+  it('uses a six-second animation by default without changing the selected segment', () => {
+    const result = computeTargetRotation(3, SEGMENTS)
+    expect(result.durationMs).toBe(6000)
+    expect(normalizeAngle(segmentCenterDegrees(3, SEGMENTS) + result.finalRotation)).toBeCloseTo(0, 5)
+  })
+
   it('respects custom offset toward segment center', () => {
     const result = computeTargetRotation(0, SEGMENTS, { fullSpins: 5, offsetFraction: 0.5 })
     expect(normalizeAngle(result.finalRotation)).toBeCloseTo(337.5, 5)
@@ -95,6 +101,12 @@ describe('wheel-math easing', () => {
     const derivative = (spinEase(1) - spinEase(1 - h)) / h
     expect(derivative).toBeCloseTo(0, 2)
   })
+
+  it('accelerates quickly and keeps a measured deceleration through the final seconds', () => {
+    expect(spinEase(0.12)).toBeCloseTo((2 * 0.12) / 1.12, 5)
+    expect(spinEase(5 / 6)).toBeGreaterThan(0.94)
+    expect(spinEase(5 / 6)).toBeLessThan(0.99)
+  })
 })
 
 describe('wheel-math animateSpin', () => {
@@ -132,7 +144,7 @@ describe('wheel-math animateSpin', () => {
   it('advances frames with virtual time and completes after the duration', () => {
     const frames: number[] = []
     let completed = false
-    animateSpin(0, 1822.5, 4800, (a) => frames.push(a), () => {
+    animateSpin(0, 1822.5, 6000, (a) => frames.push(a), () => {
       completed = true
     })
 

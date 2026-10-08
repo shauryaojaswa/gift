@@ -19,7 +19,7 @@ export function ReviewInvitationScreen() {
         If you want, share an honest review about your visit. A review is optional, and your reward is not affected.
       </p>
 
-      <GoogleReviewAssistant className="tap-target inline-flex min-h-11 w-full items-center justify-center rounded-full bg-brand px-6 py-3.5 text-base font-medium text-paper transition-colors hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" />
+      <GoogleReviewAssistant className="tap-target inline-flex min-h-11 w-full items-center justify-center rounded-[8px] bg-brand px-6 py-3.5 text-base font-medium text-paper transition-colors hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" />
 
       <button type="button" className="btn-ghost mt-1 text-sm" onClick={handleContinue}>
         CONTINUE TO SPIN

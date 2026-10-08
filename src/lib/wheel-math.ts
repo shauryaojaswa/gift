@@ -67,7 +67,7 @@ export function computeTargetRotation(
     finalRotation: targetRotation,
     targetRotation,
     segmentCount,
-    durationMs: options.durationMs ?? 4800,
+    durationMs: options.durationMs ?? 6000,
     fullSpins,
   }
 }
@@ -82,17 +82,17 @@ export function normalizeSpinDelta(
 }
 
 export function spinEase(t: number): number {
-  const acceleration = 0.2
-  const peakProgress = 0.4
+  const acceleration = 0.12
+  const peakProgress = (2 * acceleration) / (1 + acceleration)
   if (t <= 0) return 0
   if (t >= 1) return 1
   if (t < acceleration) {
     const s = t / acceleration
-    return peakProgress * s * s
+    return peakProgress * s * s * (2 - s)
   }
   const s = (t - acceleration) / (1 - acceleration)
-  const k = 1 - s
-  return peakProgress + (1 - peakProgress) * (1 - k * k * k * k)
+  const remaining = 1 - s
+  return peakProgress + (1 - peakProgress) * (1 - remaining * remaining)
 }
 
 export interface SpinController {

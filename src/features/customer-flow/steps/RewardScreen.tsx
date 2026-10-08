@@ -88,7 +88,7 @@ export function RewardScreen() {
     <div className="relative flex flex-col items-center text-center gap-5">
       <Confetti active count={24} />
       <FadeUp delay={0}>
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-b from-gold to-brand text-paper shadow-lg">
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-brand text-paper">
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M12 2l2.2 4H18l-2 4-2.8-1.2L11 14l-2-1.2L6 10l-2-4h5.8L12 2z" fill="currentColor" />
             <path d="M5 18a7 7 0 0 1 14 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
