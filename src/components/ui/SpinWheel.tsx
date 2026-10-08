@@ -38,8 +38,20 @@ function describeAnnulus(
   return `M ${p1.x} ${p1.y} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x} ${p4.y} Z`
 }
 
-function displayLabel(name: string, maxPerLine: number): string[] {
-  const words = name.toUpperCase().trim().split(/\s+/)
+function displayLabel(name: string, segmentCount: number): string[] {
+  const normalized = name.toUpperCase().trim()
+  const voucherAmount = normalized.match(/^(₹[\d,]+)\s+VOUCHER$/)
+  if (voucherAmount) return [voucherAmount[1], 'VOUCHER']
+
+  const conciseLabels: Record<string, string[]> = {
+    'JEWELLERY CLEANING': ['JEWELLERY', 'CLEANING'],
+    'PREMIUM GIFT': ['PREMIUM', 'GIFT'],
+    'SILVER GIFT': ['SILVER', 'GIFT'],
+  }
+  if (conciseLabels[normalized]) return conciseLabels[normalized]
+
+  const maxPerLine = segmentCount > 9 ? 7 : 10
+  const words = normalized.split(/\s+/)
   const lines: string[] = []
   let line = ''
   let wasTruncated = false
@@ -95,8 +107,8 @@ export function SpinWheel({
   const cy = size / 2
   const R_outer = cx - 12
   const R_inner = cx - 82
-  const labelRadius = (R_inner + R_outer) / 2 + 6
-  const buttonDiameter = Math.min(82, Math.max(64, size * 0.28))
+  const labelRadius = (R_inner + R_outer) / 2
+  const buttonDiameter = Math.min(88, Math.max(68, size * 0.22))
   const buttonRadius = buttonDiameter / 2 - 4
   const segAngle = segmentAngle(segments.length)
   const canSpin = !isSpinning && targetSegment === null && !disabled && onSpinRequested !== undefined
@@ -159,7 +171,7 @@ export function SpinWheel({
   return (
     <div
       className="relative mx-auto aspect-square"
-      style={{ width: `min(${size}px, calc(100vw - 64px))` }}
+      style={{ width: `min(${size}px, 100%, calc(100vw - 48px))` }}
     >
       <svg
         width={size}
@@ -183,7 +195,7 @@ export function SpinWheel({
         </defs>
 
         <g transform={`translate(${cx} ${cy})`}>
-          <circle cx={0} cy={0} r={R_outer + 5} fill="hsl(39 34% 94%)" stroke="hsl(39 34% 59%)" strokeWidth={4} />
+          <circle cx={0} cy={0} r={R_outer + 5} fill="hsl(39 34% 94%)" stroke="hsl(39 42% 68%)" strokeWidth={5} />
           <circle cx={0} cy={0} r={R_outer + 1} fill="none" stroke="hsl(350 48% 27%)" strokeWidth={1.5} />
           <g
             className="wheel-rotor"
@@ -194,10 +206,10 @@ export function SpinWheel({
               const end = start + segAngle
               const center = (start + end) / 2
               const mid = polarToCartesian(0, 0, labelRadius, center)
-              const flipped = center > 180 && center < 360
+              const flipped = center > 90 && center < 270
               const rotationDeg = flipped ? center + 180 : center
-              const lines = displayLabel(seg.rewardName, segments.length > 9 ? 10 : 14)
-              const labelFontSize = segments.length > 9 ? 11 : 13
+              const lines = displayLabel(seg.rewardName, segments.length)
+              const labelFontSize = segments.length > 9 ? 10 : 12
               return (
                 <g
                   key={seg.index}
@@ -212,19 +224,24 @@ export function SpinWheel({
                   <path d={describeAnnulus(0, 0, R_inner, R_outer, start, end)} fill="url(#wheel-gloss)" opacity={0.55} />
                   <text
                     x={mid.x}
-                    y={mid.y + (lines.length > 1 ? -1 : 4)}
+                    y={mid.y + (lines.length > 1 ? labelFontSize * 0.4 : labelFontSize * 0.35)}
                     transform={`rotate(${rotationDeg} ${mid.x} ${mid.y})`}
                     textAnchor="middle"
                     fontSize={labelFontSize}
                     fontWeight={600}
                     letterSpacing={0.15}
+                    aria-label={seg.rewardName}
                     fill="hsl(40 33% 99%)"
                     paintOrder="stroke"
                     stroke="rgba(35, 22, 20, 0.58)"
                     strokeWidth={0.7}
                   >
                     {lines.map((line, lineIndex) => (
-                      <tspan key={`${seg.index}-${lineIndex}`} x={mid.x} dy={lineIndex === 0 ? 0 : labelFontSize + 1}>
+                      <tspan
+                        key={`${seg.index}-${lineIndex}`}
+                        x={mid.x}
+                        dy={lineIndex === 0 ? 0 : labelFontSize + 1}
+                      >
                         {line}
                       </tspan>
                     ))}

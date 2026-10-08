@@ -5,6 +5,7 @@ import { StoreConfigProvider } from '../StoreContext'
 import { SpinWinScreen } from './SpinWinScreen'
 import { JOLLY_ENTERPRISES, JOLLY_ENTERPRISES_SLUG } from '../../../lib/stores'
 import { normalizeAngle, segmentCenterDegrees } from '../../../lib/wheel-math'
+import { buildSegments } from '../../../lib/reward-engine'
 
 let scheduled: Array<{ id: number; cb: FrameRequestCallback }>
 let nextId: number
@@ -63,6 +64,43 @@ async function drainFrames() {
 }
 
 describe('Spin & Win — tap to reward', () => {
+  it('uses a larger responsive wheel and concise labels without changing prize data', () => {
+    const originalWidth = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+
+    try {
+      const { container } = render(
+        <StoreConfigProvider store={JOLLY_ENTERPRISES}>
+          <SpinWinScreen />
+        </StoreConfigProvider>,
+      )
+
+      const wheel = container.querySelector('svg[role="img"]')
+      expect(wheel?.parentElement).toHaveStyle({
+        width: 'min(342px, 100%, calc(100vw - 48px))',
+      })
+      expect(Array.from(container.querySelectorAll('svg[role="img"] text')).map((label) => label.textContent))
+        .toEqual([
+          'JEWELLERYCLEANING',
+          'CARE KIT',
+          '₹500VOUCHER',
+          'PREMIUMGIFT',
+          '₹1,000VOUCHER',
+          'SILVERGIFT',
+          '₹2,500VOUCHER',
+          '₹5,000VOUCHER',
+        ])
+      expect(buildSegments(JOLLY_ENTERPRISES).map(({ rewardName }) => rewardName)).toEqual(
+        JOLLY_ENTERPRISES.tiers
+          .map((tier) => JOLLY_ENTERPRISES.rewards.find((reward) => reward.id === tier.rewardId)?.name)
+          .filter((name): name is string => Boolean(name)),
+      )
+      expect(useCustomerFlow.getState().rewardResult).toBeNull()
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth })
+    }
+  })
+
   it('shows the automatic return welcome and uses the existing spin result logic', async () => {
     useCustomerFlow.getState().setReviewReturnDetected(true)
     render(

@@ -9,7 +9,7 @@ import type { WheelSegment } from '@/types'
 
 function getWheelSize(): number {
   if (typeof window === 'undefined') return 360
-  return Math.max(180, Math.min(420, window.innerWidth - 64, window.innerHeight - 520))
+  return Math.min(420, window.innerWidth - 48)
 }
 
 export function SpinWinScreen() {
