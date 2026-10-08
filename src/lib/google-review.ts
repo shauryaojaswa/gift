@@ -4,7 +4,7 @@ export interface GoogleReviewLink {
 }
 
 export const DEFAULT_GOOGLE_REVIEW_URL =
-  'https://search.google.com/local/writereview?placeid=0x3bc11d000be053c1:0xebcd9fadee301ec'
+  'https://search.google.com/local/writereview?placeid=ChIJwVPgCwAdwTsR7AHj3vrZvA4'
 
 export function configuredGoogleReviewUrl(storeUrl: string | null): GoogleReviewLink {
   const envUrl = import.meta.env.VITE_GOOGLE_REVIEW_URL?.trim()

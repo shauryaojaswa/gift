@@ -50,6 +50,12 @@ afterEach(() => {
 })
 
 describe('Google review assistant', () => {
+  it("uses Google's canonical review-form URL for Shree Jewellers", () => {
+    expect(DEFAULT_GOOGLE_REVIEW_URL).toBe(
+      'https://search.google.com/local/writereview?placeid=ChIJwVPgCwAdwTsR7AHj3vrZvA4',
+    )
+  })
+
   it('copies a selected quick review immediately and opens Google with one more tap', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     mockClipboard(writeText)

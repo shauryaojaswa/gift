@@ -35,7 +35,8 @@ See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rule
 
 The customer review helper and the in-store review QR code use
 `VITE_GOOGLE_REVIEW_URL` when it is set. The supplied Shree Jewellers Google
-reviews link is configured as its direct review-writing destination in
+reviews link is configured as its direct review-writing destination using the
+Place ID from Google's own "Write a review" widget in
 `.env.example` and the app, so reviews work before adding an environment
 override. To replace it, update
 `VITE_GOOGLE_REVIEW_URL` in the hosting environment (for Vercel:
