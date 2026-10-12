@@ -78,6 +78,22 @@ export default function CustomerFlow() {
     )
   }
 
+  if (store.campaignActive === false) {
+    return (
+      <Card className="mt-6">
+        <CardHeader>
+          <StoreLogo logoUrl={store.logoUrl} />
+        </CardHeader>
+        <CardBody>
+          <h1 className="font-display text-center text-xl text-ink">Campaign paused</h1>
+          <p className="mt-3 text-center text-muted">
+            {store.campaignMessage ?? 'This campaign is temporarily unavailable. Please contact the store.'}
+          </p>
+        </CardBody>
+      </Card>
+    )
+  }
+
   if (flowSlug !== slug) {
     return (
       <div className="w-full max-w-md mx-auto flex items-center justify-center min-h-[60vh]">

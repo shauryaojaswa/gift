@@ -24,9 +24,14 @@ export interface ConsentState {
 export interface Reward {
   id: string
   name: string
+  /** Short label shown inside a wheel sector. Falls back to `name`. */
+  wheelLabel?: string | null
   description: string
+  voucherAmount?: number | null
   claimCodePrefix: string | null
   validityText: string | null
+  terms?: string | null
+  sortOrder?: number
   active: boolean
 }
 
@@ -50,6 +55,9 @@ export interface StoreConfig {
   googleReviewUrl: string | null
   campaignBadge: string | null
   minSpinAmount: number
+  /** False when the store's subscription has lapsed past its grace period. */
+  campaignActive?: boolean
+  campaignMessage?: string | null
   rewards: Reward[]
   tiers: RewardTier[]
 }

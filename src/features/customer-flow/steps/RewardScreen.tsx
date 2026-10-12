@@ -1,32 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCustomerFlow } from '../store'
 import { useStoreConfigValue } from '../StoreContext'
-import { useDataProvider } from '@/providers/DataProviderContext'
+import { api, ApiError } from '@/lib/api'
 import { Confetti, FadeUp } from '@/components/ui/Confetti'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
 import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 export function RewardScreen() {
   const store = useStoreConfigValue()
-  const dataProvider = useDataProvider()
   const submissionStarted = useRef(false)
-  const [submissionError, setSubmissionError] = useState(false)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
   const [submissionAttempt, setSubmissionAttempt] = useState(0)
   const {
     rewardResult,
     purchaseAmount,
     phoneNumber,
     fullName,
+    reviewCtaClicked,
     setSubmissionId,
+    setClaimCode,
     submissionId,
+    claimCode,
     setStep,
   } = useCustomerFlow((s) => ({
     rewardResult: s.rewardResult,
     purchaseAmount: s.purchaseAmount,
     phoneNumber: s.phoneNumber,
     fullName: s.fullName,
+    reviewCtaClicked: s.reviewCtaClicked,
     setSubmissionId: s.setSubmissionId,
+    setClaimCode: s.setClaimCode,
     submissionId: s.submissionId,
+    claimCode: s.claimCode,
     setStep: s.setStep,
   }))
 
@@ -40,43 +45,36 @@ export function RewardScreen() {
     submissionStarted.current = true
     const submit = async () => {
       try {
-        const res = await dataProvider.createSubmission({
-          storeId: store.id,
-          storeName: store.name,
+        // The reward is resolved and snapshotted server-side from the purchase amount.
+        const res = await api.createPublicSubmission(store.slug, {
           customerName: fullName,
-          customerPhone: phoneNumber,
+          phone: phoneNumber,
           purchaseAmount: purchaseAmount ?? 0,
-          reward: rewardResult.reward,
-          tier: rewardResult.tier,
-          reviewCtaShown: false,
-          reviewCtaClicked: false,
+          reviewCtaShown: true,
+          reviewCtaClicked,
         })
-        setSubmissionId(res.id)
+        setSubmissionId(res.submissionId)
+        setClaimCode(res.claimCode)
       } catch (error) {
-        console.error('Failed to save customer reward submission', error)
+        console.error('Failed to save customer reward submission')
         submissionStarted.current = false
-        setSubmissionError(true)
+        setSubmissionError(error instanceof ApiError ? error.message : 'We could not save your response.')
       }
     }
     submit()
   }, [
     rewardResult,
     submissionId,
-    dataProvider,
-    store,
+    store.slug,
     fullName,
     phoneNumber,
     purchaseAmount,
+    reviewCtaClicked,
     setSubmissionId,
+    setClaimCode,
     submissionAttempt,
     setStep,
   ])
-
-  const code = useMemo(() => {
-    const reward = rewardResult?.reward
-    if (!reward?.claimCodePrefix || !submissionId) return null
-    return `${reward.claimCodePrefix}-${submissionId.slice(-6).toUpperCase()}`
-  }, [rewardResult?.reward, submissionId])
 
   if (!rewardResult) {
     return null
@@ -98,7 +96,7 @@ export function RewardScreen() {
       </FadeUp>
 
       <FadeUp delay={120}>
-        <h2 className="font-display text-3xl font-bold text-ink">YOU WON</h2>
+        <h2 className="font-display text-3xl font-bold text-ink">YOUR GIFT IS READY</h2>
       </FadeUp>
 
       <FadeUp delay={240}>
@@ -106,16 +104,14 @@ export function RewardScreen() {
       </FadeUp>
 
       <FadeUp delay={320}>
-        <p className="font-body text-balance text-sm text-muted max-w-sm">
-          Congratulations! Your purchase has unlocked this special reward.
-        </p>
+        <p className="font-body text-balance text-sm text-muted max-w-sm">{reward.description}</p>
       </FadeUp>
 
-      {code && (
+      {claimCode && (
         <FadeUp delay={360}>
           <div className="rounded-lg bg-ink/5 px-4 py-2.5 text-center">
             <span className="block font-body text-xs text-muted">Claim Code</span>
-            <code className="font-mono text-base font-bold text-ink">{code}</code>
+            <code className="font-mono text-base font-bold text-ink">{claimCode}</code>
           </div>
         </FadeUp>
       )}
@@ -135,23 +131,18 @@ export function RewardScreen() {
       </FadeUp>
 
       <FadeUp delay={440}>
-        <PrimaryButton
-          disabled={submissionError}
-          onClick={() => setStep('THANK_YOU')}
-        >
+        <PrimaryButton disabled={Boolean(submissionError)} onClick={() => setStep('THANK_YOU')}>
           CONTINUE
         </PrimaryButton>
       </FadeUp>
 
       {submissionError && (
         <div className="w-full" role="alert">
-          <p className="mb-2 text-sm text-muted">
-            We could not save your response. Please try again.
-          </p>
+          <p className="mb-2 text-sm text-muted">{submissionError}</p>
           <PrimaryButton
             variant="secondary"
             onClick={() => {
-              setSubmissionError(false)
+              setSubmissionError(null)
               setSubmissionAttempt((attempt) => attempt + 1)
             }}
           >

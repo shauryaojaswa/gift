@@ -1,61 +1,82 @@
-# React + TypeScript + Vite
+# Spin & Win Rewards — multi-tenant jewellery SaaS
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A multi-tenant SaaS that turns a jewellery shop's billing counter into a QR-based
+reward experience. Customers scan a code, enter three details, spin a wheel and
+collect a gift. Shop owners manage gifts, tiers, QR codes, customers and their
+subscription from a dashboard. A separate platform-admin area manages shops,
+plans and subscriptions.
 
-Currently, two official plugins are available:
+## Architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+browser ──▶ Vite dev server (port 3000)
+                │  proxies /api  (single origin, so session cookies work)
+                ▼
+            Node + Express API (port 4000)
+                │
+                ▼
+            PostgreSQL 16
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+- **Frontend** — Vite 8 + React 19 + TypeScript + Tailwind. Customer campaign,
+  owner dashboard, platform admin, marketing and legal pages.
+- **Backend** — `backend/` Node 22 + Express. Authentication, tenant-scoped
+  store data, deterministic reward assignment, subscriptions and webhooks.
+- **Database** — PostgreSQL with versioned migrations in `backend/db/migrations/`.
 
-## Google review assistant
+The customer campaign UI, wheel animation and Google-review helper are the
+original components, preserved. Only their data source changed.
 
-The customer review helper and the in-store review QR code use
-`VITE_GOOGLE_REVIEW_URL` when it is set. The supplied Shree Jewellers Google
-reviews link is configured as its direct review-writing destination using the
-Place ID from Google's own "Write a review" widget in
-`.env.example` and the app, so reviews work before adding an environment
-override. To replace it, update
-`VITE_GOOGLE_REVIEW_URL` in the hosting environment (for Vercel:
-**Project Settings → Environment Variables**) and redeploy.
+## Quick start (sandbox / local)
 
-The URL must use HTTPS and point to a Google review or Business Profile page.
-The admin **Store Settings → Google Review URL** field is supported when the
-environment variable is not set, and takes precedence over the built-in
-destination. The environment variable takes precedence over both. Changing a
-Vite environment variable requires a new production build.
+```sh
+docker compose -f docker-compose.base44.yml up -d --build
+```
 
-The `/standee/:slug` page includes a separate QR code that points directly to
-this official Google review link. Its existing Spin & Win QR code remains
-unchanged.
+The API applies migrations and seeds on boot. Then open:
 
-The assistant copies the customer's optional, editable text and opens Google's
-review page. Customers paste their text, choose their own rating, and submit
-their review on Google; the app does not submit reviews or interact with
-Google's form. On the pre-spin invitation, returning to the original tab after
-Google was opened automatically closes the review helper and advances to the
-wheel. This detects a tab return only; it does not verify whether Google
-accepted or published a review.
+| URL | What it is |
+|---|---|
+| `/` | Marketing landing page |
+| `/pricing` | Live pricing from the database |
+| `/register`, `/login` | Shop-owner accounts |
+| `/dashboard` | Owner dashboard |
+| `/platform-admin` | Platform operator area |
+| `/store/jewellers-demo` | The public customer campaign |
+| `/standee/jewellers-demo` | Print-friendly counter standee |
+
+### Seeded development accounts
+
+Created by `backend/src/seed.js` from environment variables (defaults shown).
+**Change these before any real deployment.**
+
+| Role | Email | Password |
+|---|---|---|
+| Platform admin | `admin@gift.local` | `admin12345` |
+| Demo store owner | `owner@demo.local` | `demo12345` |
+
+The demo store's display name is intentionally blank — the owner sets it in
+**Store Settings**. The supplied jewellery logo is the visual source of truth.
+
+## Tests
+
+```sh
+docker compose -f docker-compose.base44.yml exec api npm test    # reward engine + validation
+docker compose -f docker-compose.base44.yml exec web npx vitest run
+```
+
+## Documentation
+
+- [docs/SETUP.md](docs/SETUP.md) — environment variables and running locally
+- [docs/DASHBOARD.md](docs/DASHBOARD.md) — the shop-owner dashboard guide
+- [docs/SUBSCRIPTIONS.md](docs/SUBSCRIPTIONS.md) — plans, billing and Razorpay setup
+- [docs/SECURITY.md](docs/SECURITY.md) — tenancy model, privacy and data handling
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — production hosting and configuration
+
+## Status
+
+Built and verified in this environment: customer campaign end-to-end, owner
+dashboard, platform admin, tenant isolation, tier boundaries, snapshot
+integrity, collection tracking and subscription-gated access. The Razorpay
+integration is implemented but has **not** been exercised against live
+credentials — see [docs/SUBSCRIPTIONS.md](docs/SUBSCRIPTIONS.md).

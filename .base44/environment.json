@@ -2,5 +2,12 @@
   "previewPort": 3000,
   "healthPath": "/",
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
-  "secrets": []
+  "secrets": [
+    {
+      "name": "JWT_SECRET",
+      "description": "Signing key for shop-owner and platform-admin session cookies.",
+      "requiredAtBoot": true,
+      "generatedForDevelopment": true
+    }
+  ]
 }

@@ -21,6 +21,7 @@ export interface CustomerFlowState {
   currentRotation: number
   hasSpun: boolean
   submissionId: string | null
+  claimCode: string | null
   createdAt: string
 }
 
@@ -40,6 +41,7 @@ export interface CustomerFlowActions {
   completeSpin: (finalRotation: number) => void
   resetWheel: () => void
   setSubmissionId: (id: string | null) => void
+  setClaimCode: (code: string | null) => void
   resetAll: () => void
   getCustomerInfo: () => CustomerInfo
 }
@@ -62,6 +64,7 @@ const initial: CustomerFlowState = {
   currentRotation: 0,
   hasSpun: false,
   submissionId: null,
+  claimCode: null,
   createdAt: new Date().toISOString(),
 }
 
@@ -155,6 +158,7 @@ export const useCustomerFlow = create<CustomerFlowStore>()(
         set((s) => persist(s, { spinStatus: 'completed', currentRotation: finalRotation, step: 'REWARD' })),
       resetWheel: () => set((s) => persist(s, { spinStatus: 'idle', currentRotation: 0 })),
       setSubmissionId: (id) => set((s) => persist(s, { submissionId: id })),
+      setClaimCode: (code) => set((s) => persist(s, { claimCode: code })),
       resetAll: () => {
         const slug = get().slug
         const state = { ...initial, slug, createdAt: new Date().toISOString() }

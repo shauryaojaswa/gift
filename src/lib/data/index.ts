@@ -1,4 +1,4 @@
-import { LocalDataProvider } from './local'
+import { ApiDataProvider } from './api'
 import { SupabaseDataProvider } from './supabase'
 import { createSupabaseClient } from '../supabase'
 import type { DataProvider } from './types'
@@ -18,6 +18,7 @@ export type {
 
 export { LocalDataProvider } from './local'
 export { SupabaseDataProvider } from './supabase'
+export { ApiDataProvider } from './api'
 
 let provider: DataProvider | null = null
 
@@ -28,7 +29,8 @@ export function getDataProvider(): DataProvider {
   if (url && key) {
     provider = new SupabaseDataProvider(createSupabaseClient(url, key))
   } else {
-    provider = new LocalDataProvider()
+    // The platform API is the default backend (multi-tenant).
+    provider = new ApiDataProvider()
   }
   return provider
 }

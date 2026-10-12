@@ -59,7 +59,8 @@ export function buildSegments(config: StoreConfig): WheelSegment[] {
       {
         index: tier.targetSegment,
         rewardId: reward.id,
-        rewardName: reward.name,
+        // The wheel shows the short label; the full description belongs on the reveal page.
+        rewardName: reward.wheelLabel?.trim() || reward.name,
         rewardDescription: reward.description,
         color: segmentColor(tier.targetSegment),
       },

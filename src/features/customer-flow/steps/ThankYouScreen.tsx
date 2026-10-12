@@ -19,22 +19,19 @@ export function ThankYouScreen() {
     purchaseAmount,
     phoneNumber,
     rewardResult,
-    submissionId,
+    claimCode,
     resetAll,
   } = useCustomerFlow((s) => ({
     fullName: s.fullName,
     purchaseAmount: s.purchaseAmount,
     phoneNumber: s.phoneNumber,
     rewardResult: s.rewardResult,
-    submissionId: s.submissionId,
+    claimCode: s.claimCode,
     resetAll: s.resetAll,
   }))
 
   const reward = rewardResult?.reward
-  const code = useMemo(() => {
-    if (!reward?.claimCodePrefix || !submissionId) return null
-    return `${reward.claimCodePrefix}-${submissionId.slice(-6).toUpperCase()}`
-  }, [reward?.claimCodePrefix, submissionId])
+  const code = useMemo(() => claimCode, [claimCode])
 
   return (
     <div className="flex flex-col items-center text-center gap-5">

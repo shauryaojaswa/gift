@@ -40,6 +40,7 @@ export interface ListResult {
 
 export interface CreateSubmissionInput {
   storeId: string
+  storeSlug?: string
   storeName: string
   customerName: string
   customerPhone: string
