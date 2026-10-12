@@ -8,6 +8,21 @@
       "description": "Signing key for shop-owner and platform-admin session cookies.",
       "requiredAtBoot": true,
       "generatedForDevelopment": true
+    },
+    {
+      "name": "RAZORPAY_KEY_ID",
+      "description": "Razorpay API key id. Optional — enables live subscription checkout.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "RAZORPAY_KEY_SECRET",
+      "description": "Razorpay API secret (server-side only). Optional — enables live subscription checkout.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "RAZORPAY_WEBHOOK_SECRET",
+      "description": "Razorpay webhook signing secret. Optional — verifies subscription webhook events.",
+      "requiredAtBoot": false
     }
   ]
 }

@@ -20,6 +20,11 @@ cookies work. The API migrates and seeds on boot via `node src/seed.js`.
   container. Both use `npm install` on start (the lockfile is not in sync with
   package.json, so `npm ci` fails).
 - `JWT_SECRET` is required and is delivered through `/run/base44/app.env`.
+- Razorpay vars (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`,
+  `RAZORPAY_WEBHOOK_SECRET`) are optional: the app boots without them and
+  `POST /api/owner/stores/:storeId/subscription/checkout` returns a clear 503
+  "Payments are not configured yet." (`testMode: true`) instead of charging.
+  The subscription view reports `providerConfigured: false`.
 
 ## Layout
 
