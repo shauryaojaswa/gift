@@ -22,6 +22,24 @@ export function useDataProvider(): DataProvider {
   return ctx.dataProvider
 }
 
+/**
+ * Identify the active data provider without reaching into the provider
+ * instance. Used by the vendor dashboard to show an honest persistence banner
+ * and to explain the required configuration.
+ */
+export function dataProviderKind(): 'local' | 'supabase' {
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  return url && key ? 'supabase' : 'local'
+}
+
+export function isPersistentProvider(): boolean {
+  return dataProviderKind() === 'supabase'
+}
+
+export const PERSISTENCE_UNAVAILABLE_MESSAGE =
+  'Persistent storage is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the hosting environment so customer submissions and vendor changes are saved to the shared database. In demo mode data is only kept in this browser.'
+
 export interface StoreConfigState {
   store: StoreConfig | null
   loading: boolean

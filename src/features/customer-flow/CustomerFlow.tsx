@@ -127,7 +127,7 @@ export default function CustomerFlow() {
       <CardFooter>
         {flow === 'WELCOME' && (
           <p className="text-center text-xs text-muted">
-            Takes less than 60 seconds · Quick &amp; simple · Spin &amp; Win
+            60 SECONDS &middot; SIMPLE &middot; REWARD
           </p>
         )}
       </CardFooter>

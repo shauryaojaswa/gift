@@ -3,6 +3,7 @@ import type { Database } from '../database.types'
 import type { Reward, RewardTier, StoreConfig } from '../../types'
 import type {
   AdminSession,
+  CollectionStatus,
   CreateSubmissionInput,
   DataProvider,
   ListOptions,
@@ -92,6 +93,7 @@ export class SupabaseDataProvider implements DataProvider {
         coupon_code: `CARE-${input.purchaseAmount}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
         review_cta_shown: input.reviewCtaShown,
         review_cta_clicked: input.reviewCtaClicked,
+        collection_status: 'awaiting',
       })
       .select('id')
     if (error || !data?.[0]) throw new Error(error?.message ?? 'Failed to create submission')
@@ -147,6 +149,11 @@ export class SupabaseDataProvider implements DataProvider {
       reviewCtaShown: r.review_cta_shown,
       reviewCtaClicked: r.review_cta_clicked,
       createdAt: r.created_at,
+      collection: {
+        status: (r.collection_status ?? 'awaiting') as CollectionStatus['status'],
+        collectedAt: r.collected_at ?? null,
+        collectedBy: r.collected_by ?? null,
+      },
     }))
     const total = count ?? items.length
     return {
@@ -163,7 +170,7 @@ export class SupabaseDataProvider implements DataProvider {
     const storeId = await this.adminStoreId(session)
     const { data, error } = await this.client
       .from('submissions')
-      .select('customer_phone, purchase_amount, reward_label, review_cta_clicked')
+      .select('customer_phone, purchase_amount, reward_label, review_cta_clicked, collection_status')
       .eq('store_id', storeId)
     if (error) throw new Error(error.message)
     const rows = data ?? []
@@ -178,7 +185,71 @@ export class SupabaseDataProvider implements DataProvider {
       rewardDistribution[label] = (rewardDistribution[label] ?? 0) + 1
     }
     const reviewCtaClicks = rows.filter((r) => r.review_cta_clicked).length
-    return { totalSubmissions, totalCustomers, averagePurchaseAmount, rewardDistribution, reviewCtaClicks }
+    const totalPurchaseValue = rows.reduce((sum, r) => sum + (r.purchase_amount ?? 0), 0)
+    const awaitingCollection = rows.filter((r) => (r.collection_status ?? 'awaiting') !== 'collected').length
+    const collected = rows.length - awaitingCollection
+    return {
+      totalSubmissions,
+      totalCustomers,
+      averagePurchaseAmount,
+      totalPurchaseValue,
+      rewardDistribution,
+      reviewCtaClicks,
+      awaitingCollection,
+      collected,
+    }
+  }
+
+  async setCollectionStatus(
+    id: string,
+    status: 'awaiting' | 'collected',
+    opts?: { collectedBy?: string | null },
+  ): Promise<SubmissionRecord> {
+    const session = await this.getSession()
+    const storeId = await this.adminStoreId(session)
+    const now = new Date().toISOString()
+    const updates: Database['public']['Tables']['submissions']['Update'] =
+      status === 'collected'
+        ? {
+            collection_status: 'collected',
+            // Server authoritative timestamp/staff; keep original on repeat marks via read-modify-write guard.
+            collected_at: now,
+            collected_by: opts?.collectedBy ?? null,
+          }
+        : {
+            collection_status: 'awaiting',
+            collected_at: null,
+            collected_by: null,
+          }
+    const { data, error } = await this.client
+      .from('submissions')
+      .update(updates)
+      .eq('id', id)
+      .eq('store_id', storeId)
+      .select('*')
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!data) throw new Error('Submission not found')
+    return {
+      id: data.id,
+      storeId: data.store_id,
+      storeName: '',
+      customerName: data.customer_name,
+      customerPhone: data.customer_phone,
+      purchaseAmount: data.purchase_amount,
+      rewardId: data.reward_id,
+      rewardLabel: data.reward_label,
+      rewardDescription: data.reward_description ?? '',
+      couponCode: data.coupon_code,
+      reviewCtaShown: data.review_cta_shown,
+      reviewCtaClicked: data.review_cta_clicked,
+      createdAt: data.created_at,
+      collection: {
+        status: (data.collection_status ?? 'awaiting') as CollectionStatus['status'],
+        collectedAt: data.collected_at ?? null,
+        collectedBy: data.collected_by ?? null,
+      },
+    }
   }
 
   async upsertReward(reward: Reward): Promise<Reward> {

@@ -26,3 +26,9 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# QA artifacts (local browser-test output)
+qa-shots/
+qa-report.txt
+checks.done
+*.done

@@ -79,6 +79,7 @@ export class LocalDataProvider implements DataProvider {
       reviewCtaShown: input.reviewCtaShown,
       reviewCtaClicked: input.reviewCtaClicked,
       createdAt: new Date().toISOString(),
+      collection: { status: 'awaiting', collectedAt: null, collectedBy: null },
     }
     const existing = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(input.storeId), [])
     existing.unshift(record)
@@ -89,7 +90,11 @@ export class LocalDataProvider implements DataProvider {
   async signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
     void email
     void password
-    return { ok: false, error: 'Admin sign-in requires a configured Supabase project.' }
+    return {
+      ok: false,
+      error:
+        'Vendor sign-in requires a configured Supabase project (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY). Demo mode cannot authenticate securely.',
+    }
   }
 
   async signOut(): Promise<void> {
@@ -139,7 +144,48 @@ export class LocalDataProvider implements DataProvider {
       rewardDistribution[r.rewardLabel] = (rewardDistribution[r.rewardLabel] ?? 0) + 1
     }
     const reviewCtaClicks = all.filter((r) => r.reviewCtaClicked).length
-    return { totalSubmissions, totalCustomers, averagePurchaseAmount, rewardDistribution, reviewCtaClicks }
+    const awaitingCollection = all.filter((r) => (r.collection?.status ?? 'awaiting') !== 'collected').length
+    const collected = all.length - awaitingCollection
+    const totalPurchaseValue = all.reduce((sum, r) => sum + r.purchaseAmount, 0)
+    return {
+      totalSubmissions,
+      totalCustomers,
+      averagePurchaseAmount,
+      totalPurchaseValue,
+      rewardDistribution,
+      reviewCtaClicks,
+      awaitingCollection,
+      collected,
+    }
+  }
+
+  async setCollectionStatus(
+    id: string,
+    status: 'awaiting' | 'collected',
+    opts?: { collectedBy?: string | null },
+  ): Promise<SubmissionRecord> {
+    const store = await this.currentStore()
+    const key = SUBMISSIONS_KEY(store.id)
+    const all = readJSON<SubmissionRecord[]>(key, [])
+    const idx = all.findIndex((r) => r.id === id)
+    if (idx < 0) throw new Error('Submission not found')
+    const existing = all[idx]
+    const isCollected = (existing.collection?.status ?? 'awaiting') === 'collected'
+    const next: SubmissionRecord = {
+      ...existing,
+      collection:
+        status === 'collected'
+          ? // Preserve the original collection timestamp/staff on repeat marks (idempotent).
+            {
+              status: 'collected',
+              collectedAt: isCollected ? existing.collection.collectedAt : new Date().toISOString(),
+              collectedBy: isCollected ? existing.collection.collectedBy : (opts?.collectedBy ?? null),
+            }
+          : { status: 'awaiting', collectedAt: null, collectedBy: null },
+    }
+    all[idx] = next
+    writeJSON(key, all)
+    return next
   }
 
   async upsertReward(reward: Reward): Promise<Reward> {

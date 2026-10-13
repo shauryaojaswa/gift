@@ -16,6 +16,7 @@ export function SubmissionsPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState<Record<string, boolean>>({})
 
   const load = async () => {
     if (!session) return
@@ -39,6 +40,26 @@ export function SubmissionsPage() {
     load()
   }, [page, search, session])
 
+  const toggleCollection = async (row: SubmissionRecord) => {
+    const isCollected = (row.collection?.status ?? 'awaiting') === 'collected'
+    // Optimistically lock the row so accidental double-clicks cannot fire twice.
+    setPending((prev) => ({ ...prev, [row.id]: true }))
+    try {
+      await dataProvider.setCollectionStatus(row.id, isCollected ? 'awaiting' : 'collected', {
+        collectedBy: session?.email ?? null,
+      })
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update collection status')
+    } finally {
+      setPending((prev) => {
+        const next = { ...prev }
+        delete next[row.id]
+        return next
+      })
+    }
+  }
+
   const csv = useMemo(() => toCsv(submissions?.items ?? []), [submissions?.items])
 
   const downloadCsv = () => {
@@ -53,11 +74,12 @@ export function SubmissionsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Total submissions" value={stats?.totalSubmissions ?? 0} />
         <StatCard label="Unique customers" value={stats?.totalCustomers ?? 0} />
         <StatCard label="Avg. purchase" value={stats && stats.totalSubmissions ? formatINR(stats.averagePurchaseAmount) : '—'} />
-        <StatCard label="Review CTA clicks" value={stats?.reviewCtaClicks ?? 0} />
+        <StatCard label="Awaiting collection" value={stats?.awaitingCollection ?? 0} />
+        <StatCard label="Gifts collected" value={stats?.collected ?? 0} />
       </div>
 
       <div>
@@ -90,17 +112,20 @@ export function SubmissionsPage() {
                   <th className="px-3 py-2 text-ink">Code</th>
                   <th className="px-3 py-2 text-ink">Review</th>
                   <th className="px-3 py-2 text-ink">When</th>
+                  <th className="px-3 py-2 text-ink">Collection</th>
                 </tr>
               </thead>
               <tbody>
                 {(submissions?.items.length ?? 0) === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-muted">
+                    <td colSpan={8} className="px-3 py-6 text-center text-muted">
                       No submissions yet.
                     </td>
                   </tr>
                 ) : (
-                  submissions?.items.map((r) => <SubmissionRow key={r.id} row={r} />)
+                  submissions?.items.map((r) => (
+                    <SubmissionRow key={r.id} row={r} pending={Boolean(pending[r.id])} onToggle={toggleCollection} />
+                  ))
                 )}
               </tbody>
             </table>
@@ -149,7 +174,16 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   )
 }
 
-function SubmissionRow({ row }: { row: SubmissionRecord }) {
+function SubmissionRow({
+  row,
+  pending,
+  onToggle,
+}: {
+  row: SubmissionRecord
+  pending: boolean
+  onToggle: (row: SubmissionRecord) => void
+}) {
+  const collected = (row.collection?.status ?? 'awaiting') === 'collected'
   return (
     <tr className="border-b border-border-soft">
       <td className="px-3 py-2 font-medium text-ink">{row.customerName}</td>
@@ -161,12 +195,38 @@ function SubmissionRow({ row }: { row: SubmissionRecord }) {
         {row.reviewCtaClicked ? 'Clicked' : row.reviewCtaShown ? 'Shown' : '—'}
       </td>
       <td className="px-3 py-2 text-xs text-muted">{new Date(row.createdAt).toLocaleString()}</td>
+      <td className="px-3 py-2">
+        <div className="flex flex-col items-start gap-1">
+          <span
+            className={
+              collected
+                ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800'
+                : 'rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800'
+            }
+          >
+            {collected ? 'Collected' : 'Awaiting'}
+          </span>
+          {collected && row.collection?.collectedAt && (
+            <span className="text-[10px] text-muted">
+              {new Date(row.collection.collectedAt).toLocaleDateString()}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn-ghost text-xs"
+            disabled={pending}
+            onClick={() => onToggle(row)}
+          >
+            {pending ? 'Saving…' : collected ? 'Mark uncollected' : 'Mark collected'}
+          </button>
+        </div>
+      </td>
     </tr>
   )
 }
 
 function toCsv(items: SubmissionRecord[]): string {
-  const header = ['id', 'customerName', 'customerPhone', 'purchaseAmount', 'rewardLabel', 'couponCode', 'reviewCtaShown', 'reviewCtaClicked', 'createdAt']
+  const header = ['id', 'customerName', 'customerPhone', 'purchaseAmount', 'rewardLabel', 'couponCode', 'reviewCtaShown', 'reviewCtaClicked', 'collectionStatus', 'collectedAt', 'collectedBy', 'createdAt']
   const rows = items.map((r) =>
     [
       r.id,
@@ -177,6 +237,9 @@ function toCsv(items: SubmissionRecord[]): string {
       `"${r.couponCode ?? ''}"`,
       r.reviewCtaShown,
       r.reviewCtaClicked,
+      r.collection?.status ?? 'awaiting',
+      r.collection?.collectedAt ?? '',
+      `"${r.collection?.collectedBy ?? ''}"`,
       r.createdAt,
     ].join(','),
   )
