@@ -1,5 +1,11 @@
 import type { Reward, RewardTier, StoreConfig } from '../../types'
 
+export interface CollectionStatus {
+  status: 'awaiting' | 'collected'
+  collectedAt: string | null
+  collectedBy: string | null
+}
+
 export interface SubmissionRecord {
   id: string
   storeId: string
@@ -14,14 +20,18 @@ export interface SubmissionRecord {
   reviewCtaShown: boolean
   reviewCtaClicked: boolean
   createdAt: string
+  collection: CollectionStatus
 }
 
 export interface AdminStats {
   totalSubmissions: number
   totalCustomers: number
   averagePurchaseAmount: number
+  totalPurchaseValue: number
   rewardDistribution: Record<string, number>
   reviewCtaClicks: number
+  awaitingCollection: number
+  collected: number
 }
 
 export interface ListOptions {
@@ -68,6 +78,11 @@ export interface DataProvider {
   getSession(): Promise<AdminSession | null>
   listSubmissions(opts: ListOptions): Promise<ListResult>
   getStats(): Promise<AdminStats>
+  setCollectionStatus(
+    id: string,
+    status: 'awaiting' | 'collected',
+    opts?: { collectedBy?: string | null },
+  ): Promise<SubmissionRecord>
   upsertReward(reward: Reward): Promise<Reward>
   deleteReward(id: string): Promise<void>
   upsertTier(tier: RewardTier): Promise<RewardTier>

@@ -134,6 +134,9 @@ export type Database = {
           coupon_code: string | null
           review_cta_shown: boolean
           review_cta_clicked: boolean
+          collection_status: string
+          collected_at: string | null
+          collected_by: string | null
           created_at: string
         }
         Insert: {
@@ -148,6 +151,9 @@ export type Database = {
           coupon_code?: string | null
           review_cta_shown?: boolean
           review_cta_clicked?: boolean
+          collection_status?: string
+          collected_at?: string | null
+          collected_by?: string | null
           created_at?: string
         }
         Update: {
@@ -162,6 +168,9 @@ export type Database = {
           coupon_code?: string | null
           review_cta_shown?: boolean
           review_cta_clicked?: boolean
+          collection_status?: string
+          collected_at?: string | null
+          collected_by?: string | null
           created_at?: string
         }
         Relationships: []
