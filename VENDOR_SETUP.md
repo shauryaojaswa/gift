@@ -1,5 +1,7 @@
 # Vendor Dashboard — How to Log In & Set Up
 
+Verified live: **2026-10-13** — customer journey, Google Review flow, all vendor routes, vendor login, and local preview all working at the URLs below.
+
 The shop‑owner dashboard lives at **`/vendor/login`**. There are **two ways** to use it:
 
 - **A. Local preview (right now, no backend)** — explore the dashboard on your own machine during development.
