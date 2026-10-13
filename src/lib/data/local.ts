@@ -88,6 +88,23 @@ export class LocalDataProvider implements DataProvider {
   }
 
   async signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+    // LOCAL PREVIEW ONLY — never compiled into production.
+    //
+    // On the local dev server (import.meta.env.DEV === true) with the
+    // localStorage provider, allow a no-backend preview sign-in so the vendor
+    // dashboard can be explored without a Supabase project. Vite sets
+    // DEV=false for production builds and dead-code-eliminates this branch, so
+    // it ships NO credential and does NOT weaken the live site. The
+    // localStorage provider also never holds real shared data. Real
+    // deployments use SupabaseDataProvider.signInAdmin (Supabase Auth) instead.
+    if (import.meta.env.DEV) {
+      if (!email.trim()) {
+        return { ok: false, error: 'Enter any email to start the local preview.' }
+      }
+      void password // local preview does not verify a password
+      writeJSON(ADMIN_KEY, { id: 'local-demo', email: email.trim() })
+      return { ok: true }
+    }
     void email
     void password
     return {
