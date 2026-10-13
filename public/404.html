@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Customer Rewards - Spin &amp; Win</title>
+    <script type="text/javascript">
+      // Single Page Apps for GitHub Pages
+      // MIT License - https://github.com/rafgraph/spa-github-pages
+      // Converts a deep-link path into a query string and redirects, so that
+      // index.html can restore the real URL for client-side routing.
+      // This file must be at least 512 bytes for Internet Explorer (it is).
+      //
+      // Project Pages site (no custom domain): keep the /gift/ base segment.
+      var pathSegmentsToKeep = 1;
+
+      var l = window.location;
+      l.replace(
+        l.protocol +
+          '//' +
+          l.hostname +
+          (l.port ? ':' + l.port : '') +
+          l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') +
+          '/?p=/' +
+          l.pathname
+            .slice(1)
+            .split('/')
+            .slice(pathSegmentsToKeep)
+            .join('/')
+            .replace(/&/g, '~and~') +
+          (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash,
+      );
+    </script>
+    <!--
+      Customer Rewards - Spin & Win (white-label jewellery campaign).
+      This page only exists so GitHub Pages can redirect unknown deep links
+      back into the single-page app above. Padding below ensures the file is
+      larger than 512 bytes, which older browsers require for the redirect
+      script to execute reliably. The real application is index.html.
+      Padding padding padding padding padding padding padding padding padding.
+    -->
+  </head>
+  <body></body>
+</html>

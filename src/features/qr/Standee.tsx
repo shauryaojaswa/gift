@@ -22,9 +22,13 @@ export default function Standee() {
       .catch(() => {})
   }, [dataProvider, slug])
 
+  // Build the public campaign URL from the deployment base so the QR code and
+  // the printed link stay correct under a subpath such as GitHub Pages "/gift/".
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+  const campaignUrl = `${window.location.origin}${basePath}/store/${slug}`
+
   useEffect(() => {
-    const targetUrl = `${window.location.origin}/store/${slug}`
-    QRCode.toString(targetUrl, {
+    QRCode.toString(campaignUrl, {
       type: 'svg',
       width: 256,
       margin: 2,
@@ -35,9 +39,9 @@ export default function Standee() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [slug])
+  }, [campaignUrl, slug])
 
-  const copy = `${window.location.origin}/store/${slug}`
+  const copy = campaignUrl
 
   return (
     <Card className="mt-6 print:shadow-none print:border-none" id="standee-print">
