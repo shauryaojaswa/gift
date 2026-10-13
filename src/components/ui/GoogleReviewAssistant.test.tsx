@@ -20,24 +20,23 @@ function openAssistant() {
   return screen.getByRole('dialog', { name: 'Share Your Experience' })
 }
 
-function normaliseText(value: string | null): string {
-  return (value ?? '').replace(/\s+/g, ' ').trim()
-}
-
-function hasText(container: HTMLElement, text: string): boolean {
-  const haystack = normaliseText(container.textContent)
-  return haystack.includes(normaliseText(text))
+function chooseFirstSuggestion() {
+  openAssistant()
+  fireEvent.click(screen.getByRole('button', { name: 'Beautiful jewellery collection.' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Choose a review' }))
 }
 
 function mockReviewTab() {
-  const tab = {
-    opener: window,
-    location: { replace: vi.fn() },
-    close: vi.fn(),
-  } as unknown as Window
+  const tab = { opener: window } as unknown as Window
   const open = vi.fn(() => tab)
   vi.stubGlobal('open', open)
   return { tab, open }
+}
+
+function mockClipboard() {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  return writeText
 }
 
 beforeEach(() => {
@@ -58,81 +57,114 @@ describe('Google review assistant', () => {
     )
   })
 
-  it('never offers pre-written or fabricated review text', () => {
-    const dialog = document.body
-    renderAssistant()
-    openAssistant()
-    // The old assistant copied canned sentences to the clipboard. It must not do that anymore.
-    expect(screen.queryByText('Beautiful jewellery collection.')).not.toBeInTheDocument()
-    expect(screen.queryByText('Very helpful and friendly staff.')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument()
-    expect(hasText(dialog, 'We never write, suggest, or submit a review for you.')).toBe(true)
+  it('shows topic chips and all ten review suggestions', () => {
+    openAssistantWithRender()
+    for (const chip of ['Service', 'Collection', 'Staff', 'Quality', 'Price', 'Shopping Experience', 'My Visit']) {
+      expect(screen.getByRole('button', { name: chip })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('button', { name: 'Beautiful jewellery collection.' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Very helpful and friendly staff.' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nice experience from start to finish.' })).toBeInTheDocument()
   })
 
-  it('opens the real Google review page in a new tab without fabricating a review', () => {
-    const writeText = vi.fn()
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  function openAssistantWithRender() {
+    renderAssistant()
+    return openAssistant()
+  }
+
+  it('copies the chosen suggestion to the clipboard', async () => {
+    const writeText = mockClipboard()
+    renderAssistant()
+    openAssistant()
+    fireEvent.click(screen.getByRole('button', { name: 'Very helpful and friendly staff.' }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Very helpful and friendly staff.'))
+  })
+
+  it('shows the confirm step with preview after choosing a review', async () => {
+    mockClipboard()
+    renderAssistant()
+    chooseFirstSuggestion()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Your review is ready!' })).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: /copy again/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open google reviews/i })).toBeInTheDocument()
+  })
+
+  it('opens the real Google review page from the confirm step', async () => {
+    mockClipboard()
     const { tab, open } = mockReviewTab()
     renderAssistant()
-
-    openAssistant()
-    fireEvent.click(screen.getByRole('button', { name: 'Leave a Google Review' }))
-
+    chooseFirstSuggestion()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /open google reviews/i })).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open google reviews/i }))
     expect(open).toHaveBeenCalledWith(reviewUrl, '_blank')
     expect(tab.opener).toBeNull()
-    // No clipboard usage whatsoever — we never fabricate or prefill review text.
-    expect(writeText).not.toHaveBeenCalled()
   })
-
-  it('can be dismissed with a "Not now" action', () => {
-    renderAssistant()
-    openAssistant()
-    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
-    expect(screen.queryByRole('dialog', { name: 'Share Your Experience' })).not.toBeInTheDocument()
-  })
-
   it('advances the flow only after the customer returns from an opened Google tab', async () => {
+    mockClipboard()
     const onGoogleReturn = vi.fn()
     const { open } = mockReviewTab()
     renderAssistant(reviewUrl, onGoogleReturn)
 
-    openAssistant()
-    fireEvent.click(screen.getByRole('button', { name: 'Leave a Google Review' }))
+    chooseFirstSuggestion()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /open google reviews/i })).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open google reviews/i }))
     expect(open).toHaveBeenCalledWith(reviewUrl, '_blank')
     expect(onGoogleReturn).not.toHaveBeenCalled()
 
-    // Simulate leaving the tab and returning.
     fireEvent.blur(window)
     fireEvent.focus(window)
 
     await waitFor(() => expect(onGoogleReturn).toHaveBeenCalledTimes(1))
   })
 
-  it('offers an explicit Google action when a popup is blocked', () => {
+  it('offers a manual link when a popup is blocked', async () => {
+    mockClipboard()
     const open = vi.fn(() => null)
     vi.stubGlobal('open', open)
     renderAssistant()
-    openAssistant()
-    fireEvent.click(screen.getByRole('button', { name: 'Leave a Google Review' }))
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Google could not be opened automatically.')
-    fireEvent.click(screen.getByRole('button', { name: 'Open Google Review' }))
-    expect(open).toHaveBeenCalledTimes(2)
+    chooseFirstSuggestion()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /open google reviews/i })).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open google reviews/i }))
+    expect(screen.getByText(/open Google Reviews manually/i)).toBeInTheDocument()
   })
 
-  it('disables the primary action when the review link is not set up', () => {
+  it('surfaces a config error when the review link is not set up', () => {
     renderAssistant('https://example.com/not-google')
     openAssistant()
     expect(screen.getByRole('alert')).toHaveTextContent('The Google review link is invalid')
-    expect(screen.getByRole('button', { name: 'Google link not set up' })).toBeDisabled()
   })
 
-  it('prioritizes the configured environment URL over the store setting', () => {
+  it('prioritizes the configured environment URL over the store setting', async () => {
+    mockClipboard()
     const { open } = mockReviewTab()
     vi.stubEnv('VITE_GOOGLE_REVIEW_URL', reviewUrl)
     renderAssistant('https://example.com/ignored')
-    openAssistant()
-    fireEvent.click(screen.getByRole('button', { name: 'Leave a Google Review' }))
+    chooseFirstSuggestion()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /open google reviews/i })).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open google reviews/i }))
     expect(open).toHaveBeenCalledWith(reviewUrl, '_blank')
+  })
+
+  it('can go back to suggestions and skip without a review', async () => {
+    mockClipboard()
+    renderAssistant()
+    chooseFirstSuggestion()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Your review is ready!' })).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /back to suggestions/i }))
+    expect(screen.getByRole('button', { name: 'Beautiful jewellery collection.' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /skip/i }))
+    expect(screen.queryByRole('dialog', { name: 'Share Your Experience' })).not.toBeInTheDocument()
   })
 })

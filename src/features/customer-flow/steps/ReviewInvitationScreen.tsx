@@ -35,7 +35,6 @@ export function ReviewInvitationScreen() {
       </p>
 
       <GoogleReviewAssistant
-        directOpen
         label="LEAVE A GOOGLE REVIEW"
         className="tap-target inline-flex min-h-11 w-full items-center justify-center rounded-[8px] bg-brand px-6 py-3.5 text-base font-medium text-paper transition-colors hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
         onGoogleReturn={handleGoogleReturn}

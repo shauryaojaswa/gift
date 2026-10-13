@@ -1,52 +1,233 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { X, Copy, CheckCircle, AlertCircle, ArrowLeft, RotateCcw, ExternalLink } from 'lucide-react'
 import { useStoreConfigValue } from '@/features/customer-flow/StoreContext'
 import { configuredGoogleReviewUrl } from '@/lib/google-review'
+import { cn } from '@/lib/utils'
 
 interface GoogleReviewAssistantProps {
   className?: string
-  onGoogleReturn?: () => void
-  /** Accessible label for the trigger button. */
   label?: string
-  /**
-   * When true, the trigger opens Google's real review composer immediately
-   * (single tap, per the customer-flow spec). If the link is missing/invalid or
-   * the popup is blocked, the assistant dialog opens as the recovery path.
-   */
-  directOpen?: boolean
+  onGoogleReturn?: () => void
 }
 
 const REVIEW_RETURN_KEY = 'gift:review-return'
 
+const TOPIC_CHIPS = ['Service', 'Collection', 'Staff', 'Quality', 'Price', 'Shopping Experience', 'My Visit'] as const
+
+const REVIEW_SUGGESTIONS = [
+  { text: 'Beautiful jewellery collection.', topic: 'Collection' as const },
+  { text: 'Very helpful and friendly staff.', topic: 'Staff' as const },
+  { text: 'I really liked the jewellery designs.', topic: 'Collection' as const },
+  { text: 'Good quality and good service.', topic: 'Service' as const },
+  { text: 'Very smooth shopping experience.', topic: 'Shopping Experience' as const },
+  { text: 'The staff helped me choose the right jewellery.', topic: 'Staff' as const },
+  { text: 'I was happy with the overall experience.', topic: 'My Visit' as const },
+  { text: 'Good value for the quality.', topic: 'Price' as const },
+  { text: 'I found exactly what I was looking for.', topic: 'Collection' as const },
+  { text: 'Nice experience from start to finish.', topic: 'My Visit' as const },
+]
+
+type CopyState = 'idle' | 'copying' | 'copied' | 'failed'
+type ConfirmationStep = 'initial' | 'confirming' | 'done'
+
+const TopicChip = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+  <button
+    type="button"
+    className={cn(
+      'rounded-full px-4 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+      active
+        ? 'bg-brand text-paper'
+        : 'bg-border-soft text-ink hover:bg-border-soft'
+    )}
+    onClick={onClick}
+    aria-pressed={active}
+  >
+    {label}
+  </button>
+)
+const SuggestionCard = ({ suggestion, selected, onSelect }: { suggestion: (typeof REVIEW_SUGGESTIONS)[number]; selected: boolean; onSelect: () => void }) => (
+  <button
+    type="button"
+    className={cn(
+      'flex flex-col gap-2 rounded-xl border p-4 text-left',
+      selected ? 'border-brand bg-cream ring-2 ring-brand/30' : 'border-border-soft bg-cream/60'
+    )}
+    onClick={onSelect}
+    aria-pressed={selected}
+  >
+    <span className={cn('font-body text-sm leading-5', selected && 'font-semibold text-brand')}>
+      {suggestion.text}
+    </span>
+    {selected && (
+      <span className="flex items-center gap-1 text-xs font-medium text-brand">
+        <CheckCircle size={12} aria-hidden="true" />
+        Selected
+      </span>
+    )}
+  </button>
+);
 export function GoogleReviewAssistant({
   className = 'btn-primary',
-  onGoogleReturn,
   label = '⭐ Leave a Google Review',
-  directOpen = false,
+  onGoogleReturn,
 }: GoogleReviewAssistantProps) {
   const store = useStoreConfigValue()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
-  const onGoogleReturnRef = useRef(onGoogleReturn)
-  const returnPendingRef = useRef(false)
-  const returnArmedRef = useRef(false)
-  const tabAwayRef = useRef(false)
-  const returnHandledRef = useRef(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [reviewText, setReviewText] = useState<string | null>(null)
+  const [copyState, setCopyState] = useState<CopyState>('idle')
+  const [error, setError] = useState<string | null>(null)
   const [popupBlocked, setPopupBlocked] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [step, setStep] = useState<ConfirmationStep>('initial')
+
   const reviewLink = useMemo(
     () => configuredGoogleReviewUrl(store.googleReviewUrl),
-    [store.googleReviewUrl],
+    [store.googleReviewUrl]
   )
   const canOpenGoogle = Boolean(reviewLink.url)
 
+  const selectedSuggestion = selectedIndex === null ? null : REVIEW_SUGGESTIONS[selectedIndex]
+  const selectedText = selectedSuggestion?.text ?? null
+  const isSelectedCopied = Boolean(reviewText) && copyState === 'copied'
+
+  const openAssistant = () => {
+    if (isOpen) return
+    setIsOpen(true)
+    setError(null)
+    setSuccessMessage(null)
+    setPopupBlocked(false)
+  }
+
+  const closeAssistant = () => {
+    setIsOpen(false)
+    setError(null)
+    setSuccessMessage(null)
+    setPopupBlocked(false)
+    setStep('initial')
+  }
+
+  const chooseTopic = (topic: string) => {
+    setSelectedTopic(topic)
+    setSelectedIndex(null)
+    setReviewText(null)
+    setCopyState('idle')
+    setError(null)
+  }
+  const copyText = async (text: string): Promise<boolean> => {
+    setCopyState('copying')
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard is not available')
+      await navigator.clipboard.writeText(text)
+      setReviewText(text)
+      setCopyState('copied')
+      setSuccessMessage(null)
+      setError(null)
+      return true
+    } catch {
+      setReviewText(null)
+      setCopyState('failed')
+      setSuccessMessage(null)
+      setError('Could not copy to clipboard. Please select the text manually and copy it yourself.')
+      return false
+    }
+  }
+
+  const chooseSuggestion = (index: number) => {
+    if (step === 'confirming') return
+    const suggestion = REVIEW_SUGGESTIONS[index]
+    setSelectedTopic(suggestion.topic)
+    setSelectedIndex(index)
+    setReviewText(suggestion.text)
+    setCopyState('idle')
+    setError(null)
+    setSuccessMessage(null)
+    setStep('initial')
+    void copyText(suggestion.text)
+  }
+
+  const handleChooseReview = () => {
+    if (selectedIndex === null) {
+      setError('Please choose one of the suggestions first.')
+      return
+    }
+    returnPendingRef.current = true
+    tabAwayRef.current = false
+    void copyText(selectedText as string).then(() => {
+      setStep('confirming')
+    })
+  }
+
+  const copyAgain = () => {
+    if (!selectedText) return
+    setError(null)
+    setSuccessMessage(null)
+    setPopupBlocked(false)
+    void copyText(selectedText)
+  }
+
+  const openGoogle = () => {
+    if (!reviewLink.url) {
+      setError(reviewLink.error ?? 'Google review link is not configured.')
+      setPopupBlocked(false)
+      setSuccessMessage(null)
+      return
+    }
+    if (!selectedText) {
+      setError('Please copy the review text first, then open Google Reviews.')
+      setPopupBlocked(false)
+      setSuccessMessage(null)
+      return
+    }
+    try {
+      const reviewTab = window.open(reviewLink.url, '_blank')
+      if (reviewTab) {
+        reviewTab.opener = null
+        setPopupBlocked(false)
+        setError(null)
+        if (isSelectedCopied) {
+          setSuccessMessage('Your review text is copied. Paste it into Google and choose the rating that matches your experience.')
+        }
+      } else {
+        setPopupBlocked(true)
+        setSuccessMessage(null)
+      }
+    } catch {
+      setPopupBlocked(true)
+      setSuccessMessage(null)
+    }
+  }
+
+  const handleSkip = () => {
+    closeAssistant()
+    setSelectedIndex(null)
+    setSelectedTopic(null)
+    setReviewText(null)
+    setCopyState('idle')
+    setError(null)
+  }
+  const backToSuggestions = () => {
+    returnPendingRef.current = false
+    tabAwayRef.current = false
+    setSelectedIndex(null)
+    setSelectedTopic(null)
+    setStep('initial')
+    setError(null)
+    setSuccessMessage(null)
+    setPopupBlocked(false)
+  }
+
+  const onGoogleReturnRef = useRef(onGoogleReturn)
+  const tabAwayRef = useRef(false)
+  const returnPendingRef = useRef(false)
   useEffect(() => {
     onGoogleReturnRef.current = onGoogleReturn
   }, [onGoogleReturn])
 
-  // Detect when the customer leaves to open Google and later returns, so the
-  // in-progress session stays usable. This never fabricates or submits a review.
   useEffect(() => {
     if (!onGoogleReturn) return
     const storageKey = `${REVIEW_RETURN_KEY}:${store.slug}`
@@ -54,24 +235,14 @@ export function GoogleReviewAssistant({
       if (returnPendingRef.current) tabAwayRef.current = true
     }
     const handleReturn = () => {
-      if (
-        document.visibilityState === 'hidden' ||
-        !returnPendingRef.current ||
-        !returnArmedRef.current ||
-        !tabAwayRef.current ||
-        returnHandledRef.current
-      ) {
-        return
-      }
-
-      returnHandledRef.current = true
+      if (document.visibilityState === 'hidden') return
+      if (!returnPendingRef.current || !tabAwayRef.current) return
       returnPendingRef.current = false
-      returnArmedRef.current = false
       tabAwayRef.current = false
       try {
-        window.sessionStorage.removeItem(storageKey)
+        window.sessionStorage.setItem(storageKey, String(Date.now()))
       } catch {
-        // Keep the in-memory return flow available when session storage is blocked.
+        /* session storage blocked */
       }
       setIsOpen(false)
       onGoogleReturnRef.current?.()
@@ -80,7 +251,6 @@ export function GoogleReviewAssistant({
       if (document.visibilityState === 'hidden') markTabAway()
       else handleReturn()
     }
-
     window.addEventListener('blur', markTabAway)
     window.addEventListener('focus', handleReturn)
     window.addEventListener('pageshow', handleReturn)
@@ -110,53 +280,11 @@ export function GoogleReviewAssistant({
     }
   }, [isOpen])
 
-  const openAssistant = () => {
-    setIsOpen(true)
-    setPopupBlocked(false)
-  }
-
-  const cancel = () => setIsOpen(false)
-
-  const openGoogle = (): boolean => {
-    if (!reviewLink.url) return false
-    returnPendingRef.current = true
-    returnArmedRef.current = false
-    tabAwayRef.current = false
-    returnHandledRef.current = false
-    try {
-      window.sessionStorage.setItem(`${REVIEW_RETURN_KEY}:${store.slug}`, JSON.stringify({ armed: false }))
-    } catch {
-      // Continue with in-memory return detection if session storage is unavailable.
-    }
-
-    try {
-      const reviewTab = window.open(reviewLink.url, '_blank')
-      if (reviewTab) {
-        reviewTab.opener = null
-        returnArmedRef.current = true
-        try {
-          window.sessionStorage.setItem(
-            `${REVIEW_RETURN_KEY}:${store.slug}`,
-            JSON.stringify({ armed: true }),
-          )
-        } catch {
-          // The active tab can still complete this flow without persistent storage.
-        }
-        setPopupBlocked(false)
-        return true
-      }
-    } catch {
-      // Fall through to the visible recovery action below.
-    }
-    setPopupBlocked(true)
-    return false
-  }
-
   const handleTrigger = () => {
-    if (directOpen && openGoogle()) return
-    // Recovery path: link not configured, invalid, or popup blocked.
     openAssistant()
   }
+  const portalTarget = typeof document !== 'undefined' ? document.getElementById('gift-root') ?? document.body : null
+
   return (
     <>
       <button ref={triggerRef} type="button" className={className} onClick={handleTrigger}>
@@ -164,106 +292,175 @@ export function GoogleReviewAssistant({
       </button>
 
       {isOpen &&
+        portalTarget &&
         createPortal(
-          <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-0 sm:items-center sm:p-4"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setIsOpen(false)
-            }}
-          >
-            <section
-              aria-labelledby="google-review-heading"
-              aria-modal="true"
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4">
+            <div
+              className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[16px] bg-paper p-5 shadow-2xl sm:p-8"
               role="dialog"
-              className="review-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[14px] bg-paper text-left sm:rounded-[14px]"
-              onKeyDown={(event) => {
-                if (event.key !== 'Tab') return
-                const focusable = Array.from(
-                  event.currentTarget.querySelectorAll<HTMLElement>(
-                    'button:not([disabled]), a[href]',
-                  ),
-                )
-                const first = focusable[0]
-                const last = focusable[focusable.length - 1]
-                if (event.shiftKey && document.activeElement === first) {
-                  event.preventDefault()
-                  last?.focus()
-                } else if (!event.shiftKey && document.activeElement === last) {
-                  event.preventDefault()
-                  first?.focus()
-                }
-              }}
+              aria-modal="true"
+              aria-labelledby="review-heading"
             >
-              <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border-soft px-5 py-4 sm:px-6">
+              <header className="flex items-start justify-between gap-4 border-b border-border-soft pb-4 sm:pb-5">
                 <div>
-                  <h2 id="google-review-heading" className="font-display text-2xl font-medium text-ink">
+                  <h2 id="review-heading" className="font-display text-2xl font-bold text-ink">
                     Share Your Experience
                   </h2>
                   <p className="mt-1 text-sm leading-5 text-muted">
-                    Your honest review on Google helps other customers. Reviews are entirely optional.
+                    Share details of your experience at this store in your own words.
                   </p>
                 </div>
                 <button
                   ref={closeButtonRef}
                   type="button"
                   aria-label="Close review helper"
-                  className="tap-target -mr-2 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-cream"
-                  onClick={cancel}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-cream"
+                  onClick={closeAssistant}
                 >
                   <X size={20} aria-hidden="true" />
                 </button>
               </header>
 
-              <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6">
-                {reviewLink.error && (
-                  <p className="review-message p-3 text-sm text-brand" role="alert">
-                    {reviewLink.error}
+              <div className="min-h-0 overflow-y-auto px-1 py-5 sm:px-5 sm:py-6">
+                {!canOpenGoogle && (
+                  <p className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                    <AlertCircle size={16} aria-hidden="true" />
+                    {reviewLink.error ?? 'Google review link is not configured.'}
                   </p>
                 )}
 
-                {!reviewLink.error && (
-                  <p className="text-sm leading-6 text-ink">
-                    Select <strong>Leave a Google Review</strong> to open Google&apos;s official review page in a
-                    new tab, where you can write and submit your review directly.
+                {error && (
+                  <p className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                    <AlertCircle size={16} aria-hidden="true" />
+                    {error}
                   </p>
                 )}
 
-                <p className="mt-3 text-xs leading-5 text-muted">
-                  We never write, suggest, or submit a review for you. We do not see or store your review text,
-                  rating, or Google sign-in details.
-                </p>
+                {successMessage && !error && (
+                  <p className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700" role="status">
+                    <CheckCircle size={16} aria-hidden="true" />
+                    {successMessage}
+                  </p>
+                )}
 
-                {popupBlocked && (
-                  <div className="review-message mt-3 p-3" role="alert">
-                    <p className="text-sm">Google could not be opened automatically.</p>
-                    <button type="button" className="btn-secondary tap-target mt-2 min-h-11" onClick={openGoogle}>
-                      Open Google Review
+                {step === 'initial' && (
+                  <>
+                    <p className="mt-2 text-sm leading-6 text-ink">
+                      Choose a topic to see relevant writing starters, then pick a suggestion you like.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {TOPIC_CHIPS.map((topic) => (
+                        <TopicChip
+                          key={topic}
+                          label={topic}
+                          active={selectedTopic === topic}
+                          onClick={() => chooseTopic(topic)}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="mt-5">
+                      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">
+                        {selectedTopic ? `${selectedTopic} suggestions` : 'All suggestions'}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {REVIEW_SUGGESTIONS.filter(
+                          (s) => !selectedTopic || s.topic === selectedTopic
+                        ).map((suggestion) => {
+                          const realIndex = REVIEW_SUGGESTIONS.indexOf(suggestion)
+                          return (
+                            <SuggestionCard
+                              key={suggestion.text}
+                              suggestion={suggestion}
+                              selected={selectedIndex === realIndex}
+                              onSelect={() => chooseSuggestion(realIndex)}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+                {step === 'confirming' && (
+                  <div className="mt-2">
+                    <h3 className="font-display text-lg font-semibold text-ink">Your review is ready!</h3>
+                    <p className="mt-1 text-sm text-muted">
+                      Here is the text you chose. Copy it, then open Google Reviews to paste it there.
+                    </p>
+                    <div className="mt-4 rounded-xl border border-border-soft bg-cream/60 p-4">
+                      <p className="font-body text-sm leading-6 text-ink">{selectedText}</p>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <button
+                        type="button"
+                        className="btn-primary inline-flex items-center justify-center gap-2"
+                        onClick={copyAgain}
+                        disabled={copyState === 'copying'}
+                      >
+                        <Copy size={16} aria-hidden="true" />
+                        {copyState === 'copying' ? 'Copying…' : 'Copy again'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary inline-flex items-center justify-center gap-2"
+                        onClick={openGoogle}
+                        disabled={!canOpenGoogle}
+                      >
+                        <ExternalLink size={16} aria-hidden="true" />
+                        Open Google Reviews
+                      </button>
+                    </div>
+                    {popupBlocked && (
+                      <p className="mt-3 text-sm text-muted">
+                        We could not open Google Reviews automatically (popup blocked). Please allow popups or{' '}
+                        <a
+                          className="font-medium text-brand underline"
+                          href={reviewLink.url ?? '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          open Google Reviews manually
+                        </a>
+                        .
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand hover:text-brandHover"
+                      onClick={backToSuggestions}
+                    >
+                      <ArrowLeft size={16} aria-hidden="true" />
+                      Back to suggestions
                     </button>
                   </div>
                 )}
               </div>
 
-              <footer className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t border-border-soft bg-paper px-5 py-4 sm:px-6">
+              <footer className="flex flex-col gap-2 border-t border-border-soft pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
-                  className="btn-primary tap-target w-full"
-                  disabled={!canOpenGoogle}
-                  onClick={openGoogle}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-ink"
+                  onClick={handleSkip}
                 >
-                  {canOpenGoogle ? 'Leave a Google Review' : 'Google link not set up'}
+                  <RotateCcw size={14} aria-hidden="true" />
+                  Skip &amp; continue without a review
                 </button>
-                <button type="button" className="btn-ghost tap-target w-full text-sm" onClick={cancel}>
-                  Not now
-                </button>
-                <p className="text-center text-xs text-muted">
-                  Your reward is already secured and is never affected by leaving a review.
-                </p>
+                {step === 'initial' && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleChooseReview}
+                    disabled={selectedIndex === null}
+                  >
+                    Choose a review
+                  </button>
+                )}
               </footer>
-            </section>
+            </div>
           </div>,
-          document.body,
+          portalTarget
         )}
     </>
   )
 }
-
