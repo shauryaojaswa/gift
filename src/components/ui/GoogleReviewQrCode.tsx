@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { configuredGoogleReviewUrl } from '@/lib/google-review'
 
-export function GoogleReviewQrCode() {
+export function GoogleReviewQrCode({ reviewUrl }: { reviewUrl: string | null }) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const reviewLink = configuredGoogleReviewUrl(null)
+  const reviewLink = configuredGoogleReviewUrl(reviewUrl)
   const [error, setError] = useState<string | null>(reviewLink.error)
 
   useEffect(() => {

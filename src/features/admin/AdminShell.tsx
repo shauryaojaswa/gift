@@ -4,20 +4,37 @@ import { AdminAuthProvider, useAdminAuth } from './AdminContext'
 import { SubmissionsPage } from './SubmissionsPage'
 import { StoreSettingsPage } from './StoreSettingsPage'
 import { RewardsPage } from './RewardsPage'
-import { TiersPage } from './TiersPage'
+import { DashboardOverview } from './DashboardOverview'
+import { MyQrCodePage } from './MyQrCodePage'
+import { useAdminStore } from './useAdminStore'
+import { StorageStatus } from '@/components/ui/StorageStatus'
 
-type Section = 'submissions' | 'store' | 'rewards' | 'tiers'
+type Section = 'overview' | 'customers' | 'campaign' | 'qr' | 'account'
+
+const NAV_ITEMS: { key: Section; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'customers', label: 'Customers' },
+  { key: 'campaign', label: 'Campaign' },
+  { key: 'qr', label: 'QR Code & Branding' },
+  { key: 'account', label: 'Account' },
+]
 
 function AdminShellInner() {
   const { session, loading, logout } = useAdminAuth()
   const navigate = useNavigate()
-  const [section, setSection] = useState<Section>('submissions')
+  const { store } = useAdminStore()
+  const [section, setSection] = useState<Section>('overview')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     if (!loading && !session) {
-      navigate('/admin/login', { replace: true, state: { from: '/admin' } })
+      navigate('/dashboard/login', { replace: true, state: { from: '/dashboard' } })
     }
   }, [session, loading, navigate])
+
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [section])
 
   if (loading) {
     return (
@@ -33,72 +50,122 @@ function AdminShellInner() {
   if (!session) return null
 
   const render: Record<Section, ReactNode> = {
-    submissions: <SubmissionsPage />,
-    store: <StoreSettingsPage />,
-    rewards: <RewardsPage />,
-    tiers: <TiersPage />,
+    overview: <DashboardOverview onNavigate={setSection} />,
+    customers: <SubmissionsPage />,
+    campaign: <RewardsPage />,
+    qr: <MyQrCodePage />,
+    account: <StoreSettingsPage />,
   }
 
   return (
-    <div className="min-h-screen bg-cream py-6">
-      <div className="mx-auto max-w-5xl px-4">
-        <header className="mb-6 flex items-center justify-between">
+    <div className="min-h-screen bg-cream">
+      {/* Top bar */}
+      <header className="sticky top-0 z-40 border-b border-border-soft bg-paper/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <img src="/logo-placeholder.svg" alt="" className="h-10 w-10" />
-            <h1 className="font-display text-xl font-bold text-ink">JOLLY ENTERPRISES — Admin</h1>
+            <img
+              src={store?.logoUrl || '/assets/brand-logo.png'}
+              alt=""
+              className="h-9 w-9 rounded-full object-cover"
+            />
+            <h1 className="font-display text-lg font-bold text-ink">
+              {store?.name || 'Store Dashboard'}
+            </h1>
           </div>
-          <nav className="flex flex-wrap items-center gap-2">
-            <NavBtn active={section === 'submissions'} onClick={() => setSection('submissions')}>
-              Submissions
-            </NavBtn>
-            <NavBtn active={section === 'store'} onClick={() => setSection('store')}>
-              Store
-            </NavBtn>
-            <NavBtn active={section === 'rewards'} onClick={() => setSection('rewards')}>
-              Rewards
-            </NavBtn>
-            <NavBtn active={section === 'tiers'} onClick={() => setSection('tiers')}>
-              Tiers
-            </NavBtn>
+
+          {/* Desktop nav */}
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setSection(item.key)}
+                aria-current={section === item.key ? 'page' : undefined}
+                className={
+                  section === item.key
+                    ? 'rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-paper'
+                    : 'rounded-lg px-3.5 py-2 text-sm font-medium text-ink hover:bg-brand/8'
+                }
+              >
+                {item.label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={async () => {
                 await logout()
-                navigate('/admin/login', { replace: true })
+                navigate('/dashboard/login', { replace: true })
               }}
-              className="font-body text-xs text-muted hover:text-ink"
+              className="ml-2 rounded-lg px-3.5 py-2 text-sm font-medium text-muted hover:bg-border-soft hover:text-ink"
             >
               Sign out
             </button>
           </nav>
-        </header>
-        {render[section]}
-      </div>
-    </div>
-  )
-}
 
-function NavBtn({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        active
-          ? 'rounded-full bg-brand px-4 py-1.5 text-sm font-medium text-paper'
-          : 'rounded-full bg-border-soft px-4 py-1.5 text-sm font-medium text-ink hover:bg-brand/10'
-      }
-    >
-      {children}
-    </button>
+          {/* Mobile menu button */}
+          <button
+            type="button"
+            className="tap-target flex h-10 w-10 items-center justify-center rounded-lg text-ink hover:bg-border-soft md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-expanded={mobileMenuOpen}
+            aria-label="Toggle navigation menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {mobileMenuOpen ? (
+                <path d="M18 6L6 18M6 6l12 12" />
+              ) : (
+                <>
+                  <path d="M4 6h16" />
+                  <path d="M4 12h16" />
+                  <path d="M4 18h16" />
+                </>
+              )}
+            </svg>
+          </button>
+        </div>
+
+        {/* Mobile nav */}
+        {mobileMenuOpen && (
+          <nav className="border-t border-border-soft bg-paper px-4 py-3 md:hidden" aria-label="Mobile navigation">
+            <div className="flex flex-col gap-1">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setSection(item.key)}
+                  aria-current={section === item.key ? 'page' : undefined}
+                  className={
+                    section === item.key
+                      ? 'rounded-lg bg-brand px-4 py-2.5 text-left text-sm font-medium text-paper'
+                      : 'rounded-lg px-4 py-2.5 text-left text-sm font-medium text-ink hover:bg-brand/8'
+                  }
+                >
+                  {item.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout()
+                  navigate('/dashboard/login', { replace: true })
+                }}
+                className="rounded-lg px-4 py-2.5 text-left text-sm font-medium text-muted hover:bg-border-soft hover:text-ink"
+              >
+                Sign out
+              </button>
+            </div>
+          </nav>
+        )}
+      </header>
+
+      {/* Main content */}
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        <div className="mb-6">
+          <StorageStatus />
+        </div>
+        {render[section]}
+      </main>
+    </div>
   )
 }
 

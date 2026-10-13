@@ -1,11 +1,5 @@
 import type { Reward, RewardTier, StoreConfig } from '../../types'
 
-export interface CollectionStatus {
-  status: 'awaiting' | 'collected'
-  collectedAt: string | null
-  collectedBy: string | null
-}
-
 export interface SubmissionRecord {
   id: string
   storeId: string
@@ -16,28 +10,43 @@ export interface SubmissionRecord {
   rewardId: string
   rewardLabel: string
   rewardDescription: string
+  rewardShortLabel: string | null
+  rewardClaimCodePrefix: string | null
+  rewardValidityText: string | null
+  rewardVoucherValue: number | null
+  tierId: string
+  tierMinAmount: number
+  tierMaxAmount: number | null
+  targetSegment: number
   couponCode: string | null
+  collectionStatus: 'awaiting' | 'collected'
+  collectedAt: string | null
+  collectedBy: string | null
   reviewCtaShown: boolean
   reviewCtaClicked: boolean
   createdAt: string
-  collection: CollectionStatus
 }
 
 export interface AdminStats {
   totalSubmissions: number
   totalCustomers: number
-  averagePurchaseAmount: number
   totalPurchaseValue: number
+  awaitingCollection: number
+  collectedGifts: number
   rewardDistribution: Record<string, number>
   reviewCtaClicks: number
-  awaitingCollection: number
-  collected: number
 }
 
 export interface ListOptions {
   page: number
   pageSize: number
   search: string
+  dateFrom?: string
+  dateTo?: string
+  minPurchase?: number
+  maxPurchase?: number
+  rewardId?: string
+  collectionStatus?: 'awaiting' | 'collected'
 }
 
 export interface ListResult {
@@ -49,15 +58,20 @@ export interface ListResult {
 }
 
 export interface CreateSubmissionInput {
-  storeId: string
-  storeName: string
+  storeSlug: string
+  requestId: string
   customerName: string
   customerPhone: string
   purchaseAmount: number
-  reward: Reward
-  tier: RewardTier
   reviewCtaShown: boolean
   reviewCtaClicked: boolean
+}
+
+export interface RewardAssignment {
+  id: string
+  reward: Reward
+  tier: RewardTier
+  claimCode: string
 }
 
 export interface AdminSession {
@@ -72,22 +86,21 @@ export type StorePatch = Partial<Pick<
 
 export interface DataProvider {
   getStoreConfig(slug: string): Promise<StoreConfig | null>
-  createSubmission(input: CreateSubmissionInput): Promise<{ id: string }>
+  getAdminStoreConfig(): Promise<StoreConfig | null>
+  createSubmission(input: CreateSubmissionInput): Promise<RewardAssignment>
   signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }>
   signOut(): Promise<void>
   getSession(): Promise<AdminSession | null>
   listSubmissions(opts: ListOptions): Promise<ListResult>
+  markSubmissionCollected(id: string): Promise<void>
   getStats(): Promise<AdminStats>
-  setCollectionStatus(
-    id: string,
-    status: 'awaiting' | 'collected',
-    opts?: { collectedBy?: string | null },
-  ): Promise<SubmissionRecord>
   upsertReward(reward: Reward): Promise<Reward>
   deleteReward(id: string): Promise<void>
   upsertTier(tier: RewardTier): Promise<RewardTier>
   deleteTier(id: string): Promise<void>
+  saveTierConfiguration(tiers: RewardTier[]): Promise<void>
   updateStore(patch: StorePatch): Promise<StoreConfig>
+  uploadStoreLogo(file: File): Promise<string>
 }
 
 export type DataProviderKind = 'local' | 'supabase'

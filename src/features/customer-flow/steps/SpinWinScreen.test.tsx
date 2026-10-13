@@ -6,6 +6,11 @@ import { SpinWinScreen } from './SpinWinScreen'
 import { JOLLY_ENTERPRISES, JOLLY_ENTERPRISES_SLUG } from '../../../lib/stores'
 import { normalizeAngle, segmentCenterDegrees } from '../../../lib/wheel-math'
 import { buildSegments } from '../../../lib/reward-engine'
+import { DataProviderProvider } from '../../../providers/DataProviderContext'
+import { LocalDataProvider } from '../../../lib/data/local'
+
+const provider = new LocalDataProvider()
+const createSubmission = vi.spyOn(provider, 'createSubmission')
 
 let scheduled: Array<{ id: number; cb: FrameRequestCallback }>
 let nextId: number
@@ -43,8 +48,16 @@ beforeEach(() => {
     currentRotation: 0,
     hasSpun: false,
     submissionId: null,
+    submissionRequestId: '3fbdfacd-9a76-43cf-9bc8-6c90f936af90',
+    claimCode: null,
     createdAt: new Date().toISOString(),
   } as any)
+  createSubmission.mockResolvedValue({
+    id: '3fbdfacd-9a76-43cf-9bc8-6c90f936af90',
+    claimCode: 'V1000-3FBDFACD',
+    reward: JOLLY_ENTERPRISES.rewards[4],
+    tier: JOLLY_ENTERPRISES.tiers[4],
+  })
 })
 
 afterEach(() => {
@@ -70,9 +83,11 @@ describe('Spin & Win — tap to reward', () => {
 
     try {
       const { container } = render(
-        <StoreConfigProvider store={JOLLY_ENTERPRISES}>
-          <SpinWinScreen />
-        </StoreConfigProvider>,
+        <DataProviderProvider provider={provider}>
+          <StoreConfigProvider store={JOLLY_ENTERPRISES}>
+            <SpinWinScreen />
+          </StoreConfigProvider>
+        </DataProviderProvider>,
       )
 
       const wheel = container.querySelector('svg[role="img"]')
@@ -92,7 +107,7 @@ describe('Spin & Win — tap to reward', () => {
         ])
       expect(buildSegments(JOLLY_ENTERPRISES).map(({ rewardName }) => rewardName)).toEqual(
         JOLLY_ENTERPRISES.tiers
-          .map((tier) => JOLLY_ENTERPRISES.rewards.find((reward) => reward.id === tier.rewardId)?.name)
+          .map((tier) => JOLLY_ENTERPRISES.rewards.find((reward) => reward.id === tier.rewardId)?.shortLabel)
           .filter((name): name is string => Boolean(name)),
       )
       expect(useCustomerFlow.getState().rewardResult).toBeNull()
@@ -104,9 +119,11 @@ describe('Spin & Win — tap to reward', () => {
   it('shows the automatic return welcome and uses the existing spin result logic', async () => {
     useCustomerFlow.getState().setReviewReturnDetected(true)
     render(
-      <StoreConfigProvider store={JOLLY_ENTERPRISES}>
-        <SpinWinScreen />
-      </StoreConfigProvider>,
+      <DataProviderProvider provider={provider}>
+        <StoreConfigProvider store={JOLLY_ENTERPRISES}>
+          <SpinWinScreen />
+        </StoreConfigProvider>
+      </DataProviderProvider>,
     )
 
     expect(screen.getByRole('heading', { name: 'WELCOME BACK!' })).toBeInTheDocument()
@@ -127,9 +144,11 @@ describe('Spin & Win — tap to reward', () => {
 
   it('taps the real SPIN button, spins the wheel, and lands on the reward', async () => {
     render(
-      <StoreConfigProvider store={JOLLY_ENTERPRISES}>
-        <SpinWinScreen />
-      </StoreConfigProvider>,
+      <DataProviderProvider provider={provider}>
+        <StoreConfigProvider store={JOLLY_ENTERPRISES}>
+          <SpinWinScreen />
+        </StoreConfigProvider>
+      </DataProviderProvider>,
     )
 
     const spinBtn = screen.getByRole('button', { name: /spin the wheel/i })

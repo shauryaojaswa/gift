@@ -21,6 +21,8 @@ export interface CustomerFlowState {
   currentRotation: number
   hasSpun: boolean
   submissionId: string | null
+  submissionRequestId: string
+  claimCode: string | null
   createdAt: string
 }
 
@@ -40,6 +42,7 @@ export interface CustomerFlowActions {
   completeSpin: (finalRotation: number) => void
   resetWheel: () => void
   setSubmissionId: (id: string | null) => void
+  setClaimCode: (code: string | null) => void
   resetAll: () => void
   getCustomerInfo: () => CustomerInfo
 }
@@ -62,6 +65,8 @@ const initial: CustomerFlowState = {
   currentRotation: 0,
   hasSpun: false,
   submissionId: null,
+  submissionRequestId: '',
+  claimCode: null,
   createdAt: new Date().toISOString(),
 }
 
@@ -110,8 +115,9 @@ export const useCustomerFlow = create<CustomerFlowStore>()(
           save(recovered, slug)
           return
         }
-        set(() => ({ ...initial, step: 'WELCOME', slug, createdAt: new Date().toISOString() }))
-        save({ ...initial, step: 'WELCOME', slug, createdAt: new Date().toISOString() }, slug)
+        const fresh = { ...initial, step: 'WELCOME' as const, slug, submissionRequestId: crypto.randomUUID(), createdAt: new Date().toISOString() }
+        set(() => fresh)
+        save(fresh, slug)
       },
       restore: () => {
         const { slug } = get()
@@ -155,9 +161,10 @@ export const useCustomerFlow = create<CustomerFlowStore>()(
         set((s) => persist(s, { spinStatus: 'completed', currentRotation: finalRotation, step: 'REWARD' })),
       resetWheel: () => set((s) => persist(s, { spinStatus: 'idle', currentRotation: 0 })),
       setSubmissionId: (id) => set((s) => persist(s, { submissionId: id })),
+      setClaimCode: (code) => set((s) => persist(s, { claimCode: code })),
       resetAll: () => {
         const slug = get().slug
-        const state = { ...initial, slug, createdAt: new Date().toISOString() }
+        const state = { ...initial, slug, submissionRequestId: crypto.randomUUID(), createdAt: new Date().toISOString() }
         set(() => state)
         save(state, slug)
       },
@@ -182,10 +189,17 @@ function persist(s: CustomerFlowState, patch: Partial<CustomerFlowState>): Custo
 
 function recover(saved: CustomerFlowState, slug: string): CustomerFlowState {
   if (!saved.slug) saved.slug = slug
+  if (!saved.submissionRequestId) saved.submissionRequestId = crypto.randomUUID()
+  saved.claimCode = saved.claimCode ?? null
   saved.reviewReturnDetected = false
 
   if (saved.step === 'WELCOME') {
-    return { ...initial, slug, createdAt: saved.createdAt || new Date().toISOString() }
+    return {
+      ...initial,
+      slug,
+      submissionRequestId: crypto.randomUUID(),
+      createdAt: saved.createdAt || new Date().toISOString(),
+    }
   }
 
   if (

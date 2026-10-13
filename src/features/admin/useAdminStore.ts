@@ -1,9 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
 import type { StoreConfig } from '@/types'
+import { useEffect, useState, useCallback } from 'react'
 import { useDataProvider } from '@/providers/DataProviderContext'
 import { useAdminAuth } from './AdminContext'
-
-const ADMIN_STORE_SLUG = 'jolly-enterprises'
 
 export function useAdminStore() {
   const dataProvider = useDataProvider()
@@ -16,7 +14,7 @@ export function useAdminStore() {
     if (!session) return
     setLoading(true)
     try {
-      const s = await dataProvider.getStoreConfig(ADMIN_STORE_SLUG)
+      const s = await dataProvider.getAdminStoreConfig()
       setStore(s)
       setError(null)
     } catch (e) {
@@ -32,5 +30,3 @@ export function useAdminStore() {
 
   return { store, loading, error, reload: load, dataProvider, session }
 }
-
-export { ADMIN_STORE_SLUG }

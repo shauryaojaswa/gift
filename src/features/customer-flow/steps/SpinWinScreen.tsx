@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useCustomerFlow } from '../store'
 import { useStoreConfigValue } from '../StoreContext'
+import { useDataProvider } from '@/providers/DataProviderContext'
 import { SpinWheel } from '@/components/ui/SpinWheel'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
-import { buildSegments, evaluateReward } from '@/lib/reward-engine'
+import { buildSegments } from '@/lib/reward-engine'
 import { formatINR } from '@/lib/currency'
 import type { WheelSegment } from '@/types'
 
@@ -14,20 +15,38 @@ function getWheelSize(): number {
 
 export function SpinWinScreen() {
   const store = useStoreConfigValue()
+  const dataProvider = useDataProvider()
+  const requestStarted = useRef(false)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const {
     purchaseAmount,
+    fullName,
+    phoneNumber,
+    submissionRequestId,
+    reviewCtaShown,
+    reviewCtaClicked,
     hasSpun,
     spinStatus,
     reviewReturnDetected,
     setRewardResult,
+    setSubmissionId,
+    setClaimCode,
     startSpin,
     completeSpin,
   } = useCustomerFlow((s) => ({
     purchaseAmount: s.purchaseAmount,
+    fullName: s.fullName,
+    phoneNumber: s.phoneNumber,
+    submissionRequestId: s.submissionRequestId,
+    reviewCtaShown: s.reviewCtaShown,
+    reviewCtaClicked: s.reviewCtaClicked,
     hasSpun: s.hasSpun,
     spinStatus: s.spinStatus,
     reviewReturnDetected: s.reviewReturnDetected,
     setRewardResult: s.setRewardResult,
+    setSubmissionId: s.setSubmissionId,
+    setClaimCode: s.setClaimCode,
     startSpin: s.startSpin,
     completeSpin: s.completeSpin,
   }))
@@ -50,16 +69,56 @@ export function SpinWinScreen() {
   }, [reviewReturnDetected])
 
   const isSpinning = spinStatus === 'spinning'
-  const canSpin = !hasSpun && !isSpinning && purchaseAmount !== null && purchaseAmount > 0
+  const canSpin = !hasSpun && !isSpinning && !submitting && purchaseAmount !== null && purchaseAmount > 0
 
-  const handleSpinRequested = useCallback(() => {
-    if (hasSpun || isSpinning || purchaseAmount === null || purchaseAmount <= 0) return
-    const result = evaluateReward(purchaseAmount, store)
-    if (!result) return
-    if (!startSpin()) return
-    setRewardResult(result)
-    setTargetSegment(result.targetSegment)
-  }, [hasSpun, isSpinning, purchaseAmount, store, setRewardResult, startSpin])
+  const handleSpinRequested = useCallback(async () => {
+    if (requestStarted.current || hasSpun || isSpinning || purchaseAmount === null || purchaseAmount <= 0) return
+    requestStarted.current = true
+    setSubmitting(true)
+    setSubmissionError(null)
+    try {
+      const assignment = await dataProvider.createSubmission({
+        storeSlug: store.slug,
+        requestId: submissionRequestId,
+        customerName: fullName,
+        customerPhone: phoneNumber,
+        purchaseAmount,
+        reviewCtaShown,
+        reviewCtaClicked,
+      })
+      const result = {
+        amount: purchaseAmount,
+        reward: assignment.reward,
+        tier: assignment.tier,
+        targetSegment: assignment.tier.targetSegment,
+      }
+      setSubmissionId(assignment.id)
+      setClaimCode(assignment.claimCode)
+      setRewardResult(result)
+      if (!startSpin()) throw new Error('This spin has already been used.')
+      setTargetSegment(result.targetSegment)
+    } catch (error) {
+      requestStarted.current = false
+      setSubmissionError(error instanceof Error ? error.message : 'We could not save your entry. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [
+    dataProvider,
+    fullName,
+    hasSpun,
+    isSpinning,
+    phoneNumber,
+    purchaseAmount,
+    reviewCtaClicked,
+    reviewCtaShown,
+    setClaimCode,
+    setRewardResult,
+    setSubmissionId,
+    startSpin,
+    store.slug,
+    submissionRequestId,
+  ])
 
   const handleSpinComplete = useCallback((finalRotation: number) => {
     completeSpin(finalRotation)
@@ -106,6 +165,9 @@ export function SpinWinScreen() {
       {isSpinning && !canSpin && (
         <p className="font-body text-sm text-muted font-medium">Spinning… your reward is on its way!</p>
       )}
+
+      {submitting && <p className="font-body text-sm text-muted">Saving your entry and assigning your reward…</p>}
+      {submissionError && <p role="alert" className="max-w-sm text-sm text-red-700">{submissionError}</p>}
 
       {!isSpinning && !hasSpun && (
         <p className="font-body text-xs text-muted">Tap the SPIN button on the wheel</p>

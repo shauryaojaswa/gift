@@ -1,82 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCustomerFlow } from '../store'
-import { useStoreConfigValue } from '../StoreContext'
-import { useDataProvider } from '@/providers/DataProviderContext'
 import { Confetti, FadeUp } from '@/components/ui/Confetti'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
-import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 export function RewardScreen() {
-  const store = useStoreConfigValue()
-  const dataProvider = useDataProvider()
-  const submissionStarted = useRef(false)
-  const [submissionError, setSubmissionError] = useState(false)
-  const [submissionAttempt, setSubmissionAttempt] = useState(0)
   const {
     rewardResult,
-    purchaseAmount,
-    phoneNumber,
-    fullName,
-    setSubmissionId,
-    submissionId,
+    claimCode,
     setStep,
   } = useCustomerFlow((s) => ({
     rewardResult: s.rewardResult,
-    purchaseAmount: s.purchaseAmount,
-    phoneNumber: s.phoneNumber,
-    fullName: s.fullName,
-    setSubmissionId: s.setSubmissionId,
-    submissionId: s.submissionId,
+    claimCode: s.claimCode,
     setStep: s.setStep,
   }))
-
-  useEffect(() => {
-    if (!rewardResult) {
-      setStep('SPIN')
-      return
-    }
-    if (submissionId || submissionStarted.current) return
-
-    submissionStarted.current = true
-    const submit = async () => {
-      try {
-        const res = await dataProvider.createSubmission({
-          storeId: store.id,
-          storeName: store.name,
-          customerName: fullName,
-          customerPhone: phoneNumber,
-          purchaseAmount: purchaseAmount ?? 0,
-          reward: rewardResult.reward,
-          tier: rewardResult.tier,
-          reviewCtaShown: false,
-          reviewCtaClicked: false,
-        })
-        setSubmissionId(res.id)
-      } catch (error) {
-        console.error('Failed to save customer reward submission', error)
-        submissionStarted.current = false
-        setSubmissionError(true)
-      }
-    }
-    submit()
-  }, [
-    rewardResult,
-    submissionId,
-    dataProvider,
-    store,
-    fullName,
-    phoneNumber,
-    purchaseAmount,
-    setSubmissionId,
-    submissionAttempt,
-    setStep,
-  ])
-
-  const code = useMemo(() => {
-    const reward = rewardResult?.reward
-    if (!reward?.claimCodePrefix || !submissionId) return null
-    return `${reward.claimCodePrefix}-${submissionId.slice(-6).toUpperCase()}`
-  }, [rewardResult?.reward, submissionId])
 
   if (!rewardResult) {
     return null
@@ -111,11 +46,11 @@ export function RewardScreen() {
         </p>
       </FadeUp>
 
-      {code && (
+      {claimCode && (
         <FadeUp delay={360}>
           <div className="rounded-lg bg-ink/5 px-4 py-2.5 text-center">
             <span className="block font-body text-xs text-muted">Claim Code</span>
-            <code className="font-mono text-base font-bold text-ink">{code}</code>
+            <code className="font-mono text-base font-bold text-ink">{claimCode}</code>
           </div>
         </FadeUp>
       )}
@@ -136,33 +71,12 @@ export function RewardScreen() {
 
       <FadeUp delay={440}>
         <PrimaryButton
-          disabled={submissionError}
           onClick={() => setStep('THANK_YOU')}
         >
           CONTINUE
         </PrimaryButton>
       </FadeUp>
 
-      {submissionError && (
-        <div className="w-full" role="alert">
-          <p className="mb-2 text-sm text-muted">
-            We could not save your response. Please try again.
-          </p>
-          <PrimaryButton
-            variant="secondary"
-            onClick={() => {
-              setSubmissionError(false)
-              setSubmissionAttempt((attempt) => attempt + 1)
-            }}
-          >
-            TRY AGAIN
-          </PrimaryButton>
-        </div>
-      )}
-
-      <FadeUp delay={500}>
-        <GoogleReviewAssistant className="btn-ghost tap-target min-h-11 text-sm" />
-      </FadeUp>
     </div>
   )
 }

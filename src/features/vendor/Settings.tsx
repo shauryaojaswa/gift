@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import type { StoreConfig } from '@/types'
 import { Spinner } from '@/components/ui/Spinner'
@@ -6,12 +6,6 @@ import { FormField } from '@/components/ui/FormField'
 import { Card, CardBody, CardHeader, CardFooter } from '@/components/ui/Card'
 import { validateUrl } from './lib'
 
-/**
- * Vendor Store Settings. Edits the same store record the customer campaign
- * reads (name, subtitle, logo, Google Review URL, campaign badge, minimum
- * qualifying purchase). The slug is shown read-only so the public route stays
- * stable. URLs and amounts are validated before saving.
- */
 export default function Settings() {
   const { store, loading, error, reload } = useAdminStore()
 
@@ -19,8 +13,6 @@ export default function Settings() {
   if (error) return <p className="text-sm text-red-600">{error}</p>
   if (!store) return <p className="text-muted">Unable to load store settings.</p>
 
-  // Mount the form only once the store is loaded so field state seeds correctly.
-  // Keyed by store id so a store switch re-seeds the form.
   return <SettingsForm key={store.id} store={store} reload={reload} />
 }
 
@@ -33,8 +25,11 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
   const [campaignBadge, setCampaignBadge] = useState(store.campaignBadge ?? '')
   const [minSpinAmount, setMinSpinAmount] = useState(String(store.minSpinAmount))
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSave = async () => {
     setSaving(true)
@@ -46,7 +41,7 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
       setSaving(false)
       return
     }
-    const urlError = validateUrl(logoUrl) ?? validateUrl(googleReviewUrl)
+    const urlError = validateUrl(googleReviewUrl)
     if (urlError) {
       setFormError(urlError)
       setSaving(false)
@@ -68,7 +63,7 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
         campaignBadge: campaignBadge.trim(),
         minSpinAmount: Math.round(amount),
       })
-      setMessage('Settings saved. New customer sessions will use the updated configuration.')
+      setMessage('Settings saved.')
       reload()
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Failed to save settings.')
@@ -77,91 +72,154 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
     }
   }
 
+  const handleLogoUpload = async (file: File) => {
+    setUploading(true)
+    setMessage(null)
+    try {
+      const url = await dataProvider.uploadStoreLogo(file)
+      setLogoUrl(url)
+      setMessage('Logo uploaded.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Logo upload failed.')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <h1 className="font-display text-2xl font-bold text-ink">Store Settings</h1>
-        <p className="text-sm text-muted">
-          These settings drive your public Spin &amp; Win campaign. Changes apply to new customer sessions.
-        </p>
-      </CardHeader>
-      <CardBody className="flex flex-col gap-4">
-        <FormField label="Store slug" hint="Public route identifier — shown for reference, kept stable.">
-          <input className="field-input bg-border-soft py-2 text-muted" value={store.slug} readOnly />
-        </FormField>
-
-        <FormField label="Store display name">
-          <input
-            className="field-input py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your store's customer-facing name"
-          />
-        </FormField>
-
-        <FormField label="Subtitle">
-          <input
-            className="field-input py-2"
-            value={subtitle}
-            onChange={(e) => setSubtitle(e.target.value)}
-            placeholder="e.g. CUSTOMER REWARDS"
-          />
-        </FormField>
-
-        <FormField label="Logo URL">
-          <input
-            className="field-input py-2"
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="/assets/brand-logo.png or https://…"
-          />
-        </FormField>
-
-        <FormField
-          label="Google Review URL"
-          hint="Your store's Google review link. VITE_GOOGLE_REVIEW_URL overrides this when configured."
-        >
-          <input
-            className="field-input py-2"
-            type="url"
-            value={googleReviewUrl}
-            onChange={(e) => setGoogleReviewUrl(e.target.value)}
-            placeholder="https://search.google.com/local/writereview?placeid=…"
-          />
-        </FormField>
-
-        <FormField label="Campaign badge">
-          <input
-            className="field-input py-2"
-            value={campaignBadge}
-            onChange={(e) => setCampaignBadge(e.target.value)}
-            placeholder="e.g. SPIN & WIN"
-          />
-        </FormField>
-
-        <FormField label="Minimum qualifying purchase (₹)">
-          <input
-            className="field-input py-2"
-            type="number"
-            min={0}
-            value={minSpinAmount}
-            onChange={(e) => setMinSpinAmount(e.target.value)}
-          />
-        </FormField>
-
-        {formError && <p className="text-xs text-red-600" role="alert">{formError}</p>}
-        {message && (
-          <p className={`text-xs ${message.startsWith('Settings saved') ? 'text-green-700' : 'text-red-600'}`} role="status">
-            {message}
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <h1 className="font-display text-2xl font-bold text-ink">Store Branding</h1>
+          <p className="text-sm text-muted">
+            These settings drive your public Spin &amp; Win campaign.
           </p>
+        </CardHeader>
+        <CardBody className="flex flex-col gap-4">
+          {/* Logo upload */}
+          <div>
+            <p className="mb-2 text-sm font-medium text-ink">Store logo</p>
+            <div className="flex items-center gap-4">
+              <img
+                src={logoUrl || '/logo-placeholder.svg'}
+                alt="Store logo preview"
+                className="h-20 w-20 rounded-xl border border-border-soft bg-white object-contain p-2"
+              />
+              <div className="flex flex-col gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleLogoUpload(file)
+                  }}
+                  id="logo-upload"
+                />
+                <label
+                  htmlFor="logo-upload"
+                  className="btn-secondary inline-flex cursor-pointer items-center justify-center px-4 py-2 text-sm"
+                >
+                  {uploading ? 'Uploading…' : 'Upload logo'}
+                </label>
+                <p className="text-xs text-muted">JPG, PNG or WebP; maximum 5 MB.</p>
+              </div>
+            </div>
+          </div>
+
+          <FormField label="Store display name">
+            <input
+              className="field-input py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your store's customer-facing name"
+            />
+          </FormField>
+
+          <FormField label="Subtitle">
+            <input
+              className="field-input py-2"
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="e.g. CUSTOMER REWARDS"
+            />
+          </FormField>
+
+          <FormField label="Google Review URL" hint="Your store's Google review link. Customers may skip this.">
+            <input
+              className="field-input py-2"
+              type="url"
+              value={googleReviewUrl}
+              onChange={(e) => setGoogleReviewUrl(e.target.value)}
+              placeholder="https://search.google.com/local/writereview?placeid=…"
+            />
+          </FormField>
+
+          <FormField label="Store slug" hint="Public route identifier — kept stable for your QR code.">
+            <input className="field-input bg-border-soft py-2 text-muted" value={store.slug} readOnly />
+          </FormField>
+
+          {formError && <p className="text-xs text-red-600" role="alert">{formError}</p>}
+          {message && (
+            <p className={`text-xs ${message.includes('saved') || message.includes('uploaded') ? 'text-green-700' : 'text-red-600'}`} role="status">
+              {message}
+            </p>
+          )}
+        </CardBody>
+        <CardFooter>
+          <button type="button" className="btn-primary" disabled={saving} onClick={handleSave}>
+            {saving ? 'Saving…' : 'Save Settings'}
+          </button>
+        </CardFooter>
+      </Card>
+
+      {/* Advanced settings */}
+      <Card>
+        <CardHeader>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            aria-expanded={showAdvanced}
+          >
+            <h2 className="font-display text-base font-semibold text-ink">More campaign settings</h2>
+            <svg
+              className={`h-4 w-4 text-muted transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        </CardHeader>
+        {showAdvanced && (
+          <CardBody className="flex flex-col gap-3">
+            <FormField label="Campaign badge" hint="Shown on the customer-facing campaign page">
+              <input
+                className="field-input py-2"
+                value={campaignBadge}
+                onChange={(e) => setCampaignBadge(e.target.value)}
+                placeholder="e.g. SPIN & WIN"
+              />
+            </FormField>
+            <FormField label="Minimum qualifying purchase (₹)">
+              <input
+                className="field-input py-2"
+                type="number"
+                min={0}
+                value={minSpinAmount}
+                onChange={(e) => setMinSpinAmount(e.target.value)}
+              />
+            </FormField>
+          </CardBody>
         )}
-      </CardBody>
-      <CardFooter>
-        <button type="button" className="btn-primary" disabled={saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Settings'}
-        </button>
-      </CardFooter>
-    </Card>
+      </Card>
+    </div>
   )
 }
-

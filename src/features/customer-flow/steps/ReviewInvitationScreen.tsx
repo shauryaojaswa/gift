@@ -1,25 +1,34 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useCustomerFlow } from '../store'
+import { useStoreConfigValue } from '../StoreContext'
+import { configuredGoogleReviewUrl } from '@/lib/google-review'
 import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 export function ReviewInvitationScreen() {
+  const store = useStoreConfigValue()
   const setStep = useCustomerFlow((s) => s.setStep)
-  const setReviewReturnDetected = useCustomerFlow((s) => s.setReviewReturnDetected)
-  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setReviewCtaShown = useCustomerFlow((s) => s.setReviewCtaShown)
+  const setReviewCtaClicked = useCustomerFlow((s) => s.setReviewCtaClicked)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const reviewLink = configuredGoogleReviewUrl(store.googleReviewUrl)
 
-  useEffect(() => () => {
-    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
-  }, [])
-
-  const handleGoogleReturn = useCallback(() => {
-    setReviewReturnDetected(true)
-    transitionTimerRef.current = setTimeout(() => {
-      setStep('SPIN')
-      transitionTimerRef.current = null
-    }, 400)
-  }, [setReviewReturnDetected, setStep])
+  useEffect(() => setReviewCtaShown(true), [setReviewCtaShown])
 
   const handleContinue = () => setStep('SPIN')
+
+  const handleOpenAssistant = () => {
+    setReviewCtaClicked(true)
+    setAssistantOpen(true)
+  }
+
+  const handleAssistantClose = () => {
+    setAssistantOpen(false)
+  }
+
+  const handleAssistantSkip = () => {
+    setAssistantOpen(false)
+    setStep('SPIN')
+  }
 
   return (
     <div className="flex flex-col items-center text-center gap-5">
@@ -31,22 +40,37 @@ export function ReviewInvitationScreen() {
       </div>
       <h2 className="font-display text-xl font-bold text-ink">ENJOYED YOUR EXPERIENCE?</h2>
       <p className="font-body text-balance text-sm text-muted max-w-sm">
-        Share your genuine experience with us on Google.
+        Share your genuine experience on Google. A review is optional and does not affect your reward.
       </p>
 
-      <GoogleReviewAssistant
-        label="LEAVE A GOOGLE REVIEW"
-        className="tap-target inline-flex min-h-11 w-full items-center justify-center rounded-[8px] bg-brand px-6 py-3.5 text-base font-medium text-paper transition-colors hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-        onGoogleReturn={handleGoogleReturn}
-      />
+      {reviewLink.url ? (
+        <button
+          type="button"
+          onClick={handleOpenAssistant}
+          className="tap-target inline-flex min-h-11 w-full items-center justify-center rounded-[8px] bg-brand px-6 py-3.5 text-base font-medium text-paper transition-colors hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
+          Write a review
+        </button>
+      ) : (
+        <button type="button" className="btn-primary" disabled title={reviewLink.error ?? undefined}>
+          Write a review
+        </button>
+      )}
 
       <button type="button" className="btn-ghost mt-1 text-sm" onClick={handleContinue}>
-        SKIP &amp; SPIN
+        Skip &amp; Spin
       </button>
 
       <p className="font-body text-balance text-xs text-muted">
         Your reward is based only on your purchase amount and is never affected by a review.
       </p>
+
+      <GoogleReviewAssistant
+        open={assistantOpen}
+        onClose={handleAssistantClose}
+        onSkip={handleAssistantSkip}
+        reviewUrl={reviewLink.url}
+      />
     </div>
   )
 }

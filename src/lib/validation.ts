@@ -24,6 +24,7 @@ export function validatePurchaseAmount(
   if (raw.trim() === '') return { valid: false, error: 'Please enter your purchase amount.' }
   const parsed = parseINRAmount(raw)
   if (parsed === null) return { valid: false, error: 'Please enter a valid purchase amount.' }
+  if (!Number.isInteger(parsed)) return { valid: false, error: 'Please enter the amount in whole rupees.' }
   if (parsed < 0) return { valid: false, error: 'Please enter a valid purchase amount.' }
   if (parsed < minAmount) {
     return {

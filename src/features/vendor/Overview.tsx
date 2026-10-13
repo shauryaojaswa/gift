@@ -56,12 +56,10 @@ export default function Overview() {
   if (!stats) return null
 
   const cards = [
-    { label: 'Total entries', value: formatINRNumber(stats.totalSubmissions), icon: Users, accent: 'text-brand' },
-    { label: 'Rewards issued', value: formatINRNumber(stats.totalSubmissions), icon: Gift, accent: 'text-brand' },
-    { label: 'Awaiting collection', value: formatINRNumber(stats.awaitingCollection), icon: Package, accent: 'text-amber-600' },
-    { label: 'Gifts collected', value: formatINRNumber(stats.collected), icon: PackageCheck, accent: 'text-emerald-600' },
+    { label: 'Total customers', value: formatINRNumber(stats.totalCustomers), icon: Users, accent: 'text-brand' },
+    { label: 'Gifts awaiting collection', value: formatINRNumber(stats.awaitingCollection), icon: Package, accent: 'text-amber-600' },
+    { label: 'Gifts collected', value: formatINRNumber(stats.collectedGifts), icon: PackageCheck, accent: 'text-emerald-600' },
     { label: 'Total purchase value', value: formatINR(stats.totalPurchaseValue), icon: IndianRupee, accent: 'text-brand' },
-    { label: 'Unique customers', value: formatINRNumber(stats.totalCustomers), icon: TrendingUp, accent: 'text-brand' },
   ]
 
   return (
@@ -88,7 +86,7 @@ export default function Overview() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {cards.map(({ label, value, icon: Icon, accent }) => (
               <div key={label} className="rounded-xl border border-border-soft bg-paper px-4 py-4 shadow-sm">
                 <div className="flex items-center justify-between">
@@ -103,7 +101,7 @@ export default function Overview() {
           <section aria-labelledby="recent-heading" className="rounded-xl border border-border-soft bg-paper">
             <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
               <h2 id="recent-heading" className="font-display text-base font-semibold text-ink">
-                Recent activity
+                Recent customers
               </h2>
               <Link to="/vendor/customers" className="text-sm font-medium text-brand underline">
                 View all
@@ -114,9 +112,10 @@ export default function Overview() {
                 <thead>
                   <tr className="text-xs uppercase tracking-wide text-muted">
                     <th className="px-4 py-2 font-medium">Customer</th>
-                    <th className="px-4 py-2 font-medium">Amount</th>
+                    <th className="px-4 py-2 font-medium">Purchase</th>
                     <th className="px-4 py-2 font-medium">Reward</th>
-                    <th className="px-4 py-2 font-medium">When</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
+                    <th className="px-4 py-2 font-medium">Date</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -125,6 +124,17 @@ export default function Overview() {
                       <td className="px-4 py-2.5 text-ink">{r.customerName}</td>
                       <td className="px-4 py-2.5 text-ink">{formatINR(r.purchaseAmount)}</td>
                       <td className="px-4 py-2.5 text-ink">{r.rewardLabel}</td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            r.collectionStatus === 'collected'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {r.collectionStatus === 'collected' ? 'Collected' : 'Awaiting'}
+                        </span>
+                      </td>
                       <td className="px-4 py-2.5 text-muted">{formatDateTime(r.createdAt)}</td>
                     </tr>
                   ))}
@@ -135,9 +145,9 @@ export default function Overview() {
 
           <nav className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Quick links">
             <QuickLink to="/vendor/customers" label="Customers" icon={Users} />
-            <QuickLink to="/vendor/rewards" label="Rewards & Tiers" icon={Gift} />
-            <QuickLink to="/vendor/qr-code" label="My QR Code" icon={Package} />
-            <QuickLink to="/vendor/settings" label="Store Settings" icon={TrendingUp} />
+            <QuickLink to="/vendor/rewards" label="Campaign" icon={Gift} />
+            <QuickLink to="/vendor/qr-code" label="QR Code & Branding" icon={Package} />
+            <QuickLink to="/vendor/settings" label="Account" icon={TrendingUp} />
           </nav>
         </>
       )}
@@ -156,4 +166,3 @@ function QuickLink({ to, label, icon: Icon }: { to: string; label: string; icon:
     </Link>
   )
 }
-
