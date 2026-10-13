@@ -90,7 +90,11 @@ export class LocalDataProvider implements DataProvider {
   async signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
     void email
     void password
-    return { ok: false, error: 'Admin sign-in requires a configured Supabase project.' }
+    return {
+      ok: false,
+      error:
+        'Vendor sign-in requires a configured Supabase project (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY). Demo mode cannot authenticate securely.',
+    }
   }
 
   async signOut(): Promise<void> {
