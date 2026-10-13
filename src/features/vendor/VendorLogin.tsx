@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { useAdminAuth } from '@/features/admin/AdminContext'
+import { useAdminAuth, AdminAuthProvider } from '@/features/admin/AdminContext'
 import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/Card'
 import { FormField } from '@/components/ui/FormField'
 import { Store } from 'lucide-react'
@@ -11,7 +11,7 @@ import { Store } from 'lucide-react'
  * Supabase Auth user mapped to a store via the store_admins table) — see
  * VENDOR_SETUP.md. Demo mode has no secure credentials, so sign-in is refused.
  */
-export default function VendorLogin() {
+function VendorLoginInner() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login, session } = useAdminAuth()
@@ -99,5 +99,13 @@ export default function VendorLogin() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function VendorLogin() {
+  return (
+    <AdminAuthProvider>
+      <VendorLoginInner />
+    </AdminAuthProvider>
   )
 }
