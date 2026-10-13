@@ -139,10 +139,10 @@ async function main() {
     check(overlapping.length === 0, `no overlapping wheel labels (overlaps: ${JSON.stringify(overlapping)})`)
   }
 
-  // SPIN: physical rotation proof
+  // SPIN: physical rotation proof — the rotor is the <g> carrying a rotate()
   const pickRotor = () => {
-    const el = document.querySelector('.wheel-rotor, [class*="wheel"] g, svg[role="img"] g')
-    return el ? getComputedStyle(el).transform : null
+    const el = document.querySelector('svg[role="img"] g[transform*="rotate"]')
+    return el ? el.getAttribute('transform') : null
   }
   const rotBefore = await page.evaluate(pickRotor)
   await spinBtn.click()
@@ -152,8 +152,9 @@ async function main() {
   check(rotBefore !== rotMid, `wheel transform CHANGED after SPIN (${String(rotBefore).slice(0, 30)} -> ${String(rotMid).slice(0, 30)})`)
   check(await spinBtn.isDisabled().catch(() => false), 'SPIN disabled during spin (no double-submit)')
 
-  // wait for reveal (animation ~4-6s)
+  // wait for reveal (animation ~4-6s), then let the FadeUp sequence settle
   await page.getByText(/YOU WON/i).waitFor({ state: 'visible', timeout: 12000 })
+  await page.waitForTimeout(1400)
   await page.screenshot({ path: path.join(SHOT_DIR, '07-reward-390.png'), fullPage: true })
   const rewardText = await page.locator('body').innerText()
   check(/₹1,000|1000/i.test(rewardText), 'reward reveal matches ₹1,25,000 -> ₹1,000 voucher')
@@ -187,7 +188,7 @@ async function main() {
   await ins.nth(2).fill('9123456789')
   await p2.getByRole('button', { name: /continue|proceed|next|spin/i }).first().click()
   await p2.waitForTimeout(400)
-  const revBtn = p2.getByRole('button', { name: /google review/i }).first()
+  const revBtn = p2.getByRole('button', { name: /leave a google review/i }).first()
   if (await revBtn.count()) {
     const [popup] = await Promise.all([
       p2.waitForEvent('popup', { timeout: 4000 }).catch(() => null),
@@ -196,7 +197,8 @@ async function main() {
     check(!!popup && /google/.test(popup.url()), `Google review opens real Google URL (got: ${popup?.url() ?? 'none'})`)
     if (popup) await popup.close()
     await p2.waitForTimeout(300)
-    check(await p2.locator('input').first().isVisible().catch(() => false), 'session intact after returning from Google')
+    check(await p2.getByRole('button', { name: /skip & spin/i }).isVisible().catch(() => false),
+      'session intact after returning from Google (still on review step)')
   } else {
     notes.push('NOTE: no direct Google review button found on review step')
   }

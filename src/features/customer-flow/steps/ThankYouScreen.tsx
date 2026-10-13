@@ -45,9 +45,9 @@ export function ThankYouScreen() {
         </svg>
         <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-brand" />
       </div>
-      <h2 className="font-display text-3xl font-bold text-ink">THANK YOU!</h2>
+      <h2 className="font-display text-3xl font-bold text-ink">YOUR GIFT IS READY</h2>
       <p className="font-body text-balance text-center text-muted max-w-sm">
-        Your reward has been successfully unlocked.
+        Thank you for shopping with us.
       </p>
 
       <div className="w-full rounded-xl bg-ink/3 px-4 py-4 text-left">
@@ -83,6 +83,12 @@ export function ThankYouScreen() {
         </dl>
       </div>
 
+      <div className="w-full rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-center">
+        <p className="font-body text-sm font-semibold text-ink">
+          Please show this screen at the counter to collect your gift.
+        </p>
+      </div>
+
       <div className="flex flex-col gap-2 w-full pt-2">
         <button
           type="button"
@@ -92,12 +98,9 @@ export function ThankYouScreen() {
             navigate(`/store/${store.slug}`)
           }}
         >
-          DONE
+          SUBMIT ANOTHER RESPONSE
         </button>
         <GoogleReviewAssistant className="btn-ghost tap-target min-h-11 text-sm" />
-        <button type="button" className="btn-ghost text-sm" onClick={() => resetAll()}>
-          Submit another response
-        </button>
       </div>
 
       <p className="font-body text-xs text-muted">

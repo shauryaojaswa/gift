@@ -56,11 +56,31 @@ export function DetailsScreen() {
     amountValidationError === null &&
     validatePhone(phoneNumber).valid
 
+  // Mark every field touched on submit so the understandable validation
+  // messages appear (the button is always enabled), then focus the first
+  // invalid field instead of silently doing nothing.
+  const submitForm = () => {
+    setTouched({ name: true, amount: true, phone: true })
+    if (!validateName(fullName).valid) {
+      document.getElementById('full-name')?.focus()
+      return
+    }
+    if (amountValidationError) {
+      document.getElementById('purchase-amount')?.focus()
+      return
+    }
+    if (!validatePhone(phoneNumber).valid) {
+      document.getElementById('phone-number')?.focus()
+      return
+    }
+    setStep('REVIEW_INVITATION')
+  }
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        if (valid) setStep('REVIEW_INVITATION')
+        submitForm()
       }}
       className="flex flex-col gap-4"
     >
@@ -130,8 +150,7 @@ export function DetailsScreen() {
 
       <button
         type="submit"
-        className="btn-primary mt-5 rounded-xl border border-transparent px-3 py-3"
-        disabled={!valid}
+        className={`btn-primary mt-5 rounded-xl border border-transparent px-3 py-3 ${valid ? '' : 'opacity-80'}`}
       >
         CONTINUE
       </button>

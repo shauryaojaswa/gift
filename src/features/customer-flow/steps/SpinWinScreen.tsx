@@ -67,11 +67,6 @@ export function SpinWinScreen() {
 
   return (
     <div className="spin-win-content flex flex-col items-center text-center gap-5">
-      {store.campaignBadge && (
-        <span className="inline-flex items-center rounded-full bg-brand/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand">
-          {store.campaignBadge}
-        </span>
-      )}
       <h2 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-bold text-ink">
         {reviewReturnDetected || isSpinning ? 'WELCOME BACK!' : 'YOUR REWARD IS READY'}
       </h2>

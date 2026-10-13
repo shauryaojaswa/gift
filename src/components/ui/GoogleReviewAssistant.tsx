@@ -7,6 +7,14 @@ import { configuredGoogleReviewUrl } from '@/lib/google-review'
 interface GoogleReviewAssistantProps {
   className?: string
   onGoogleReturn?: () => void
+  /** Accessible label for the trigger button. */
+  label?: string
+  /**
+   * When true, the trigger opens Google's real review composer immediately
+   * (single tap, per the customer-flow spec). If the link is missing/invalid or
+   * the popup is blocked, the assistant dialog opens as the recovery path.
+   */
+  directOpen?: boolean
 }
 
 const REVIEW_RETURN_KEY = 'gift:review-return'
@@ -14,6 +22,8 @@ const REVIEW_RETURN_KEY = 'gift:review-return'
 export function GoogleReviewAssistant({
   className = 'btn-primary',
   onGoogleReturn,
+  label = '⭐ Leave a Google Review',
+  directOpen = false,
 }: GoogleReviewAssistantProps) {
   const store = useStoreConfigValue()
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -107,8 +117,8 @@ export function GoogleReviewAssistant({
 
   const cancel = () => setIsOpen(false)
 
-  const openGoogle = () => {
-    if (!reviewLink.url) return
+  const openGoogle = (): boolean => {
+    if (!reviewLink.url) return false
     returnPendingRef.current = true
     returnArmedRef.current = false
     tabAwayRef.current = false
@@ -133,17 +143,24 @@ export function GoogleReviewAssistant({
           // The active tab can still complete this flow without persistent storage.
         }
         setPopupBlocked(false)
-        return
+        return true
       }
     } catch {
       // Fall through to the visible recovery action below.
     }
     setPopupBlocked(true)
+    return false
+  }
+
+  const handleTrigger = () => {
+    if (directOpen && openGoogle()) return
+    // Recovery path: link not configured, invalid, or popup blocked.
+    openAssistant()
   }
   return (
     <>
-      <button ref={triggerRef} type="button" className={className} onClick={openAssistant}>
-        ⭐ Leave a Google Review
+      <button ref={triggerRef} type="button" className={className} onClick={handleTrigger}>
+        {label}
       </button>
 
       {isOpen &&

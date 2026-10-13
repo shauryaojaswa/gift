@@ -81,14 +81,14 @@ describe('Spin & Win — tap to reward', () => {
       })
       expect(Array.from(container.querySelectorAll('svg[role="img"] text')).map((label) => label.textContent))
         .toEqual([
-          'JEWELLERYCLEANING',
+          'CLEANING',
           'CARE KIT',
           '₹500VOUCHER',
           'PREMIUMGIFT',
-          '₹1,000VOUCHER',
+          '₹1KVOUCHER',
           'SILVERGIFT',
-          '₹2,500VOUCHER',
-          '₹5,000VOUCHER',
+          '₹2.5KVOUCHER',
+          '₹5KVOUCHER',
         ])
       expect(buildSegments(JOLLY_ENTERPRISES).map(({ rewardName }) => rewardName)).toEqual(
         JOLLY_ENTERPRISES.tiers

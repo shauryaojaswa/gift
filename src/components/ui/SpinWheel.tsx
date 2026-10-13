@@ -40,15 +40,22 @@ function describeAnnulus(
 
 function displayLabel(name: string, segmentCount: number): string[] {
   const normalized = name.toUpperCase().trim()
-  const voucherAmount = normalized.match(/^(₹[\d,]+)\s+VOUCHER$/)
-  if (voucherAmount) return [voucherAmount[1], 'VOUCHER']
 
+  // Spec-mandated concise wheel labels — kept separate from the full reward
+  // name that the reveal screen shows. Checked before the generic voucher rule
+  // so abbreviated forms (₹1K, ₹2.5K, ₹5K) win over "₹1,000" style.
   const conciseLabels: Record<string, string[]> = {
-    'JEWELLERY CLEANING': ['JEWELLERY', 'CLEANING'],
+    'JEWELLERY CLEANING': ['CLEANING'],
     'PREMIUM GIFT': ['PREMIUM', 'GIFT'],
     'SILVER GIFT': ['SILVER', 'GIFT'],
+    '₹1,000 VOUCHER': ['₹1K', 'VOUCHER'],
+    '₹2,500 VOUCHER': ['₹2.5K', 'VOUCHER'],
+    '₹5,000 VOUCHER': ['₹5K', 'VOUCHER'],
   }
   if (conciseLabels[normalized]) return conciseLabels[normalized]
+
+  const voucherAmount = normalized.match(/^(₹[\d,]+)\s+VOUCHER$/)
+  if (voucherAmount) return [voucherAmount[1], 'VOUCHER']
 
   const maxPerLine = segmentCount > 9 ? 7 : 10
   const words = normalized.split(/\s+/)

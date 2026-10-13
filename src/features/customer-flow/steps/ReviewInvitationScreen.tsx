@@ -29,18 +29,20 @@ export function ReviewInvitationScreen() {
           <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
-      <h2 className="font-display text-xl font-bold text-ink">SHARE YOUR EXPERIENCE</h2>
+      <h2 className="font-display text-xl font-bold text-ink">ENJOYED YOUR EXPERIENCE?</h2>
       <p className="font-body text-balance text-sm text-muted max-w-sm">
-        If you want, share an honest review about your visit. A review is optional, and your reward is not affected.
+        Share your genuine experience with us on Google.
       </p>
 
       <GoogleReviewAssistant
+        directOpen
+        label="LEAVE A GOOGLE REVIEW"
         className="tap-target inline-flex min-h-11 w-full items-center justify-center rounded-[8px] bg-brand px-6 py-3.5 text-base font-medium text-paper transition-colors hover:bg-brandHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
         onGoogleReturn={handleGoogleReturn}
       />
 
       <button type="button" className="btn-ghost mt-1 text-sm" onClick={handleContinue}>
-        CONTINUE TO SPIN
+        SKIP &amp; SPIN
       </button>
 
       <p className="font-body text-balance text-xs text-muted">
