@@ -1,6 +1,78 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Copy, CheckCircle, AlertCircle, ArrowLeft, RotateCcw, ExternalLink } from 'lucide-react'
+
+/* Inline SVG icons (no external icon dependency, matching ReviewInvitationScreen). */
+type IconProps = { size?: number; className?: string }
+
+function SvgBase({ size = 16, className, children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  )
+}
+
+const XIcon = ({ size, className }: IconProps) => (
+  <SvgBase size={size} className={className}>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </SvgBase>
+)
+
+const CopyIcon = ({ size, className }: IconProps) => (
+  <SvgBase size={size} className={className}>
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </SvgBase>
+)
+
+const CheckCircleIcon = ({ size, className }: IconProps) => (
+  <SvgBase size={size} className={className}>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <path d="m9 11 3 3L22 4" />
+  </SvgBase>
+)
+
+const AlertCircleIcon = ({ size, className }: IconProps) => (
+  <SvgBase size={size} className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </SvgBase>
+)
+
+const ArrowLeftIcon = ({ size, className }: IconProps) => (
+  <SvgBase size={size} className={className}>
+    <path d="m12 19-7-7 7-7" />
+    <path d="M19 12H5" />
+  </SvgBase>
+)
+
+const RotateCcwIcon = ({ size, className }: IconProps) => (
+  <SvgBase size={size} className={className}>
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </SvgBase>
+)
+
+const ExternalLinkIcon = ({ size, className }: IconProps) => (
+  <SvgBase size={size} className={className}>
+    <path d="M15 3h6v6" />
+    <path d="M10 14 21 3" />
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+  </SvgBase>
+)
 import { useStoreConfigValue } from '@/features/customer-flow/StoreContext'
 import { configuredGoogleReviewUrl } from '@/lib/google-review'
 import { cn } from '@/lib/utils'
@@ -61,7 +133,7 @@ const SuggestionCard = ({ suggestion, selected, onSelect }: { suggestion: (typeo
     </span>
     {selected && (
       <span className="flex items-center gap-1 text-xs font-medium text-brand">
-        <CheckCircle size={12} aria-hidden="true" />
+        <CheckCircleIcon size={12} aria-hidden="true" />
         Selected
       </span>
     )}
@@ -317,28 +389,28 @@ export function GoogleReviewAssistant({
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-cream"
                   onClick={closeAssistant}
                 >
-                  <X size={20} aria-hidden="true" />
+                  <XIcon size={20} aria-hidden="true" />
                 </button>
               </header>
 
               <div className="min-h-0 overflow-y-auto px-1 py-5 sm:px-5 sm:py-6">
                 {!canOpenGoogle && (
                   <p className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-                    <AlertCircle size={16} aria-hidden="true" />
+                    <AlertCircleIcon size={16} aria-hidden="true" />
                     {reviewLink.error ?? 'Google review link is not configured.'}
                   </p>
                 )}
 
                 {error && (
                   <p className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-                    <AlertCircle size={16} aria-hidden="true" />
+                    <AlertCircleIcon size={16} aria-hidden="true" />
                     {error}
                   </p>
                 )}
 
                 {successMessage && !error && (
                   <p className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700" role="status">
-                    <CheckCircle size={16} aria-hidden="true" />
+                    <CheckCircleIcon size={16} aria-hidden="true" />
                     {successMessage}
                   </p>
                 )}
@@ -398,7 +470,7 @@ export function GoogleReviewAssistant({
                         onClick={copyAgain}
                         disabled={copyState === 'copying'}
                       >
-                        <Copy size={16} aria-hidden="true" />
+                        <CopyIcon size={16} aria-hidden="true" />
                         {copyState === 'copying' ? 'Copying…' : 'Copy again'}
                       </button>
                       <button
@@ -407,7 +479,7 @@ export function GoogleReviewAssistant({
                         onClick={openGoogle}
                         disabled={!canOpenGoogle}
                       >
-                        <ExternalLink size={16} aria-hidden="true" />
+                        <ExternalLinkIcon size={16} aria-hidden="true" />
                         Open Google Reviews
                       </button>
                     </div>
@@ -430,7 +502,7 @@ export function GoogleReviewAssistant({
                       className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand hover:text-brandHover"
                       onClick={backToSuggestions}
                     >
-                      <ArrowLeft size={16} aria-hidden="true" />
+                      <ArrowLeftIcon size={16} aria-hidden="true" />
                       Back to suggestions
                     </button>
                   </div>
@@ -443,7 +515,7 @@ export function GoogleReviewAssistant({
                   className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-ink"
                   onClick={handleSkip}
                 >
-                  <RotateCcw size={14} aria-hidden="true" />
+                  <RotateCcwIcon size={14} aria-hidden="true" />
                   Skip &amp; continue without a review
                 </button>
                 {step === 'initial' && (
