@@ -77,7 +77,7 @@ function VendorLoginInner() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  required
+                  required={!import.meta.env.DEV}
                 />
               </FormField>
               {error && (
@@ -92,8 +92,14 @@ function VendorLoginInner() {
           )}
         </CardBody>
         <CardFooter>
+          {import.meta.env.DEV && (
+            <p className="mb-2 rounded-md bg-brand/5 px-3 py-2 text-center text-xs text-ink">
+              <strong className="font-semibold">Local preview:</strong> enter any email (password optional)
+              to explore the dashboard on this device. This is not available in production.
+            </p>
+          )}
           <p className="text-center text-xs text-muted">
-            Vendor sign-in requires a configured Supabase project with an invited account mapped to your
+            Production sign-in requires a configured Supabase project with an invited account mapped to your
             store. See VENDOR_SETUP.md.
           </p>
         </CardFooter>
