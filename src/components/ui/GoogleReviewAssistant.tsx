@@ -62,11 +62,13 @@ export function GoogleReviewAssistant({
   open,
   onClose,
   onSkip,
+  onReviewed,
   reviewUrl,
 }: {
   open: boolean
   onClose: () => void
   onSkip: () => void
+  onReviewed?: () => void
   reviewUrl: string | null
 }) {
   const [text, setText] = useState('')
@@ -128,15 +130,17 @@ export function GoogleReviewAssistant({
     void copyText(text)
     if (reviewUrl) {
       window.open(reviewUrl, '_blank', 'noopener,noreferrer')
+      onReviewed?.()
     }
     onSkip()
-  }, [copyText, text, reviewUrl, onSkip])
+  }, [copyText, text, reviewUrl, onReviewed, onSkip])
 
   const handleOpenGoogle = useCallback(() => {
     if (reviewUrl) {
       window.open(reviewUrl, '_blank', 'noopener,noreferrer')
+      onReviewed?.()
     }
-  }, [reviewUrl])
+  }, [reviewUrl, onReviewed])
 
   if (!open) return null
 

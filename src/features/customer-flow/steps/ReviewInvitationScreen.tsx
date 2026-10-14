@@ -9,6 +9,7 @@ export function ReviewInvitationScreen() {
   const setStep = useCustomerFlow((s) => s.setStep)
   const setReviewCtaShown = useCustomerFlow((s) => s.setReviewCtaShown)
   const setReviewCtaClicked = useCustomerFlow((s) => s.setReviewCtaClicked)
+  const setReviewReturnDetected = useCustomerFlow((s) => s.setReviewReturnDetected)
   const [assistantOpen, setAssistantOpen] = useState(false)
   const reviewLink = configuredGoogleReviewUrl(store.googleReviewUrl)
 
@@ -28,6 +29,10 @@ export function ReviewInvitationScreen() {
   const handleAssistantSkip = () => {
     setAssistantOpen(false)
     setStep('SPIN')
+  }
+
+  const handleReviewed = () => {
+    setReviewReturnDetected(true)
   }
 
   return (
@@ -64,6 +69,7 @@ export function ReviewInvitationScreen() {
         open={assistantOpen}
         onClose={handleAssistantClose}
         onSkip={handleAssistantSkip}
+        onReviewed={handleReviewed}
         reviewUrl={reviewLink.url}
       />
     </div>
