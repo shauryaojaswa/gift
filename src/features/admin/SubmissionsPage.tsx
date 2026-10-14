@@ -1,137 +1,213 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useDataProvider } from '@/providers/DataProviderContext'
 import { useAdminAuth } from './AdminContext'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatINR } from '@/lib/currency'
-import type { ListResult, SubmissionRecord, AdminStats } from '@/lib/data'
-
+import type { ListOptions, ListResult, SubmissionRecord } from '@/lib/data'
 const PAGE_SIZE = 20
 
 export function SubmissionsPage() {
   const dataProvider = useDataProvider()
   const { session } = useAdminAuth()
   const [submissions, setSubmissions] = useState<ListResult | null>(null)
-  const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState<Record<string, boolean>>({})
+  const [collectingId, setCollectingId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'' | 'awaiting' | 'collected'>('')
+  const [showFilters, setShowFilters] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!session) return
     setLoading(true)
     try {
-      const [list, stat] = await Promise.all([
-        dataProvider.listSubmissions({ page, pageSize: PAGE_SIZE, search }),
-        dataProvider.getStats(),
-      ])
+      const list = await dataProvider.listSubmissions({
+        page,
+        pageSize: PAGE_SIZE,
+        search,
+        collectionStatus: statusFilter || undefined,
+      })
       setSubmissions(list)
-      setStats(stat)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load submissions')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, search, session, statusFilter, dataProvider])
 
   useEffect(() => {
     load()
-  }, [page, search, session])
+  }, [load])
 
-  const toggleCollection = async (row: SubmissionRecord) => {
-    const isCollected = (row.collection?.status ?? 'awaiting') === 'collected'
-    // Optimistically lock the row so accidental double-clicks cannot fire twice.
-    setPending((prev) => ({ ...prev, [row.id]: true }))
+  const downloadCsv = async () => {
+    setExporting(true)
+    setError(null)
     try {
-      await dataProvider.setCollectionStatus(row.id, isCollected ? 'awaiting' : 'collected', {
-        collectedBy: session?.email ?? null,
-      })
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update collection status')
+      const options: Omit<ListOptions, 'page'> = {
+        pageSize: 500,
+        search,
+        collectionStatus: statusFilter || undefined,
+      }
+      const first = await dataProvider.listSubmissions({ ...options, page: 1 })
+      const records = [...first.items]
+      for (let currentPage = 2; currentPage <= first.pageCount; currentPage++) {
+        const result = await dataProvider.listSubmissions({ ...options, page: currentPage })
+        records.push(...result.items)
+      }
+      const blob = new Blob([toCsv(records)], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Customer export failed')
     } finally {
-      setPending((prev) => {
-        const next = { ...prev }
-        delete next[row.id]
-        return next
-      })
+      setExporting(false)
     }
   }
 
-  const csv = useMemo(() => toCsv(submissions?.items ?? []), [submissions?.items])
-
-  const downloadCsv = () => {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `submissions-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  const markCollected = async (id: string) => {
+    setCollectingId(id)
+    setError(null)
+    try {
+      await dataProvider.markSubmissionCollected(id)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update gift collection status')
+    } finally {
+      setCollectingId(null)
+    }
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Total submissions" value={stats?.totalSubmissions ?? 0} />
-        <StatCard label="Unique customers" value={stats?.totalCustomers ?? 0} />
-        <StatCard label="Avg. purchase" value={stats && stats.totalSubmissions ? formatINR(stats.averagePurchaseAmount) : '—'} />
-        <StatCard label="Awaiting collection" value={stats?.awaitingCollection ?? 0} />
-        <StatCard label="Gifts collected" value={stats?.collected ?? 0} />
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg font-bold text-ink">Customers</h2>
+        <button
+          type="button"
+          className="btn-ghost px-3 py-2 text-sm"
+          onClick={downloadCsv}
+          disabled={exporting || !submissions?.total}
+        >
+          {exporting ? 'Preparing…' : 'Export CSV'}
+        </button>
       </div>
 
-      <div>
-        <input
-          type="text"
-          className="field-input max-w-sm"
-          placeholder="Search by name, phone, reward…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-        />
+      {/* Search and filter toggle */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            className="field-input pl-9"
+            placeholder="Search by name, phone, reward…"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            aria-label="Search customers"
+          />
+        </div>
+        <button
+          type="button"
+          className="btn-ghost px-3 py-2 text-sm"
+          onClick={() => setShowFilters(!showFilters)}
+          aria-expanded={showFilters}
+        >
+          Filters
+          {statusFilter && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-brand" />}
+        </button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {/* Filter panel */}
+      {showFilters && (
+        <div className="flex flex-wrap gap-2 rounded-lg border border-border-soft bg-paper p-3">
+          <button
+            type="button"
+            onClick={() => { setStatusFilter(''); setPage(1) }}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${!statusFilter ? 'border-brand bg-brand/10 text-brand' : 'border-border-soft text-ink hover:border-brand/40'}`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => { setStatusFilter('awaiting'); setPage(1) }}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === 'awaiting' ? 'border-brand bg-brand/10 text-brand' : 'border-border-soft text-ink hover:border-brand/40'}`}
+          >
+            Awaiting collection
+          </button>
+          <button
+            type="button"
+            onClick={() => { setStatusFilter('collected'); setPage(1) }}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${statusFilter === 'collected' ? 'border-brand bg-brand/10 text-brand' : 'border-border-soft text-ink hover:border-brand/40'}`}
+          >
+            Collected
+          </button>
+        </div>
+      )}
+
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
       {loading ? (
         <Spinner />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border border-border-soft bg-paper">
+          {/* Table */}
+          <div className="overflow-x-auto rounded-xl border border-border-soft bg-paper">
             <table className="min-w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-border-soft bg-ink/3">
-                  <th className="px-3 py-2 text-ink">Customer</th>
-                  <th className="px-3 py-2 text-ink">Phone</th>
-                  <th className="px-3 py-2 text-ink">Amount</th>
-                  <th className="px-3 py-2 text-ink">Reward</th>
-                  <th className="px-3 py-2 text-ink">Code</th>
-                  <th className="px-3 py-2 text-ink">Review</th>
-                  <th className="px-3 py-2 text-ink">When</th>
-                  <th className="px-3 py-2 text-ink">Collection</th>
+                <tr className="border-b border-border-soft">
+                  <th className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted">Customer</th>
+                  <th className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted">Phone</th>
+                  <th className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted">Amount</th>
+                  <th className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted">Reward</th>
+                  <th className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted">Status</th>
+                  <th className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted">Date</th>
+                  <th className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {(submissions?.items.length ?? 0) === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-6 text-center text-muted">
-                      No submissions yet.
+                    <td colSpan={6} className="px-4 py-10 text-center text-muted">
+                      No submissions found.
                     </td>
                   </tr>
                 ) : (
                   submissions?.items.map((r) => (
-                    <SubmissionRow key={r.id} row={r} pending={Boolean(pending[r.id])} onToggle={toggleCollection} />
+                    <SubmissionRow
+                      key={r.id}
+                      row={r}
+                      collecting={collectingId === r.id}
+                      onCollect={() => markCollected(r.id)}
+                    />
                   ))
                 )}
               </tbody>
             </table>
           </div>
 
-          {submissions && (
+          {/* Pagination */}
+          {submissions && submissions.pageCount > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted">
                 Page {submissions.page} of {submissions.pageCount} · {submissions.total} total
@@ -139,7 +215,7 @@ export function SubmissionsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="btn-ghost"
+                  className="btn-ghost px-3 py-2 text-sm"
                   disabled={submissions.page <= 1}
                   onClick={() => setPage(submissions.page - 1)}
                 >
@@ -147,14 +223,11 @@ export function SubmissionsPage() {
                 </button>
                 <button
                   type="button"
-                  className="btn-ghost"
+                  className="btn-ghost px-3 py-2 text-sm"
                   disabled={submissions.page >= submissions.pageCount}
                   onClick={() => setPage(submissions.page + 1)}
                 >
                   Next
-                </button>
-                <button type="button" className="btn-secondary" onClick={downloadCsv} disabled={!csv}>
-                  Export CSV
                 </button>
               </div>
             </div>
@@ -165,83 +238,78 @@ export function SubmissionsPage() {
   )
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl bg-paper p-4 shadow">
-      <p className="text-xs text-muted">{label}</p>
-      <p className="font-display text-2xl font-bold text-ink">{value}</p>
-    </div>
-  )
-}
-
 function SubmissionRow({
   row,
-  pending,
-  onToggle,
+  collecting,
+  onCollect,
 }: {
   row: SubmissionRecord
-  pending: boolean
-  onToggle: (row: SubmissionRecord) => void
+  collecting: boolean
+  onCollect: () => void
 }) {
-  const collected = (row.collection?.status ?? 'awaiting') === 'collected'
   return (
-    <tr className="border-b border-border-soft">
-      <td className="px-3 py-2 font-medium text-ink">{row.customerName}</td>
-      <td className="px-3 py-2 text-muted">{row.customerPhone || '—'}</td>
-      <td className="px-3 py-2">{formatINR(row.purchaseAmount)}</td>
-      <td className="px-3 py-2">{row.rewardLabel}</td>
-      <td className="px-3 py-2 text-muted">{row.couponCode ?? '—'}</td>
-      <td className="px-3 py-2 text-xs">
-        {row.reviewCtaClicked ? 'Clicked' : row.reviewCtaShown ? 'Shown' : '—'}
-      </td>
-      <td className="px-3 py-2 text-xs text-muted">{new Date(row.createdAt).toLocaleString()}</td>
-      <td className="px-3 py-2">
-        <div className="flex flex-col items-start gap-1">
-          <span
-            className={
-              collected
-                ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800'
-                : 'rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800'
-            }
-          >
-            {collected ? 'Collected' : 'Awaiting'}
+    <tr className="border-b border-border-soft last:border-0">
+      <td className="px-4 py-2.5 font-medium text-ink">{row.customerName}</td>
+      <td className="px-4 py-2.5 text-muted">{row.customerPhone || '—'}</td>
+      <td className="px-4 py-2.5">{formatINR(row.purchaseAmount)}</td>
+      <td className="px-4 py-2.5 text-muted">{row.rewardLabel}</td>
+      <td className="px-4 py-2.5">
+        {row.collectionStatus === 'collected' ? (
+          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+            Collected
           </span>
-          {collected && row.collection?.collectedAt && (
-            <span className="text-[10px] text-muted">
-              {new Date(row.collection.collectedAt).toLocaleDateString()}
-            </span>
-          )}
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+            Awaiting
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-2.5 text-xs text-muted">
+        {new Date(row.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+      </td>
+      <td className="px-4 py-2.5">
+        {row.collectionStatus === 'collected' ? (
+          <span className="text-xs text-muted">
+            {row.collectedAt
+              ? new Date(row.collectedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+              : 'Done'}
+          </span>
+        ) : (
           <button
             type="button"
-            className="btn-ghost text-xs"
-            disabled={pending}
-            onClick={() => onToggle(row)}
+            className="btn-primary px-3 py-1.5 text-xs"
+            disabled={collecting}
+            onClick={onCollect}
           >
-            {pending ? 'Saving…' : collected ? 'Mark uncollected' : 'Mark collected'}
+            {collecting ? 'Saving…' : 'Mark collected'}
           </button>
-        </div>
+        )}
       </td>
     </tr>
   )
 }
 
 function toCsv(items: SubmissionRecord[]): string {
-  const header = ['id', 'customerName', 'customerPhone', 'purchaseAmount', 'rewardLabel', 'couponCode', 'reviewCtaShown', 'reviewCtaClicked', 'collectionStatus', 'collectedAt', 'collectedBy', 'createdAt']
+  const header = ['id', 'customerName', 'customerPhone', 'purchaseAmount', 'rewardLabel', 'claimCode', 'collectionStatus', 'collectedAt', 'reviewCtaShown', 'reviewCtaClicked', 'createdAt']
   const rows = items.map((r) =>
     [
-      r.id,
-      `"${r.customerName.replace(/"/g, '""')}"`,
-      r.customerPhone,
-      r.purchaseAmount,
-      `"${r.rewardLabel.replace(/"/g, '""')}"`,
-      `"${r.couponCode ?? ''}"`,
+      csvCell(r.id),
+      csvCell(r.customerName),
+      csvCell(r.customerPhone),
+      csvCell(String(r.purchaseAmount)),
+      csvCell(r.rewardLabel),
+      csvCell(r.couponCode ?? ''),
+      csvCell(r.collectionStatus),
+      csvCell(r.collectedAt ?? ''),
       r.reviewCtaShown,
       r.reviewCtaClicked,
-      r.collection?.status ?? 'awaiting',
-      r.collection?.collectedAt ?? '',
-      `"${r.collection?.collectedBy ?? ''}"`,
-      r.createdAt,
+      csvCell(r.createdAt),
     ].join(','),
   )
   return [header.join(','), ...rows].join('\n')
+}
+
+function csvCell(value: string): string {
+  const safeValue = /^[=+\-@]/.test(value) ? `'${value}` : value
+  return `"${safeValue.replace(/"/g, '""')}"`
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getPurchaseTier, getRewardForAmount, evaluateReward, buildSegments, getWheelTargetSegment } from './reward-engine'
+import { getPurchaseTier, getRewardForAmount, evaluateReward, buildSegments, getWheelTargetSegment, validateTierConfiguration } from './reward-engine'
 import { JOLLY_ENTERPRISES } from './stores'
 
 const cfg = JOLLY_ENTERPRISES
@@ -87,28 +87,48 @@ describe('reward resolution', () => {
 
 describe('premium reward mapping (deterministic by purchase amount)', () => {
   const matrix: Array<[number, string]> = [
-    [10000, 'JEWELLERY CLEANING'],
-    [19999, 'JEWELLERY CLEANING'],
-    [20000, 'CARE KIT'],
-    [39999, 'CARE KIT'],
-    [40000, '₹500 VOUCHER'],
-    [49999, '₹500 VOUCHER'],
+    [10000, 'Jewellery Cleaning & Polishing'],
+    [19999, 'Jewellery Cleaning & Polishing'],
+    [20000, 'Premium Jewellery Care Kit'],
+    [39999, 'Premium Jewellery Care Kit'],
+    [40000, '₹500 Future Purchase Voucher'],
+    [49999, '₹500 Future Purchase Voucher'],
     [50000, 'PREMIUM GIFT'],
     [99999, 'PREMIUM GIFT'],
-    [100000, '₹1,000 VOUCHER'],
-    [125000, '₹1,000 VOUCHER'],
-    [149999, '₹1,000 VOUCHER'],
-    [150000, 'SILVER GIFT'],
-    [249999, 'SILVER GIFT'],
-    [250000, '₹2,500 VOUCHER'],
-    [499999, '₹2,500 VOUCHER'],
-    [500000, '₹5,000 VOUCHER'],
+    [100000, '₹1,000 Making-Charge Voucher'],
+    [125000, '₹1,000 Making-Charge Voucher'],
+    [149999, '₹1,000 Making-Charge Voucher'],
+    [150000, 'Premium Silver Gift'],
+    [249999, 'Premium Silver Gift'],
+    [250000, '₹2,500 Making-Charge Voucher'],
+    [499999, '₹2,500 Making-Charge Voucher'],
+    [500000, '₹5,000 Store Voucher / Premium Gift'],
   ]
 
   for (const [amount, expectedName] of matrix) {
     it(`₹${amount.toLocaleString('en-IN')} → ${expectedName}`, () => {
       const res = evaluateReward(amount, cfg)
       expect(res?.reward.name).toBe(expectedName)
+    })
+
+    describe('purchase tier configuration validation', () => {
+      it('accepts the sample contiguous tier configuration', () => {
+        expect(validateTierConfiguration(cfg.tiers, cfg.minSpinAmount, cfg.rewards)).toBeNull()
+      })
+
+      it('rejects gaps, overlaps, and wheel labels mapped to different gifts', () => {
+        const gap = cfg.tiers.map((tier) => ({ ...tier }))
+        gap[0].maxAmount = 19000
+        expect(validateTierConfiguration(gap, cfg.minSpinAmount, cfg.rewards)).toContain('gap')
+
+        const overlap = cfg.tiers.map((tier) => ({ ...tier }))
+        overlap[0].maxAmount = 21000
+        expect(validateTierConfiguration(overlap, cfg.minSpinAmount, cfg.rewards)).toContain('overlap')
+
+        const segmentConflict = cfg.tiers.map((tier) => ({ ...tier }))
+        segmentConflict[1].targetSegment = 0
+        expect(validateTierConfiguration(segmentConflict, cfg.minSpinAmount, cfg.rewards)).toContain('same wheel segment')
+      })
     })
   }
 

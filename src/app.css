@@ -159,7 +159,7 @@
     background: transparent;
   }
 
-  .btn-ghost:hover {
+  .btn-ghost:hover:not(:disabled) {
     border-color: hsl(350 30% 60%);
     background: hsl(350 30% 97%);
   }

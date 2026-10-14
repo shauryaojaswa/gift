@@ -37,6 +37,46 @@ export interface RewardResult {
   targetSegment: number
 }
 
+export function validateTierConfiguration(
+  tiers: RewardTier[],
+  minSpinAmount: number,
+  rewards: Reward[],
+): string | null {
+  const activeTiers = tiers.filter((tier) => tier.active).sort((a, b) => a.minAmount - b.minAmount)
+  if (activeTiers.length === 0) return 'Add at least one active purchase tier.'
+  if (activeTiers[0].minAmount !== minSpinAmount) {
+    return `The first active tier must start at ${minSpinAmount.toLocaleString('en-IN')}.`
+  }
+
+  const segmentRewards = new Map<number, string>()
+  for (let index = 0; index < activeTiers.length; index++) {
+    const current = activeTiers[index]
+    if (!Number.isInteger(current.minAmount) || current.minAmount <= 0) return 'Tier minimums must be positive whole rupee amounts.'
+    if (current.maxAmount !== null && (!Number.isInteger(current.maxAmount) || current.maxAmount <= current.minAmount)) {
+      return 'Each maximum must be greater than its minimum.'
+    }
+    if (!Number.isInteger(current.targetSegment) || current.targetSegment < 0 || current.targetSegment > 7) {
+      return 'Choose a wheel segment from 1 to 8.'
+    }
+    if (!rewards.some((reward) => reward.id === current.rewardId && reward.active)) {
+      return 'Every active tier must use an active gift.'
+    }
+    const mappedReward = segmentRewards.get(current.targetSegment)
+    if (mappedReward && mappedReward !== current.rewardId) {
+      return 'Different gifts cannot use the same wheel segment.'
+    }
+    segmentRewards.set(current.targetSegment, current.rewardId)
+    const next = activeTiers[index + 1]
+    if (next && current.maxAmount !== next.minAmount) {
+      return current.maxAmount === null || current.maxAmount > next.minAmount
+        ? 'Purchase tiers must not overlap.'
+        : 'Purchase tiers must not leave a gap.'
+    }
+    if (!next && current.maxAmount !== null) return 'The highest active tier must not have an upper limit.'
+  }
+  return null
+}
+
 export function evaluateReward(amount: number, config: StoreConfig): RewardResult | null {
   const tier = getPurchaseTier(amount, config)
   if (!tier) return null
@@ -59,13 +99,23 @@ export function buildSegments(config: StoreConfig): WheelSegment[] {
       {
         index: tier.targetSegment,
         rewardId: reward.id,
-        rewardName: reward.name,
+        rewardName: reward.shortLabel || conciseLabel(reward.name),
         rewardDescription: reward.description,
         color: segmentColor(tier.targetSegment),
       },
     )
   }
   return Array.from(bySegment.values()).sort((a, b) => a.index - b.index)
+}
+
+function conciseLabel(name: string): string {
+  const labels = new Map([
+    ['JEWELLERY CLEANING', 'CLEANING'],
+    ['₹1,000 VOUCHER', '₹1K VOUCHER'],
+    ['₹2,500 VOUCHER', '₹2.5K VOUCHER'],
+    ['₹5,000 VOUCHER', '₹5K VOUCHER'],
+  ])
+  return labels.get(name) ?? name
 }
 
 const SEGMENT_COLORS = [

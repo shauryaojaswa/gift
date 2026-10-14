@@ -9,8 +9,14 @@ interface DataProviderContextValue {
 
 const DataProviderContext = createContext<DataProviderContextValue | null>(null)
 
-export function DataProviderProvider({ children }: { children: React.ReactNode }) {
-  const [dataProvider] = useState(() => getDataProvider())
+export function DataProviderProvider({
+  children,
+  provider,
+}: {
+  children: React.ReactNode
+  provider?: DataProvider
+}) {
+  const [dataProvider] = useState(() => provider ?? getDataProvider())
   return (
     <DataProviderContext.Provider value={{ dataProvider }}>{children}</DataProviderContext.Provider>
   )

@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react'
+import { Trash2, Package } from 'lucide-react'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import { Spinner } from '@/components/ui/Spinner'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
@@ -21,7 +22,7 @@ export default function Rewards() {
   if (loading) return <Spinner />
   if (!store) return <p className="text-muted">Unable to load your rewards.</p>
 
-  const rewardName = (id: string) => rewards.find((r) => r.id === id)?.name ?? 'â€”'
+  const rewardName = (id: string) => rewards.find((r) => r.id === id)?.name ?? '—'
 
   const flash = (msg: string) => {
     setToast(msg)
@@ -95,15 +96,6 @@ export default function Rewards() {
       setBusy(false)
     }
   }
-  const toggleTierActive = async (t: RewardTier) => {
-    setBusy(true)
-    try {
-      await dataProvider.upsertTier({ ...t, active: !t.active })
-      await reload()
-    } finally {
-      setBusy(false)
-    }
-  }
   const deleteReward = async (r: Reward) => {
     if (!confirm(`Delete reward "${r.name}"? Past submissions keep the reward they were awarded.`)) return
     setBusy(true)
@@ -115,22 +107,10 @@ export default function Rewards() {
       setBusy(false)
     }
   }
-  const deleteTier = async (t: RewardTier) => {
-    if (!confirm(`Delete tier ${formatTierRange(t.minAmount, t.maxAmount)}?`)) return
-    setBusy(true)
-    try {
-      await dataProvider.deleteTier(t.id)
-      await reload()
-      flash('Reward tier deleted.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6 pb-20 lg:pb-0">
       <header>
-        <h1 className="font-display text-2xl font-bold text-ink">Rewards &amp; Tiers</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Campaign</h1>
         <p className="mt-1 text-sm text-muted">
           Manage the rewards customers win and the purchase ranges that unlock them. Changes apply to
           new customer sessions; past winners keep the reward they were originally awarded.
@@ -143,8 +123,8 @@ export default function Rewards() {
       )}
 
       {/* Rewards */}
-      <section aria-labelledby="rewards-heading" className="rounded-xl border border-border-soft bg-paper">
-        <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
+      <section aria-labelledby="rewards-heading">
+        <div className="mb-3 flex items-center justify-between">
           <h2 id="rewards-heading" className="font-display text-base font-semibold text-ink">
             Rewards
           </h2>
@@ -157,55 +137,77 @@ export default function Rewards() {
             Add reward
           </button>
         </div>
-        <div className="divide-y divide-border-soft">
-          {rewards.length === 0 && (
-            <p className="px-4 py-6 text-center text-sm text-muted">No rewards yet. Add your first reward.</p>
-          )}
-          {rewards.map((r) => (
-            <div key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ink">{r.name}</p>
-                {r.description && <p className="truncate text-xs text-muted">{r.description}</p>}
+
+        {rewards.length === 0 ? (
+          <div className="rounded-xl border border-border-soft bg-paper px-6 py-10 text-center">
+            <Package size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
+            <p className="text-sm text-muted">No rewards yet. Add your first reward.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {rewards.map((r) => (
+              <div key={r.id} className="flex flex-col gap-2 rounded-xl border border-border-soft bg-paper p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{r.name}</p>
+                    {r.description && <p className="mt-0.5 truncate text-xs text-muted">{r.description}</p>}
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      r.active ? 'bg-emerald-50 text-emerald-700' : 'bg-border-soft text-muted'
+                    }`}
+                  >
+                    {r.active ? 'Active' : 'Off'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRewardErr(null)
+                      setRewardForm(r)
+                    }}
+                    disabled={busy}
+                    className="btn-ghost flex-1 px-3 py-2 text-xs"
+                  >
+                    Edit
+                  </button>
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="btn-ghost flex items-center gap-1 px-3 py-2 text-xs"
+                      aria-label={`More options for ${r.name}`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                    </button>
+                    <div className="invisible absolute right-0 top-full z-10 mt-1 w-36 rounded-lg border border-border-soft bg-paper py-1 shadow-lg group-focus-within:visible group-hover:visible">
+                      <button
+                        type="button"
+                        onClick={() => toggleRewardActive(r)}
+                        disabled={busy}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-ink hover:bg-brand/5"
+                      >
+                        <Package size={12} aria-hidden="true" />
+                        {r.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteReward(r)}
+                        disabled={busy}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 size={12} aria-hidden="true" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    r.active ? 'bg-emerald-50 text-emerald-700' : 'bg-border-soft text-muted'
-                  }`}
-                >
-                  {r.active ? 'Active' : 'Off'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => toggleRewardActive(r)}
-                  disabled={busy}
-                  className="rounded-md border border-border-soft px-2 py-1 text-xs text-muted hover:bg-brand/10 hover:text-ink disabled:opacity-50"
-                >
-                  {r.active ? 'Disable' : 'Enable'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRewardErr(null)
-                    setRewardForm(r)
-                  }}
-                  disabled={busy}
-                  className="rounded-md border border-border-soft px-2 py-1 text-xs text-muted hover:bg-brand/10 hover:text-ink disabled:opacity-50"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteReward(r)}
-                  disabled={busy}
-                  className="rounded-md border border-border-soft px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Reward editor form */}
@@ -222,7 +224,7 @@ export default function Rewards() {
                 className="field-input py-2.5 text-base"
                 value={rewardForm.name}
                 onChange={(e) => setRewardForm({ ...rewardForm, name: e.target.value })}
-                placeholder="e.g. â‚¹500 Voucher"
+                placeholder="e.g. ₹500 Voucher"
               />
             </FormField>
             <FormField label="Description">
@@ -264,15 +266,15 @@ export default function Rewards() {
               disabled={busy}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
             >
-              {busy ? 'Savingâ€¦' : 'Save reward'}
+              {busy ? 'Saving…' : 'Save reward'}
             </button>
           </div>
         </Card>
       )}
 
       {/* Tiers */}
-      <section aria-labelledby="tiers-heading" className="rounded-xl border border-border-soft bg-paper">
-        <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
+      <section aria-labelledby="tiers-heading">
+        <div className="mb-3 flex items-center justify-between">
           <h2 id="tiers-heading" className="font-display text-base font-semibold text-ink">
             Purchase tiers
           </h2>
@@ -286,75 +288,51 @@ export default function Rewards() {
           </button>
         </div>
         {rewards.length === 0 && (
-          <p className="px-4 py-3 text-xs text-muted">Add a reward before creating purchase tiers.</p>
+          <p className="rounded-lg border border-border-soft bg-paper px-4 py-3 text-xs text-muted">
+            Add a reward before creating purchase tiers.
+          </p>
         )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="text-xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-2 font-medium">Range</th>
-                <th className="px-4 py-2 font-medium">Reward</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tiers.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">
-                    No tiers yet.
-                  </td>
-                </tr>
-              )}
-              {tiers.map((t) => (
-                <tr key={t.id} className="border-t border-border-soft">
-                  <td className="px-4 py-2.5 text-ink">{formatTierRange(t.minAmount, t.maxAmount)}</td>
-                  <td className="px-4 py-2.5 text-ink">{rewardName(t.rewardId)}</td>
-                  <td className="px-4 py-2.5">
+        {tiers.length === 0 && rewards.length > 0 ? (
+          <div className="rounded-xl border border-border-soft bg-paper px-6 py-10 text-center">
+            <p className="text-sm text-muted">No tiers yet. Add your first purchase tier.</p>
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[...tiers]
+              .sort((a, b) => a.minAmount - b.minAmount)
+              .map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border-soft bg-paper px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-ink">{formatTierRange(t.minAmount, t.maxAmount)}</p>
+                    <p className="text-xs text-muted">{rewardName(t.rewardId)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                         t.active ? 'bg-emerald-50 text-emerald-700' : 'bg-border-soft text-muted'
                       }`}
                     >
                       {t.active ? 'Active' : 'Off'}
                     </span>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => toggleTierActive(t)}
-                        disabled={busy}
-                        className="rounded-md border border-border-soft px-2 py-1 text-xs text-muted hover:bg-brand/10 hover:text-ink disabled:opacity-50"
-                      >
-                        {t.active ? 'Disable' : 'Enable'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTierErr(null)
-                          setTierForm(t)
-                        }}
-                        disabled={busy}
-                        className="rounded-md border border-border-soft px-2 py-1 text-xs text-muted hover:bg-brand/10 hover:text-ink disabled:opacity-50"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteTier(t)}
-                        disabled={busy}
-                        className="rounded-md border border-border-soft px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTierErr(null)
+                        setTierForm(t)
+                      }}
+                      disabled={busy}
+                      className="btn-ghost px-3 py-1.5 text-xs"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+          </div>
+        )}
       </section>
 
       {/* Tier editor form */}
@@ -367,7 +345,7 @@ export default function Rewards() {
           </CardHeader>
           <CardBody className="flex flex-col gap-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Minimum purchase (â‚¹)">
+              <FormField label="Minimum purchase (₹)">
                 <input
                   type="number"
                   inputMode="numeric"
@@ -376,7 +354,7 @@ export default function Rewards() {
                   onChange={(e) => setTierForm({ ...tierForm, minAmount: Number(e.target.value) || 0 })}
                 />
               </FormField>
-              <FormField label="Maximum purchase (â‚¹)" hint="Leave blank for no upper limit (top tier only).">
+              <FormField label="Maximum purchase (₹)" hint="Leave blank for no upper limit (top tier only).">
                 <input
                   type="number"
                   inputMode="numeric"
@@ -421,7 +399,7 @@ export default function Rewards() {
               disabled={busy}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
             >
-              {busy ? 'Savingâ€¦' : 'Save tier'}
+              {busy ? 'Saving…' : 'Save tier'}
             </button>
           </div>
         </Card>

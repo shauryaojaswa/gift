@@ -5,21 +5,26 @@ import { useDataProvider } from '@/providers/DataProviderContext'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { GoogleReviewQrCode } from '@/components/ui/GoogleReviewQrCode'
+import type { StoreConfig } from '@/types'
 
 export default function Standee() {
   const { slug = 'jolly-enterprises' } = useParams<{ slug: string }>()
   const dataProvider = useDataProvider()
-  const [storeName, setStoreName] = useState('JOLLY ENTERPRISES')
+  const [store, setStore] = useState<StoreConfig | null>(null)
+  const [storeError, setStoreError] = useState<string | null>(null)
   const [qrSvg, setQrSvg] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     dataProvider
       .getStoreConfig(slug)
-      .then((s) => {
-        if (s) setStoreName(s.name)
+      .then((result) => {
+        setStore(result)
+        if (!result) setStoreError('Store configuration was not found.')
       })
-      .catch(() => {})
+      .catch((error: unknown) => {
+        setStoreError(error instanceof Error ? error.message : 'Store configuration could not be loaded.')
+      })
   }, [dataProvider, slug])
 
   // Build the public campaign URL from the deployment base so the QR code and
@@ -61,14 +66,15 @@ export default function Standee() {
           )
         )}
         <div className="text-center">
-          <p className="font-display text-2xl font-bold text-ink">{storeName}</p>
+          <p className="font-display text-2xl font-bold text-ink">{store?.name ?? 'CUSTOMER REWARDS'}</p>
           <p className="font-body text-sm text-muted">CUSTOMER EXPERIENCE</p>
         </div>
+        {storeError && <p role="alert" className="text-center text-sm text-red-700">{storeError}</p>}
         <div className="rounded-full bg-brand/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-brand">
           Scan &middot; 60 Seconds &middot; Spin &amp; Win
         </div>
         <p className="font-body text-xs text-muted break-all">{copy}</p>
-        <GoogleReviewQrCode />
+        <GoogleReviewQrCode reviewUrl={store?.googleReviewUrl ?? null} />
         <button type="button" className="btn-primary" onClick={() => window.print()}>
           Print Standee
         </button>

@@ -9,16 +9,13 @@ import type {
   SubmissionRecord,
   AdminStats,
   StorePatch,
+  RewardAssignment,
 } from './types'
+import { evaluateReward, validateTierConfiguration } from '../reward-engine'
 
 const SUBMISSIONS_KEY = (storeId: string) => `gift:local:submissions:${storeId}`
 const STORE_KEY = (slug: string) => `gift:local:store:${slug}`
 const ADMIN_KEY = 'gift:local:admin:session'
-function randId(prefix = 'sub'): string {
-  const suffix = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8).toUpperCase() : Math.random().toString(36).slice(2, 10).toUpperCase()
-  return `${prefix}_${suffix}`
-}
-
 function readJSON<T>(key: string, fallback: T): T {
   try {
     const raw = window.localStorage.getItem(key)
@@ -63,55 +60,94 @@ export class LocalDataProvider implements DataProvider {
     return merged
   }
 
-  async createSubmission(input: CreateSubmissionInput): Promise<{ id: string }> {
-    const id = randId('sub')
+  async getAdminStoreConfig(): Promise<StoreConfig | null> {
+    return this.getStoreConfig('jolly-enterprises')
+  }
+
+  async createSubmission(input: CreateSubmissionInput): Promise<RewardAssignment> {
+    const store = await this.getStoreConfig(input.storeSlug)
+    if (!store) throw new Error('Campaign not found')
+    const id = input.requestId
+    const existing = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), [])
+      .find((record) => record.id === id)
+    if (existing) {
+      if (
+        existing.customerName !== input.customerName.trim() ||
+        existing.customerPhone !== input.customerPhone ||
+        existing.purchaseAmount !== input.purchaseAmount
+      ) {
+        throw new Error('This entry reference has already been used')
+      }
+      const configuredTier = store.tiers.find((item) => item.id === existing.tierId)
+      const reward: Reward = {
+        id: existing.rewardId,
+        name: existing.rewardLabel,
+        shortLabel: existing.rewardShortLabel ?? undefined,
+        description: existing.rewardDescription,
+        voucherValue: existing.rewardVoucherValue,
+        claimCodePrefix: existing.rewardClaimCodePrefix,
+        validityText: existing.rewardValidityText,
+        active: true,
+      }
+      const tier: RewardTier = {
+        id: existing.tierId || configuredTier?.id || '',
+        minAmount: existing.tierMinAmount || configuredTier?.minAmount || 0,
+        maxAmount: existing.tierMaxAmount ?? configuredTier?.maxAmount ?? null,
+        rewardId: existing.rewardId,
+        targetSegment: existing.targetSegment ?? configuredTier?.targetSegment ?? 0,
+        active: true,
+      }
+      if (!tier.id) throw new Error('Previously assigned purchase tier is missing')
+      return {
+        id,
+        reward,
+        tier,
+        claimCode: existing.couponCode ?? `${reward.claimCodePrefix ?? 'GIFT'}-${id.slice(-6).toUpperCase()}`,
+      }
+    }
+    const result = evaluateReward(input.purchaseAmount, store)
+    if (!result) throw new Error('Purchase does not qualify for an active reward')
     const record: SubmissionRecord = {
       id,
-      storeId: input.storeId,
-      storeName: input.storeName,
-      customerName: input.customerName,
+      storeId: store.id,
+      storeName: store.name,
+      customerName: input.customerName.trim(),
       customerPhone: input.customerPhone,
       purchaseAmount: input.purchaseAmount,
-      rewardId: input.reward.id,
-      rewardLabel: input.reward.name,
-      rewardDescription: input.reward.description,
-      couponCode: `${input.reward.claimCodePrefix ?? 'GIFT'}-${input.purchaseAmount}-${randId('')}`,
+      rewardId: result.reward.id,
+      rewardLabel: result.reward.name,
+      rewardDescription: result.reward.description,
+      rewardShortLabel: result.reward.shortLabel ?? null,
+      rewardClaimCodePrefix: result.reward.claimCodePrefix,
+      rewardValidityText: result.reward.validityText,
+      rewardVoucherValue: result.reward.voucherValue ?? null,
+      tierId: result.tier.id,
+      tierMinAmount: result.tier.minAmount,
+      tierMaxAmount: result.tier.maxAmount,
+      targetSegment: result.tier.targetSegment,
+      couponCode: `${result.reward.claimCodePrefix ?? 'GIFT'}-${id.slice(-6).toUpperCase()}`,
+      collectionStatus: 'awaiting',
+      collectedAt: null,
+      collectedBy: null,
       reviewCtaShown: input.reviewCtaShown,
       reviewCtaClicked: input.reviewCtaClicked,
       createdAt: new Date().toISOString(),
-      collection: { status: 'awaiting', collectedAt: null, collectedBy: null },
     }
-    const existing = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(input.storeId), [])
-    existing.unshift(record)
-    writeJSON(SUBMISSIONS_KEY(input.storeId), existing)
-    return { id }
+    const records = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), [])
+    records.unshift(record)
+    writeJSON(SUBMISSIONS_KEY(store.id), records)
+    return {
+      id,
+      reward: { ...result.reward },
+      tier: { ...result.tier },
+      claimCode: record.couponCode!,
+    } satisfies RewardAssignment
   }
 
   async signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
-    // LOCAL PREVIEW ONLY — never compiled into production.
-    //
-    // On the local dev server (import.meta.env.DEV === true) with the
-    // localStorage provider, allow a no-backend preview sign-in so the vendor
-    // dashboard can be explored without a Supabase project. Vite sets
-    // DEV=false for production builds and dead-code-eliminates this branch, so
-    // it ships NO credential and does NOT weaken the live site. The
-    // localStorage provider also never holds real shared data. Real
-    // deployments use SupabaseDataProvider.signInAdmin (Supabase Auth) instead.
-    if (import.meta.env.DEV) {
-      if (!email.trim()) {
-        return { ok: false, error: 'Enter any email to start the local preview.' }
-      }
-      void password // local preview does not verify a password
-      writeJSON(ADMIN_KEY, { id: 'local-demo', email: email.trim() })
-      return { ok: true }
-    }
     void email
     void password
-    return {
-      ok: false,
-      error:
-        'Vendor sign-in requires a configured Supabase project (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY). Demo mode cannot authenticate securely.',
-    }
+    return { ok: false, error: 'Admin sign-in requires a configured Supabase project.' }
   }
 
   async signOut(): Promise<void> {
@@ -124,17 +160,36 @@ export class LocalDataProvider implements DataProvider {
 
   async listSubmissions(opts: ListOptions): Promise<ListResult> {
     const store = await this.currentStore()
-    const all = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), [])
+    const all = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), []).map((record) => ({
+      ...record,
+      rewardShortLabel: record.rewardShortLabel ?? null,
+      rewardClaimCodePrefix: record.rewardClaimCodePrefix ?? null,
+      rewardValidityText: record.rewardValidityText ?? null,
+      rewardVoucherValue: record.rewardVoucherValue ?? null,
+      tierId: record.tierId ?? '',
+      tierMinAmount: record.tierMinAmount ?? 0,
+      tierMaxAmount: record.tierMaxAmount ?? null,
+      targetSegment: record.targetSegment ?? 0,
+      collectionStatus: record.collectionStatus ?? 'awaiting',
+      collectedAt: record.collectedAt ?? null,
+      collectedBy: record.collectedBy ?? null,
+    }))
     const search = opts.search.trim().toLowerCase()
-    const filtered = search
-      ? all.filter(
-          (r) =>
-            r.customerName.toLowerCase().includes(search) ||
-            r.customerPhone.includes(search) ||
-            r.rewardLabel.toLowerCase().includes(search) ||
-            (r.couponCode?.toLowerCase() ?? '').includes(search),
-        )
-      : all
+    const filtered = all.filter((record) => {
+      const matchesSearch = !search ||
+        record.customerName.toLowerCase().includes(search) ||
+        record.customerPhone.includes(search) ||
+        record.rewardLabel.toLowerCase().includes(search) ||
+        (record.couponCode?.toLowerCase() ?? '').includes(search)
+      const createdDate = record.createdAt.slice(0, 10)
+      return matchesSearch
+        && (!opts.dateFrom || createdDate >= opts.dateFrom)
+        && (!opts.dateTo || createdDate <= opts.dateTo)
+        && (opts.minPurchase === undefined || record.purchaseAmount >= opts.minPurchase)
+        && (opts.maxPurchase === undefined || record.purchaseAmount <= opts.maxPurchase)
+        && (!opts.rewardId || record.rewardId === opts.rewardId)
+        && (!opts.collectionStatus || record.collectionStatus === opts.collectionStatus)
+    })
     const total = filtered.length
     const pageCount = Math.max(1, Math.ceil(total / opts.pageSize))
     const from = (opts.page - 1) * opts.pageSize
@@ -148,61 +203,32 @@ export class LocalDataProvider implements DataProvider {
     }
   }
 
+  async markSubmissionCollected(id: string): Promise<void> {
+    const store = await this.currentStore()
+    const records = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), [])
+    const record = records.find((item) => item.id === id)
+    if (!record) throw new Error('Customer record not found')
+    if (record.collectionStatus === 'collected') throw new Error('Gift has already been collected')
+    record.collectionStatus = 'collected'
+    record.collectedAt = new Date().toISOString()
+    record.collectedBy = readSession()?.email ?? null
+    writeJSON(SUBMISSIONS_KEY(store.id), records)
+  }
+
   async getStats(): Promise<AdminStats> {
     const store = await this.currentStore()
     const all = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), [])
     const totalSubmissions = all.length
     const totalCustomers = new Set(all.map((r) => r.customerPhone)).size
-    const averagePurchaseAmount = totalSubmissions
-      ? Math.round(all.reduce((sum, r) => sum + r.purchaseAmount, 0) / totalSubmissions)
-      : 0
+    const totalPurchaseValue = all.reduce((sum, r) => sum + r.purchaseAmount, 0)
+    const awaitingCollection = all.filter((record) => record.collectionStatus !== 'collected').length
+    const collectedGifts = all.filter((record) => record.collectionStatus === 'collected').length
     const rewardDistribution: Record<string, number> = {}
     for (const r of all) {
       rewardDistribution[r.rewardLabel] = (rewardDistribution[r.rewardLabel] ?? 0) + 1
     }
     const reviewCtaClicks = all.filter((r) => r.reviewCtaClicked).length
-    const awaitingCollection = all.filter((r) => (r.collection?.status ?? 'awaiting') !== 'collected').length
-    const collected = all.length - awaitingCollection
-    const totalPurchaseValue = all.reduce((sum, r) => sum + r.purchaseAmount, 0)
-    return {
-      totalSubmissions,
-      totalCustomers,
-      averagePurchaseAmount,
-      totalPurchaseValue,
-      rewardDistribution,
-      reviewCtaClicks,
-      awaitingCollection,
-      collected,
-    }
-  }
-
-  async setCollectionStatus(
-    id: string,
-    status: 'awaiting' | 'collected',
-    opts?: { collectedBy?: string | null },
-  ): Promise<SubmissionRecord> {
-    const store = await this.currentStore()
-    const key = SUBMISSIONS_KEY(store.id)
-    const all = readJSON<SubmissionRecord[]>(key, [])
-    const idx = all.findIndex((r) => r.id === id)
-    if (idx < 0) throw new Error('Submission not found')
-    const existing = all[idx]
-    const isCollected = (existing.collection?.status ?? 'awaiting') === 'collected'
-    const next: SubmissionRecord = {
-      ...existing,
-      collection:
-        status === 'collected'
-          ? // Preserve the original collection timestamp/staff on repeat marks (idempotent).
-            {
-              status: 'collected',
-              collectedAt: isCollected ? existing.collection.collectedAt : new Date().toISOString(),
-              collectedBy: isCollected ? existing.collection.collectedBy : (opts?.collectedBy ?? null),
-            }
-          : { status: 'awaiting', collectedAt: null, collectedBy: null },
-    }
-    all[idx] = next
-    writeJSON(key, all)
-    return next
+    return { totalSubmissions, totalCustomers, totalPurchaseValue, awaitingCollection, collectedGifts, rewardDistribution, reviewCtaClicks }
   }
 
   async upsertReward(reward: Reward): Promise<Reward> {
@@ -236,12 +262,34 @@ export class LocalDataProvider implements DataProvider {
     this.persistStore(store)
   }
 
+  async saveTierConfiguration(tiers: RewardTier[]): Promise<void> {
+    const store = await this.mutateStore()
+    const validation = validateTierConfiguration(tiers, store.minSpinAmount, store.rewards)
+    if (validation) throw new Error(validation)
+    store.tiers = tiers
+    this.persistStore(store)
+  }
+
   async updateStore(patch: StorePatch): Promise<StoreConfig> {
-    const store = await this.getStoreConfig('jolly-enterprises')
+    const store = await this.getAdminStoreConfig()
     if (!store) throw new Error('No active store')
     Object.assign(store, patch)
     this.persistStore(store)
     return store
+  }
+
+  async uploadStoreLogo(file: File): Promise<string> {
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+      throw new Error('Choose an image smaller than 5 MB')
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not read image'))
+      reader.onerror = () => reject(new Error('Could not read image'))
+      reader.readAsDataURL(file)
+    })
+    await this.updateStore({ logoUrl: dataUrl })
+    return dataUrl
   }
 
   private persistStore(store: StoreConfig): void {

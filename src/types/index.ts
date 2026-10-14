@@ -24,7 +24,9 @@ export interface ConsentState {
 export interface Reward {
   id: string
   name: string
+  shortLabel?: string
   description: string
+  voucherValue?: number | null
   claimCodePrefix: string | null
   validityText: string | null
   active: boolean

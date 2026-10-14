@@ -3,16 +3,12 @@ export interface GoogleReviewLink {
   error: string | null
 }
 
-export const DEFAULT_GOOGLE_REVIEW_URL =
-  'https://search.google.com/local/writereview?placeid=ChIJwVPgCwAdwTsR7AHj3vrZvA4'
-
 export function configuredGoogleReviewUrl(storeUrl: string | null): GoogleReviewLink {
-  const envUrl = import.meta.env.VITE_GOOGLE_REVIEW_URL?.trim()
-  const candidate = envUrl || storeUrl?.trim() || DEFAULT_GOOGLE_REVIEW_URL
+  const candidate = storeUrl?.trim()
   if (!candidate) {
     return {
       url: null,
-      error: 'Google review link is not set up yet. Please ask the store administrator to add it in Store Settings or set VITE_GOOGLE_REVIEW_URL.',
+      error: 'This store has not configured a Google review link.',
     }
   }
 
@@ -33,7 +29,7 @@ export function configuredGoogleReviewUrl(storeUrl: string | null): GoogleReview
   } catch {
     return {
       url: null,
-      error: 'The Google review link is invalid. Please ask the store administrator to check Store Settings or VITE_GOOGLE_REVIEW_URL.',
+      error: 'This store’s Google review link is invalid. Please contact the store.',
     }
   }
 }

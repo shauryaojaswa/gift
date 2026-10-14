@@ -15,10 +15,10 @@ const CSV_COLUMNS = [
   { header: 'Purchase Amount (INR)', value: (r: SubmissionRecord) => r.purchaseAmount },
   { header: 'Reward', value: (r: SubmissionRecord) => r.rewardLabel },
   { header: 'Claim Code', value: (r: SubmissionRecord) => r.couponCode ?? '' },
-  { header: 'Status', value: (r: SubmissionRecord) => (r.collection.status === 'collected' ? 'Collected' : 'Awaiting') },
+  { header: 'Status', value: (r: SubmissionRecord) => (r.collectionStatus === 'collected' ? 'Collected' : 'Awaiting') },
   { header: 'Submitted', value: (r: SubmissionRecord) => r.createdAt },
-  { header: 'Collected At', value: (r: SubmissionRecord) => r.collection.collectedAt ?? '' },
-  { header: 'Collected By', value: (r: SubmissionRecord) => r.collection.collectedBy ?? '' },
+  { header: 'Collected At', value: (r: SubmissionRecord) => r.collectedAt ?? '' },
+  { header: 'Collected By', value: (r: SubmissionRecord) => r.collectedBy ?? '' },
 ]
 
 export default function Customers() {
@@ -35,7 +35,6 @@ export default function Customers() {
   const [selected, setSelected] = useState<SubmissionRecord | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // Debounce the search input so typing doesn't fire a query per keystroke.
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(search)
@@ -52,7 +51,7 @@ export default function Customers() {
       const filtered =
         status === 'all'
           ? res.items
-          : res.items.filter((r) => r.collection.status === status)
+          : res.items.filter((r) => r.collectionStatus === status)
       setRows(filtered)
       setTotal(res.total)
       setPageCount(res.pageCount)
@@ -71,11 +70,11 @@ export default function Customers() {
   const markCollected = async (row: SubmissionRecord) => {
     setBusyId(row.id)
     try {
-      const updated = await dataProvider.setCollectionStatus(row.id, 'collected', {
-        collectedBy: session?.email ?? null,
-      })
-      setRows((prev) => prev.map((r) => (r.id === row.id ? updated : r)))
-      if (selected?.id === row.id) setSelected(updated)
+      await dataProvider.markSubmissionCollected(row.id)
+      await load()
+      if (selected?.id === row.id) {
+        setSelected((prev) => prev ? { ...prev, collectionStatus: 'collected', collectedAt: new Date().toISOString(), collectedBy: session?.email ?? null } : null)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not mark as collected')
     } finally {
@@ -87,6 +86,7 @@ export default function Customers() {
     const csv = toCsv(rows, CSV_COLUMNS)
     downloadText(`customers-page-${page}.csv`, csv)
   }
+
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -187,10 +187,10 @@ export default function Customers() {
                     <td className="px-4 py-2.5 text-ink">{formatINR(r.purchaseAmount)}</td>
                     <td className="px-4 py-2.5 text-ink">{r.rewardLabel}</td>
                     <td className="px-4 py-2.5">
-                      <StatusBadge status={r.collection.status} />
+                      <StatusBadge status={r.collectionStatus} />
                     </td>
                     <td className="px-4 py-2.5">
-                      {r.collection.status === 'collected' ? (
+                      {r.collectionStatus === 'collected' ? (
                         <span className="text-xs text-muted">Collected</span>
                       ) : (
                         <button
@@ -219,15 +219,15 @@ export default function Customers() {
                   >
                     {r.customerName}
                   </button>
-                  <StatusBadge status={r.collection.status} />
+                  <StatusBadge status={r.collectionStatus} />
                 </div>
                 <p className="mt-1 text-xs text-muted">
                   {r.customerPhone} · {formatINR(r.purchaseAmount)}
                 </p>
                 <p className="mt-0.5 text-xs text-ink">{r.rewardLabel}</p>
-                {r.collection.status === 'collected' ? (
+                {r.collectionStatus === 'collected' ? (
                   <p className="mt-2 text-xs text-muted">
-                    Collected {formatDateTime(r.collection.collectedAt)}
+                    Collected {formatDateTime(r.collectedAt)}
                   </p>
                 ) : (
                   <button
@@ -282,7 +282,6 @@ export default function Customers() {
   )
 }
 
-
 function StatusBadge({ status }: { status: 'awaiting' | 'collected' }) {
   return (
     <span
@@ -321,8 +320,8 @@ function CustomerDrawer({
     ['Reward', record.rewardLabel],
     ['Claim code', record.couponCode ?? '—'],
     ['Submitted', formatDateTime(record.createdAt) || '—'],
-    ['Collected at', formatDateTime(record.collection.collectedAt) || '—'],
-    ['Collected by', record.collection.collectedBy ?? '—'],
+    ['Collected at', formatDateTime(record.collectedAt) || '—'],
+    ['Collected by', record.collectedBy ?? '—'],
   ]
 
   return (
@@ -346,7 +345,7 @@ function CustomerDrawer({
           </button>
         </div>
 
-        <StatusBadge status={record.collection.status} />
+        <StatusBadge status={record.collectionStatus} />
 
         <dl className="flex flex-col divide-y divide-border-soft text-sm">
           {fields.map(([k, v]) => (
@@ -357,7 +356,7 @@ function CustomerDrawer({
           ))}
         </dl>
 
-        {record.collection.status !== 'collected' && (
+        {record.collectionStatus !== 'collected' && (
           <button
             type="button"
             onClick={() => onMarkCollected(record)}
@@ -371,4 +370,3 @@ function CustomerDrawer({
     </div>
   )
 }
-

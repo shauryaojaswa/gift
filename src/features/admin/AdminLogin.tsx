@@ -13,7 +13,7 @@ export default function AdminLogin() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const from = (location.state as { from?: string })?.from || '/admin'
+  const from = (location.state as { from?: string })?.from || '/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,8 +32,8 @@ export default function AdminLogin() {
     <div className="w-full max-w-md mx-auto mt-8">
       <Card>
         <CardHeader>
-          <h1 className="font-display text-2xl font-bold text-center text-ink">Store Admin</h1>
-          <p className="text-center text-sm text-muted">Sign in to manage your store</p>
+          <h1 className="font-display text-2xl font-bold text-center text-ink">Store Dashboard</h1>
+          <p className="text-center text-sm text-muted">Sign in to manage your store’s campaign</p>
         </CardHeader>
         <CardBody>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -68,7 +68,7 @@ export default function AdminLogin() {
         </CardBody>
         <CardFooter>
           <p className="text-center text-xs text-muted">
-            Admin sign-in requires a configured Supabase project.
+            Use the secure invitation sent by your platform team to access this workspace.
           </p>
         </CardFooter>
       </Card>
