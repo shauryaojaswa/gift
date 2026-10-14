@@ -60,7 +60,7 @@ export function ThankYouScreen() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted">Reward</dt>
-            <dd className="font-medium text-ink">{reward?.name ?? '—'}</dd>
+            <dd className="font-medium text-ink">{reward?.shortLabel ?? reward?.name ?? '—'}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted">Phone</dt>
