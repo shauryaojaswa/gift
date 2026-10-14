@@ -56,10 +56,21 @@ In **SQL Editor**, create the tables the app expects: `stores`, `rewards`, `rewa
 `src/lib/stores.ts`.
 
 ### 3. Apply the migrations (in order)
-Run the SQL files in `supabase/migrations/`:
-- `0001_add_gift_collection_tracking.sql`
-- `0002_vendor_rls.sql`  (Row‑Level Security: every vendor is scoped to their own store via
-  `store_admins`, plus the atomic `mark_gift_collected` function and tier‑overlap guard).
+Run the SQL files in `supabase/migrations/` (names sorted ascending; see
+`supabase/migrations/README.md` for the full inventory):
+- `20261010202900_initial_schema.sql` — core tables (`stores`, `rewards`, `reward_tiers`,
+  `submissions`, `store_admins`)
+- `20261010203000_managed_tenant_foundation.sql` — collection tracking, `request_id` idempotency,
+  rate limits, RLS policies, storage bucket, and the RPCs `submit_customer_entry`,
+  `mark_submission_collected`, `save_store_tiers`
+- `20261010203100_submissions_collection_index.sql` — dashboard index
+
+With the CLI: `supabase db push`. Without it: paste the three files into the SQL Editor **in this
+order**. (The old `0001_add_gift_collection_tracking.sql` was removed — it conflicted with the
+second migration; its index lives on in file 3.)
+
+Then seed the store: run `supabase/seed_jolly_enterprises.sql` in the SQL Editor once (idempotent,
+safe to re-run).
 
 ### 4. Provision the first vendor account
 1. **Authentication → Users → Add user** → set an email + password (check "Auto Confirm User").
@@ -67,15 +78,22 @@ Run the SQL files in `supabase/migrations/`:
 3. In **SQL Editor**, map the user to the store (replace the UID and email):
 
 ```sql
+-- store_1 in the seed file = this UUID; the vendor must be mapped to it.
 insert into store_admins (store_id, user_id, email, role)
-values ('store_1', 'PASTE-AUTH-USER-UID-HERE', 'owner@yourstore.com', 'owner');
+values ('00000000-0000-4000-a000-000000000001', 'PASTE-AUTH-USER-UID-HERE', 'owner@yourstore.com', 'owner');
 ```
+
+A user without this mapping sees a friendly **"Admin has no associated store"** error — they cannot
+see any store's data.
 
 ### 5. Set environment variables on the host
 - **Vercel:** Project → Settings → Environment Variables → add `VITE_SUPABASE_URL` and
   `VITE_SUPABASE_ANON_KEY`, then **redeploy**.
-- **GitHub Pages:** Actions doesn't inject build‑time secrets by default; if you deploy there you
-  must bake them in at build time via repository secrets and re‑run the workflow.
+- **GitHub Pages (this repo):** Actions does not expose Vite variables by default — the workflow's
+  Build step must map repository **Variables** into the build environment (`VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY`; the anon key is public by design — never the service-role key). Then
+  re-run the workflow. If the variables are unset the build still succeeds but the site runs in
+  demo mode, which the amber banner states honestly.
 
 ### 6. Log in
 Open `<your-site>/vendor/login` and sign in with the email + password you created in step 4.
