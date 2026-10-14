@@ -34,6 +34,12 @@ jobs:
 
       - name: Build (Vite, base=/gift/)
         run: npm run build
+        env:
+          # Public build-time settings (anon key is safe by design; never the service-role key).
+          # If unset in the repository's Actions variables, they resolve to empty and the
+          # app truthfully falls back to LocalDataProvider (demo mode).
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
