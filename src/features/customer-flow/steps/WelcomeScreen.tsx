@@ -14,6 +14,7 @@ export function WelcomeScreen() {
       <button type="button" className="btn-primary w-full mt-2" onClick={() => setStep('DETAILS')}>
         START
       </button>
+      <p className="font-body text-xs text-muted">Takes less than 60 seconds · Quick &amp; simple · Spin &amp; Win</p>
     </div>
   )
 }

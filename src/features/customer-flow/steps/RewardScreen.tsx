@@ -1,8 +1,15 @@
+import { useState } from 'react'
 import { useCustomerFlow } from '../store'
+import { useStoreConfigValue } from '../StoreContext'
+import { configuredGoogleReviewUrl } from '@/lib/google-review'
 import { Confetti, FadeUp } from '@/components/ui/Confetti'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
+import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 export function RewardScreen() {
+  const store = useStoreConfigValue()
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const reviewUrl = configuredGoogleReviewUrl(store.googleReviewUrl).url
   const {
     rewardResult,
     claimCode,
@@ -77,6 +84,24 @@ export function RewardScreen() {
         </PrimaryButton>
       </FadeUp>
 
+      {reviewUrl && (
+        <FadeUp delay={480}>
+          <button
+            type="button"
+            onClick={() => setAssistantOpen(true)}
+            className="tap-target inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] px-4 text-sm font-medium text-brand hover:bg-brand/5"
+          >
+            ⭐ Leave a Google Review
+          </button>
+        </FadeUp>
+      )}
+
+      <GoogleReviewAssistant
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        onSkip={() => setAssistantOpen(false)}
+        reviewUrl={reviewUrl}
+      />
     </div>
   )
 }
