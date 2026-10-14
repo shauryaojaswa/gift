@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCustomerFlow } from '../store'
 import { useStoreConfigValue } from '../StoreContext'
 import { formatINR } from '@/lib/currency'
+import { configuredGoogleReviewUrl } from '@/lib/google-review'
 import { Confetti } from '@/components/ui/Confetti'
+import { GoogleReviewAssistant } from '@/components/ui/GoogleReviewAssistant'
 
 function maskPhone(value: string): string {
   if (!value) return '—'
@@ -12,6 +15,8 @@ function maskPhone(value: string): string {
 export function ThankYouScreen() {
   const store = useStoreConfigValue()
   const navigate = useNavigate()
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const reviewUrl = configuredGoogleReviewUrl(store.googleReviewUrl).url
   const {
     fullName,
     purchaseAmount,
@@ -38,9 +43,9 @@ export function ThankYouScreen() {
         </svg>
         <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-brand" />
       </div>
-      <h2 className="font-display text-3xl font-bold text-ink">YOUR GIFT IS READY</h2>
+      <h2 className="font-display text-3xl font-bold text-ink">THANK YOU!</h2>
       <p className="font-body text-balance text-center text-muted max-w-sm">
-        Thank you for shopping with us. Please show this screen at the counter to collect your gift.
+        Your reward has been successfully unlocked.
       </p>
 
       <div className="w-full rounded-xl bg-ink/3 px-4 py-4 text-left">
@@ -87,10 +92,26 @@ export function ThankYouScreen() {
         >
           DONE
         </button>
+        {reviewUrl && (
+          <button
+            type="button"
+            onClick={() => setAssistantOpen(true)}
+            className="tap-target inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] px-4 text-sm font-medium text-brand hover:bg-brand/5"
+          >
+            ⭐ Leave a Google Review
+          </button>
+        )}
         <button type="button" className="btn-ghost text-sm" onClick={() => resetAll()}>
           Submit another response
         </button>
       </div>
+
+      <GoogleReviewAssistant
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        onSkip={() => setAssistantOpen(false)}
+        reviewUrl={reviewUrl}
+      />
 
       <p className="font-body text-xs text-muted">
         Your reward is based only on your purchase amount.
