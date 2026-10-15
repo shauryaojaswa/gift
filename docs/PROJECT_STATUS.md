@@ -258,6 +258,14 @@ cycles + live-store delete probes + the ten acceptance conditions);
 `scripts/prod-residue-clean.mjs` (section-9 cleanup through the normal
 deletion path with hard-abort semantics — no trigger bypass).
 
+**Residue target verified read-only (2026-10-15 19:50 IST, service-role REST):**
+exactly one synthetic shop matches: id `c8831efe-9354-4fcc-93dc-6a2cd6b32dcd`,
+name "Smoke Shop mv9fxehs", slug "smoke-mv9fxehs", active, min_spin 1000,
+created 2026-10-15T11:13:47Z. Child recheck: 0 rows in all 9 child tables
+(incl. rate limits on its real PK). Protected records verified intact:
+GIFT-DDD89040 (50,000/awaiting), CLEAN-0CBBDC9A (15,000/awaiting), real shop
+8 tiers / 8 rewards, owner mapping 1x role owner.
+
 **Pending (blocked on DB connectivity):** staging migration + proof run;
 `staging-verify.mjs` regression suite (reward, idempotency, collection, legacy
 fallback, tenant isolation); new production backup; production migration +
