@@ -20,7 +20,7 @@ vendor documentation) · **INFERRED** · **UNKNOWN**.
 | Prod schema vs staging | 10 shared tables identical incl. `submissions`; `reward_tiers.reward_id` NOT NULL in prod (loosened by pending migration 3); `rewards.catalog_gift_id` absent (added by migration 1); JRIQ tables absent (pending) | VERIFIED (live `gen types` diff) |
 | Prod schema extras | 16 tables not in repo migrations (`orders`, `gold_schemes`, `invoices`, `customers`, `products`, `tenants`, `users`, …) + `get_user_tenant_id()` — pre-existing application data, untouched by all 4 JRIQ migrations | VERIFIED (diff) |
 | RPC contracts | `submit_customer_entry` and `save_store_tiers` Args/Returns **identical** prod ↔ staging → deployed frontend keeps working | VERIFIED (diff) |
-| Prod migration history | not readable from this machine (DB egress blocked); not yet read from dashboard | UNKNOWN → dashboard |
+| Prod migration history | **exactly 3 entries** — `initial_schema`, `managed_tenant_foundation`, `submissions_collection_index` (10 Oct 2026) — matching local; the 4 JRIQ files are exactly what is pending | VERIFIED (dashboard) |
 | Rate-limit timezone | rolling `now()`-based 1-hour window — timezone-independent; no `current_date` daily-cap logic exists; `current_date` appears only in subscription trial/renewal checks (self-consistent) | VERIFIED |
 
 ### jriq.in — five separate facts
@@ -35,10 +35,13 @@ vendor documentation) · **INFERRED** · **UNKNOWN**.
 
 ## B. Plan-tier recommendation (own line item — decision required from you)
 
-**Supabase production `jwellery` plan tier: UNKNOWN (dashboard check pending your login).**
-If it is Free tier (as staging is), a claims-ledger product carries launch risks:
-auto-pause after ~7 idle days (every test result against a paused project is invalid,
-and a paused site is downtime), **no PITR and no daily backups**, 500 MB DB cap.
+**Supabase plan tier: VERIFIED Free** — org "shauryaojaswa's Org" is on the Free plan;
+`jwellery` (and `jriq-staging`) show as "NANO". Verified 2026-10-15 in the dashboard:
+**no project backups, no PITR** ("Free Plan does not include project backups. Upgrade
+to the Pro Plan for up to 7 days of scheduled backups."); DB size 29 / 500 MB; MAU
+44 / 50,000. Auto-pause applies to idle free projects (two other projects are already
+paused), so a quiet production project can pause after ~7 idle days — every test result
+against a paused project is invalid, and a paused site is downtime.
 
 **Recommendation (NOT executed — billing changes need your explicit approval):**
 upgrade `jwellery` to **Pro ≈ US$25/month** (Supabase pricing, verify on the billing
@@ -98,8 +101,10 @@ transactional each). Until a restore test passes, "backup verified" reads **UNVE
 
 ## E. Frontend readiness
 
-- Release candidate: annotated tag **`v1.0.0`** on commit `<SHA — filled below>` (the
-  approval gate approves this tag, not a moving branch).
+- Release candidate: annotated tag **`v1.0.0`** → commit **`a63ca381dfb6e01182cbfa1e333268a131106fb5`**
+  (pushed and verified via `git ls-remote`; the tag was created before the SHA line in
+  this file was filled in — the tag's code content is the tested tree; the only later
+  change was this docs line). The approval gate approves this tag, not a moving branch.
 - Evidence on that revision (docs-only delta from the tested tree): `npm test` 216/216,
   `npm run lint` 0, `npx tsc -b` 0, `npm run build` 0 (base `/gift/`), `npm run build:root`
   0 (base `/`), `preflight` 10/10, `preflight:root` 9/9, staging-verify 70/70,
@@ -148,7 +153,7 @@ transactional each). Until a restore test passes, "backup verified" reads **UNVE
 
 | Item | Status |
 |---|---|
-| Supabase Auth redirect URLs incl. `https://jriq.in` (keep Pages origin) | ❌ NOT CHECKED — needs dashboard (with your login) |
+| Supabase Auth redirect URLs incl. `https://jriq.in` (keep Pages origin) | ❌ **CHECKED — needs fixing**: Site URL is `http://localhost:3000` and the Redirect URL allow list is **empty** (VERIFIED 2026-10-15). Email+password logins don't use redirects today, but recovery/confirm links would misroute. Launch config (approval-gated): set Site URL to `https://jriq.in`, add `https://jriq.in/*` and `https://shauryaojaswa.github.io/*` to Redirect URLs |
 | Cache headers (`index.html` no-cache; hashed assets immutable 1y; keep last 3 asset generations) | ✅ documented in `.htaccess` + runbook; verify at deploy |
 | DNS TTL lowered to 300s ≥24h before cutover | ❌ pending (runbook step 1) |
 | Timezone | ✅ checked — no daily-cap logic; rate limit timezone-safe |
@@ -156,20 +161,24 @@ transactional each). Until a restore test passes, "backup verified" reads **UNVE
 
 ## J. User actions (only unavoidable ones)
 
-1. Supabase dashboard login (in progress) — plan tier, backups, migration history,
-   Auth redirect URLs, and DB password reset for the backup.
+1. ~~Supabase dashboard login~~ — **done 2026-10-15** (plan/backup/migration/Auth verified).
+   Still needed inside the dashboard: **reset the production DB password** (Settings →
+   Database) so `pg_dump` can authenticate — the password is never shared in chat; it can
+   be typed once at the `pg_dump` prompt.
 2. Approve installing Docker Desktop (for the restore test) — or approve the
    disposable-Supabase-project alternative.
 3. One network with DB egress for `pg_dump` (phone hotspot is enough).
 4. Approve provisioning the MilesWeb website space ("Start from Blank Website") so
    doc root/SSL/SPA support can be verified (Phase E #1–#8).
-5. **Final release approval** (below).
+5. **Final release approval** (below) — plus a separate yes/no on the §B plan upgrade.
 
 ## K. Blockers
 
-- Backup COMPLETED/RESTORE-TESTED: blocked on (2)+(3) above.
+- Backup COMPLETED/RESTORE-TESTED: blocked on (2)+(3) above (Docker or disposable
+  project; a network with DB egress; DB password reset).
 - MilesWeb verification (#7/#8) and `jriq.in` cutover: blocked on (4).
-- Plan tier + Auth URLs: blocked on (1).
+- ~~Plan tier + Auth URLs~~ — verified 2026-10-15 (§A/§B/§I); the Auth URL config change
+  itself is part of the approved runbook, not a blocker.
 
 ## L. Approval request — the precise action set
 
