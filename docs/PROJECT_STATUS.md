@@ -235,11 +235,17 @@ insert the audit row with NULL in the FK column and preserve the id in the
 existing `details` metadata (`deleted_store_id` / `deleted_actor_id`). Audit
 rows stay durable and complete; valid references keep their linkage.
 
-**Rejected alternative:** making `platform_audit_logs_store_id_fkey`
-`DEFERRABLE INITIALLY DEFERRED` cannot fix this failure — the audit row is
-inserted after its parent is gone, so neither the `ON DELETE SET NULL` action
-nor a commit-time check ever sees a live parent row. Deferral would only move
-the failure to COMMIT.
+**Rejected alternative (settled by executable experiment, 2026-10-15):**
+making `platform_audit_logs_store_id_fkey` `DEFERRABLE INITIALLY DEFERRED`
+cannot fix this failure — the audit row is inserted after its parent is gone,
+so neither the `ON DELETE SET NULL` action nor a commit-time check ever sees a
+live parent row. A three-variant local PostgreSQL 17.6 experiment (defect
+reproduction / DEFERRABLE / trigger-side fix, identical scenario) confirmed it
+directly: with the DEFERRABLE FK the `DELETE` statement is accepted but the
+transaction's COMMIT fails with the same FK violation and rolls back (store
+retained, audit row lost) in both autocommit and explicit-transaction forms —
+deferral only moves the failure to COMMIT. The trigger-side fix commits the
+delete and preserves the audit row. Evidence: `docs/RELEASE_READINESS.md` M.4.
 
 **Backup readiness:** the restore-tested backup `jwellery-20261015-150511.dump`
 predates the four applied JRIQ migrations and the `CLEAN-0CBBDC9A` claim
@@ -251,8 +257,10 @@ fix (free-tier ops: keep last 4 weekly, `pg_restore --list` verify each run).
 assertion corrections (public reads of stores/rewards asserted as the intended
 customer-page model; vendor scoping asserted on private tables only;
 `public_submission_rate_limits` counted on its real PK `store_id`; the smoke
-now performs a normal create -> operate -> delete cycle and asserts the
-deletion audit event survives with the store id recoverable from metadata);
+now performs a normal create -> operate -> delete cycle with spec cleanup
+order — smoke audit rows referencing the store are removed before the store
+deletion, the deletion event is asserted (FK null, store id recoverable from
+metadata) and then cleaned, and the audit total returns to baseline);
 `scripts/audit-fix-verify.mjs` (staging proof: two fresh create-operate-delete
 cycles + live-store delete probes + the ten acceptance conditions);
 `scripts/prod-residue-clean.mjs` (section-9 cleanup through the normal

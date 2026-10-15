@@ -465,21 +465,57 @@ audit rows survive, FK columns only hold live values, the deleted entity's id
 remains recoverable from existing metadata, and the cascade case (2) and actor
 case (3) are handled by the same explicit guard rather than left broken.
 
-### M.4 Rejected alternative: `platform_audit_logs_store_id_fkey DEFERRABLE INITIALLY DEFERRED`
+### M.4 Rejected alternative: `platform_audit_logs_store_id_fkey DEFERRABLE INITIALLY DEFERRED` — settled by executable experiment (Phase F-1, VERIFIED 2026-10-15)
 
-Rejected as the sole fix, for a sound semantic reason: the audit row is
-INSERTED after its parent is already gone. `ON DELETE SET NULL` is a
-referential ACTION that only runs when the parent row is deleted while child
-rows exist; here the child is created after the parent delete, so no referential
-action ever applies to it. Deferring the check to COMMIT cannot help either —
-the parent row is still absent at COMMIT, so the constraint fails at commit
-instead of at insert. (Deferral is also not free: it changes check timing for
-every writer of the table.) Note the contrast with ordinary delete-order
-problems — see M.6.
+Semantic reason (standing analysis): the audit row is INSERTED after its parent
+is already gone. `ON DELETE SET NULL` is a referential ACTION that only runs
+when the parent row is deleted while child rows exist; here the child is
+created after the parent delete, so no referential action ever applies to it.
+Deferring the check to COMMIT cannot help either — the parent row is still
+absent at COMMIT, so the constraint fails at commit instead of at insert.
+(Deferral is also not free: it changes check timing for every writer of the
+table.) Note the contrast with ordinary delete-order problems — see M.6.
 
-Also rejected: switching the audit triggers to BEFORE DELETE (changes timing
-semantics for all events and still leaves the cascade paths broken) and
-per-table special-casing (fragile, leaves future triggers exposed).
+Because a later prompt preferred (b) on the theory that "commit-time checking +
+ON DELETE SET NULL lets the audit row survive with NULL store_id", the claim was
+settled by experiment rather than argument. A disposable PostgreSQL 17.6
+cluster ran the IDENTICAL store-delete scenario in three databases differing
+only in function/FK variant (original function extracted verbatim from
+`20261010203000_managed_tenant_foundation.sql`; fixed function extracted
+verbatim from `20261015192000_audit_delete_ref_fix.sql`). Scenario = seed store
++ 2 rewards + 3 pre-existing audit rows, then a raw `DELETE FROM stores` as
+(1) a single autocommit statement — the exact PostgREST pattern — and
+(2) an explicit `BEGIN … DELETE … COMMIT`.
+
+| Variant | (1) autocommit statement | (2) explicit transaction | audit row survives with NULL store_id? |
+| --- | --- | --- | --- |
+| A — original fn + immediate FK (defect reproduction) | ERROR `insert or update on table "platform_audit_logs" violates foreign key constraint "platform_audit_logs_store_id_fkey" … Key (store_id)=(…) is not present in table "stores"` → rollback, store retained | same ERROR → `ROLLBACK`, store retained | no |
+| B — original fn + `DEFERRABLE INITIALLY DEFERRED` (the proposed alternative) | statement accepted, **its implicit commit fails with the same FK violation** → rollback, store retained | `DELETE 1` **then `COMMIT` fails with the same FK violation** → `ROLLBACK`, store retained | **no** |
+| C — fixed trigger-side fn (M.3, chosen fix) | `DELETE 1`, commits | `DELETE 0` (already gone), commits | **yes** — `stores.delete` row present, `store_id` NULL, `deleted_store_id` recoverable; pre-delete rows durable (FK SET NULL) |
+
+Mechanism fingerprints (VERIFIED from `pg_constraint`/`pg_trigger` on the same
+cluster): variant B's FK check triggers really are deferrable
+(`tgdeferrable=t, tginitdeferred=t`) but the `ON DELETE SET NULL` action
+trigger on `stores` is immediate (`tgdeferrable=f`); and variant B's errors
+carry no PL/pgSQL `CONTEXT` line, unlike variant A's
+`PL/pgSQL function public.audit_managed_change() line 35` — proof that the
+check fired at COMMIT against the queued insert tuple, not at insert time.
+`ON DELETE SET NULL` never touches the audit row because it does not exist
+while the parent delete runs.
+
+ONE LINE (rejection, citing the experiment): variant (b) is rejected because
+Phase F-1 shows it only relocates the failure — `DELETE 1` then `COMMIT` ERROR
+then `ROLLBACK`, store retained, audit row lost — while the trigger-side fix
+commits the delete and preserves the audit row.
+
+(Also rejected earlier: BEFORE DELETE triggers — changes timing semantics for
+all events and leaves cascade paths broken — and per-table special-casing.)
+
+Experiment bench (disposable, temp): `C:\Users\ojaswa\AppData\Local\Temp\jriq-variant\`
+(`run.ps1`, `01-base.sql`, `02a/02b-fk-*.sql`, `03-triggers.sql`, `05-scenario.sql`;
+function text extracted at runtime from the repo migrations). Exits: initdb 0,
+base/fk/fn/triggers 0 × 3 databases, scenario runs 0 (the A/B ERROR lines are
+the expected observations), cluster stop 0.
 
 ### M.5 Backup readiness (section 7 determination, VERIFIED offline)
 
@@ -508,8 +544,9 @@ production. No change is made speculatively.
 | Step | State |
 | --- | --- |
 | Root cause + trigger audit | VERIFIED (migration source) |
+| Fix-choice experiment (Phase F-1: defect repro + DEFERRABLE variant + trigger-side fix, identical scenario) | VERIFIED — (a) trigger-side stands; (b) rejected with executable proof (M.4) |
 | Fix migration authored | DONE (`20261015192000_audit_delete_ref_fix.sql`) |
-| Smoke-harness assertion fixes (public-read model, rate_limits schema, normal delete cycle, audit survival checks) | DONE (scripts/prod-smoke.mjs) |
+| Smoke-harness assertion fixes (public-read model, rate_limits schema, normal delete cycle, spec cleanup order — smoke audit rows before store deletion, deletion-event asserted then cleaned, baseline restored) | DONE (scripts/prod-smoke.mjs, `node --check` clean) |
 | Staging proof script (two create-operate-delete cycles, 10 conditions) | DONE (scripts/audit-fix-verify.mjs) |
 | Production residue cleanup script (normal path, hard-abort semantics) | DONE (scripts/prod-residue-clean.mjs) |
 | Staging migration + proof run | PENDING — no DB-port egress from current network |

@@ -67,8 +67,12 @@ const created = { userIds: [], storeId: null, giftId: null, tierIds: [] }
 async function cleanup() {
   if (created.storeId) {
     const storeId = created.storeId
-    const { data: auditRows } = await service.from('platform_audit_logs').select('id').eq('store_id', storeId)
-    const auditIds = (auditRows ?? []).map((r) => r.id)
+    // Approved cleanup order (spec): smoke-generated audit rows referencing the
+    // store are removed BEFORE the store deletion; the deletion-event row the
+    // fixed path creates is removed after it (best-effort fallback path — the
+    // main flow in section 7 asserts both before cleaning).
+    await service.from('platform_audit_logs').delete().eq('store_id', storeId)
+    await service.from('platform_audit_logs').delete().filter('details->>deleted_store_id', 'eq', storeId)
     await service.from('submissions').delete().eq('store_id', storeId)
     await service.from('public_submission_rate_limits').delete().eq('store_id', storeId)
     await service.from('tier_gift_options').delete().eq('store_id', storeId)
@@ -78,10 +82,9 @@ async function cleanup() {
     await service.from('store_owner_invitations').delete().eq('store_id', storeId)
     await service.from('store_admins').delete().eq('store_id', storeId)
     await service.from('stores').delete().eq('id', storeId)
-    // Approved cleanup of smoke-generated audit rows (snapshot by id first:
-    // the store delete nulls their store_id via ON DELETE SET NULL).
-    if (auditIds.length) await service.from('platform_audit_logs').delete().in('id', auditIds)
+    // The fixed path records a deletion event; that smoke-generated row goes too.
     await service.from('platform_audit_logs').delete().filter('details->>deleted_store_id', 'eq', storeId)
+    await service.from('platform_audit_logs').delete().eq('store_id', storeId)
   }
   if (created.giftId) {
     await service.from('gift_catalog').delete().eq('id', created.giftId)
@@ -212,18 +215,21 @@ async function main() {
   check('same request_id with different amount is rejected', !!conflictErr && /already been used/i.test(conflictErr.message), conflictErr?.message ?? 'no error')
 
   // ---- 7. NORMAL delete-shop path (raw stores delete: cascade + audit) ----
-  const { data: auditRows } = await service.from('platform_audit_logs').select('id').eq('store_id', created.storeId)
-  const auditIds = (auditRows ?? []).map((r) => r.id)
   const { count: auditBaseline } = await service.from('platform_audit_logs').select('id', { count: 'exact', head: true })
   const countsBefore = {
     stores: (await service.from('stores').select('id', { count: 'exact', head: true }).eq('id', created.storeId)).count,
     submissions: (await service.from('submissions').select('id', { count: 'exact', head: true }).eq('store_id', created.storeId)).count,
   }
-  console.log(`INFO  smoke rows before delete: stores=${countsBefore.stores} submissions=${countsBefore.submissions}; audit rows attached=${auditIds.length}; audit total baseline=${auditBaseline}`)
+  console.log(`INFO  smoke rows before delete: stores=${countsBefore.stores} submissions=${countsBefore.submissions}; audit total baseline=${auditBaseline}`)
+  // Cleanup order per spec: smoke-generated audit rows referencing the store go
+  // BEFORE the store deletion (approved cleanup of smoke rows only).
+  const { count: preAudit } = await service.from('platform_audit_logs').select('id', { count: 'exact', head: true }).eq('store_id', created.storeId)
+  await service.from('platform_audit_logs').delete().eq('store_id', created.storeId)
+  console.log(`INFO  approved cleanup: ${preAudit ?? 0} smoke audit rows referencing the store removed before deletion`)
   const { error: delErr } = await service.from('stores').delete().eq('id', created.storeId)
   check('normal store deletion succeeds (create -> operate -> delete)', !delErr, delErr?.message ?? '')
 
-  // ---- 7b. audit history survives the deletion (defect-fix verification) ----
+  // ---- 7b. deletion audit event exists (defect-fix verification) ----
   const { data: delAudit } = await service
     .from('platform_audit_logs')
     .select('id, store_id, action, details, created_at')
@@ -232,12 +238,10 @@ async function main() {
   check('deletion audit event survives with store fk null as designed', (delAudit ?? []).length === 1 && delAudit[0].store_id === null, JSON.stringify(delAudit ?? null))
   check('deleted store id recoverable from audit metadata', delAudit?.[0]?.details?.deleted_store_id === created.storeId, String(delAudit?.[0]?.details?.deleted_store_id ?? 'none'))
   check('audit event details preserved (changed_fields + timestamp)', Array.isArray(delAudit?.[0]?.details?.changed_fields) && delAudit[0].details.changed_fields.length > 0 && !!delAudit[0].created_at, JSON.stringify(delAudit?.[0] ?? null))
-  const { count: survived } = await service.from('platform_audit_logs').select('id', { count: 'exact', head: true }).in('id', auditIds)
-  check('pre-delete audit rows durable (fk set null, rows kept)', (survived ?? -1) === auditIds.length, `survived=${survived} of ${auditIds.length}`)
 
-  // ---- 7c. approved cleanup of smoke-generated audit rows ----
-  if (auditIds.length) await service.from('platform_audit_logs').delete().in('id', auditIds)
+  // ---- 7c. approved cleanup of smoke-generated audit rows (asserted above) ----
   await service.from('platform_audit_logs').delete().filter('details->>deleted_store_id', 'eq', created.storeId)
+  await service.from('platform_audit_logs').delete().eq('store_id', created.storeId)
 
   // ---- 7d. delete remaining smoke identities + zero-row proof ----
   if (created.giftId) {
