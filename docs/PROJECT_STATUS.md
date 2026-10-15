@@ -51,9 +51,15 @@ Any production DB operation requires an explicit re-link and approval.
 ### Domain and hosting
 
 - `jriq.in`: **Reported** registered/active in MilesWeb dashboard, expiry **14 October 2027**.
-  DNS **Verified** NOT resolving on 2026-10-15. Hosting plan, document root, SSL, upload
-  method, SPA rewrite support: **Unknown** — MilesWeb verification outstanding (needs the
-  user's dashboard login, Phase 7). GitHub Pages remains the rollback deployment.
+  Registrar = **MilesWeb** (Reported by user 2026-10-15) — same company as the hosting, so
+  DNS and hosting are managed from one MilesWeb login. DNS **Verified** NOT resolving on
+  2026-10-15 (nameservers unconfigured). At cutover, one of two settings in the MilesWeb
+  client area makes the domain live: (a) point the domain's nameservers at MilesWeb's
+  (they will show as "MilesWeb DNS"/`ns*.milesweb.*` in the hosting panel), or (b) add an
+  A record to the shared hosting IP shown in cPanel. (a) is recommended — it keeps DNS and
+  hosting together. Hosting plan, document root, SSL, upload method, SPA rewrite support:
+  **Unknown** — MilesWeb verification outstanding (needs the user's dashboard login, Phase 7).
+  GitHub Pages remains the rollback deployment.
 - GitHub Pages deploy: Actions workflow on the `gh-pages` branch (`deploy.yml`), builds with
   repo `VITE_*` Actions variables, `base: '/gift/'`, SPA deep-link restore via `public/404.html`
   + the `?p=` restore script in `index.html` (both now present on `staging` too).
