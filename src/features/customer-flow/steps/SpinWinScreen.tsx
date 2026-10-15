@@ -8,9 +8,9 @@ import { buildSegments } from '@/lib/reward-engine'
 import { formatINR } from '@/lib/currency'
 import type { WheelSegment } from '@/types'
 
-function getWheelSize(): number {
+export function getWheelSize(): number {
   if (typeof window === 'undefined') return 360
-  return Math.min(420, window.innerWidth - 48)
+  return Math.max(220, Math.min(420, window.innerWidth - 48))
 }
 
 export function SpinWinScreen() {

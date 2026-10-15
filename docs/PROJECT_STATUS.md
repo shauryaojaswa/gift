@@ -75,6 +75,11 @@ Build targets (no config editing required):
 
 ## 4. Database
 
+> Naming note (Verified 2026-10-15): the claim code is persisted in the SQL column
+> `submissions.coupon_code`; "claim code" is the product/UI term and `claim_code` is
+> the OUT parameter name of `submit_customer_entry` (same value). `rewards.claim_code_prefix`
+> is a separate real column holding the prefix (e.g. `GIFT`).
+
 Migration history (7 migrations; additive only; never rewritten). Local == Remote on
 staging (Verified `supabase migration list --linked`, 2026-10-15):
 
@@ -154,19 +159,21 @@ includes all new tables and RPCs (stale-types discrepancy resolved).
 
 | Gate | Command | Result |
 |---|---|---|
-| Unit + component tests | `npm test` | 213/213 (17 files) — exit 0 |
+| Unit + component tests | `npm test` | 216/216 (17 files) — exit 0 |
 | Lint | `npm run lint` | exit 0 (warnings match pre-existing idiom) |
 | TypeScript | `npx tsc -b` | exit 0 |
 | Pages build | `npm run build` | exit 0 (base `/gift/`) |
 | Root build | `npm run build:root` | exit 0 (base `/`) |
 | Staging integration | `scripts/staging-verify.mjs` | **70/70 twice** — uniform selection χ²=6.00 < 13.8 (df=2), idempotency, immutability, collection, cross-tenant denial A↔B, platform-RPC denial, legacy fallback, onboarding semantics, template brackets |
+| UI end-to-end (Playwright) | `scripts/ui-verify.mjs` | **27/27** — platform, vendor, and full customer journey on a shop created through the UI; screenshots `%TEMP%\jriq-ui-evidence`; only console message = intentional bad-login 400 probe |
 | Preflight pages | `node scripts/preflight.mjs pages` | 10/10 (2 env warnings: local build is demo-mode; CI supplies `VITE_*`) |
 | Preflight root | `node scripts/preflight.mjs root` | 9/9 (2 env warnings: demo-mode local build) — base `/`, `.htaccess` present |
 | Secret scan | pattern scans on source + dist | clean |
 
 New targeted test files: `src/lib/default-brackets.test.ts` (parses the real migration
 artifact), `src/lib/reward-engine.pool.test.ts`, `src/lib/data/supabase.assignment.test.ts`,
-`src/components/ui/GoogleReviewAssistant.test.tsx`, `src/features/platform/GiftPoolPanel.test.tsx`.
+`src/components/ui/GoogleReviewAssistant.test.tsx`, `src/features/platform/GiftPoolPanel.test.tsx`;
+plus `getWheelSize` clamp tests in `SpinWinScreen.test.tsx` (negative SVG geometry fix).
 
 ## 10. Next actions
 

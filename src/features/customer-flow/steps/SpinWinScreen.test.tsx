@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { useCustomerFlow } from '../store'
 import { StoreConfigProvider } from '../StoreContext'
-import { SpinWinScreen } from './SpinWinScreen'
+import { SpinWinScreen, getWheelSize } from './SpinWinScreen'
 import { JOLLY_ENTERPRISES, JOLLY_ENTERPRISES_SLUG } from '../../../lib/stores'
 import { normalizeAngle, segmentCenterDegrees } from '../../../lib/wheel-math'
 import { buildSegments } from '../../../lib/reward-engine'
@@ -185,5 +185,34 @@ describe('Spin & Win — tap to reward', () => {
         segmentCenterDegrees(final.rewardResult!.targetSegment, 8) + final.currentRotation,
       ),
     ).toBeCloseTo(0, 5)
+  })
+})
+
+describe('getWheelSize', () => {
+  const setInnerWidth = (width: number) => {
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('caps the wheel at 420px on wide screens', () => {
+    setInnerWidth(1280)
+    expect(getWheelSize()).toBe(420)
+  })
+
+  it('leaves a 48px gutter on ordinary screens', () => {
+    setInnerWidth(360)
+    expect(getWheelSize()).toBe(312)
+  })
+
+  it('never produces negative geometry when the viewport collapses', () => {
+    setInnerWidth(1)
+    expect(getWheelSize()).toBe(220)
+    setInnerWidth(0)
+    expect(getWheelSize()).toBe(220)
+    setInnerWidth(47)
+    expect(getWheelSize()).toBe(220)
   })
 })

@@ -332,15 +332,19 @@ async function main() {
       const { data: rewRow } = subRow?.reward_id
         ? await service.from('rewards').select('name, wheel_label, store_id').eq('store_id', shopId).eq('id', subRow.reward_id).maybeSingle()
         : { data: null }
+      const domShowsSnapshot = Boolean(subRow) && (
+        Boolean(subRow.reward_wheel_label && rewardText.includes(subRow.reward_wheel_label)) ||
+        Boolean(subRow.reward_label && rewardText.includes(subRow.reward_label))
+      )
       poolTied = Boolean(
         subRow && rewRow &&
         rewRow.store_id === shopId &&
         poolNames.includes(rewRow.name) &&
-        rewRow.wheel_label && rewardText.includes(rewRow.wheel_label) &&
-        subRow.reward_label && rewardText.includes(subRow.reward_label),
+        subRow.reward_label === rewRow.name &&
+        domShowsSnapshot,
       )
       poolDetail = subRow
-        ? `claim=${claimMatch[0]} reward=${rewRow?.name ?? 'missing'} label=${rewRow?.wheel_label ?? 'missing'}`
+        ? `claim=${claimMatch[0]} reward=${rewRow?.name ?? 'missing'} snapName=${subRow.reward_label ?? 'missing'} snapLabel=${subRow.reward_wheel_label ?? 'missing'}`
         : `no submission row for ${claimMatch[0]}`
     }
     check('wheel reveals the saved backend pool gift', poolTied, poolDetail)
