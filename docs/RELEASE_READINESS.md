@@ -89,15 +89,12 @@ harness-verified on staging).
 | State | Status |
 |---|---|
 | PREPARED | ✅ Procedure + commands written (`docs/PRODUCTION_RELEASE_PROPOSAL.md` §6/§15); baseline capture script ready (`scripts/prod-baseline.sql`, PII-free output) |
-| COMPLETED | ❌ **NOT DONE** — requires your data-handling approval, the production DB password (dashboard reset if unknown), and a network with DB egress |
-| RESTORE-TESTED | ❌ **NOT DONE** — also needs Docker Desktop (not installed; needs your approval to install) or a disposable Supabase project |
+| COMPLETED | ✅ **VERIFIED 2026-10-15** — see "Backup execution 2026-10-15 (Part 1)" below |
+| RESTORE-TESTED | ✅ **CLEAN 2026-10-15** — see "Restore test 2026-10-15" below (item-by-item baseline diff + destruction evidence) |
 
-**Hard blocker (VERIFIED):** this machine's network blocks Supabase DB ports (5432 and
-6543 both time out; staging and production alike). `pg_dump`, `pg_restore` and
-`supabase migration up` are impossible from here as-is. Options: (1) run from a phone
-hotspot / other network — verify with `Test-NetConnection db.awshkiwqkuubkhecszzk.supabase.co -Port 5432`;
-(2) a cloud VM/shell; (3) dashboard SQL editor for the migrations (files are
-transactional each). Until a restore test passes, "backup verified" reads **UNVERIFIED**.
+**Historical note (superseded):** an earlier network block on Supabase DB ports (5432/
+6543) made `pg_dump`/`pg_restore`/`supabase migration up` impossible from this machine.
+Resolved by running DB work from a phone hotspot (egress re-verified 2026-10-15).
 
 ## Baseline 2026-10-15 (pre-migration evidence — captured VERIFIED, read-only)
 
@@ -207,6 +204,65 @@ Until Pro is enabled, the following recurring discipline is required:
    invalidates any test result.
 5. **Dated note: revisit the Pro upgrade (≈$25/mo) after launch** — daily backups +
    7-day PITR + no auto-pause remove the entire class of risk above.
+
+## Restore test 2026-10-15 (RESTORE-TESTED — CLEAN)
+
+**Method:** disposable local PostgreSQL 17.11 cluster (`initdb`, trust auth,
+`127.0.0.1:55432`, data directory `%LOCALAPPDATA%\Temp\jriq-restoretest-pgdata` — a
+local-only path, never the backup directory), `pg_restore` of
+`jwellery-20261015-150511.dump`, item-by-item baseline diff, then destruction with
+verification. Nothing touched production; the backup artifacts were never modified
+(re-verified byte sizes after the test).
+
+**Final run environment (all VERIFIED):**
+- Cluster encoding **UTF8** (`initdb -E UTF8 --locale=C`) — matches production.
+- Supabase default roles `anon`, `authenticated`, `service_role` created (NOLOGIN) —
+  a real Supabase recovery target has these; policies reference them.
+- Restore TOC list = the dump's full 653 entries **minus exactly 4 Supabase-Vault
+  platform entries** (named below), written via `pg_restore --list` → `-L` filter.
+- `pg_restore --no-owner --no-privileges -L <filtered>`: **exit 0, 0 errors**.
+
+**Excluded entries (Supabase-only extension; cannot exist on stock PostgreSQL — a real
+Supabase recovery target restores them unchanged):**
+1. `SCHEMA - vault supabase_admin`
+2. `EXTENSION - supabase_vault`
+3. `COMMENT - EXTENSION supabase_vault`
+4. `TABLE DATA vault secrets supabase_admin`
+
+**Item-by-item baseline diff (restored DB vs. the pre-migration baseline above) — all
+rows match exactly:**
+
+| Item | Restored value | Verdict |
+|---|---|---|
+| `schema_migrations` | exactly 3: `20261010202900 initial_schema`, `20261010203000 managed_tenant_foundation`, `20261010203100 submissions_collection_index` | ✅ match |
+| stores / store_admins / platform_admins | 1 / 1 / 0 | ✅ match |
+| rewards / reward_tiers / submissions | 8 / 8 / 1 | ✅ match |
+| public_submission_rate_limits / platform_audit_logs | 4 / 27 | ✅ match |
+| 16 legacy tables (activity_log … users) | all 0 | ✅ match |
+| Protected claim `GIFT-DDD89040` | id `ddd89040-…-7ee445e72e83`, store `…0001`, tier `…00b4`, reward `…00a4`, amount 50000, labels `PREMIUM GIFT`/`PREMIUM GIFT`, prefix `GIFT`, status `awaiting`, created 2026-10-14 11:16:56 UTC | ✅ byte-identical |
+| Shop `jolly-enterprises` | active, `min_spin_amount` 10000, 8 tiers, 8 rewards | ✅ match |
+| Owner mapping | `oj@gmail.com` → store `…0001`, role `owner` | ✅ match |
+
+**Destruction evidence (reported separately from the two states above):**
+`pg_ctl stop -m fast` exit 0 → data directory deleted → `Test-Path` = **False**; no
+processes referencing the test cluster/DB remain; port 55432 no longer listening;
+backup artifacts intact (`jwellery-20261015-150511.dump` 416,184 bytes,
+`jwellery-schema-20261015-150511.sql` 296,904 bytes).
+
+**Failed attempts recorded honestly (all test-bench/tooling causes — none were dump
+corruption):**
+1. Runs 1–3 wedged at server start: PowerShell 5.1 pipeline/stream-drain waits block
+   forever once `pg_ctl` daemonizes (the spawned server inherits the pipe/stream
+   handles). Fix: start via `Start-Process` and poll `HasExited`; drive the rest in the
+   foreground. Harness scripting bug, not a data issue.
+2. Run 4 restored into a cluster created with the default Windows codepage (`WIN1252`):
+   `COPY rewards`/`schema_migrations` failed on `0xe2 0x82 0xb9` (₹, U+20B9, valid
+   UTF-8 in the dump), cascading into `reward_tiers` FK failures — which is precisely
+   what the item diff caught (`rewards 0` vs baseline 8). Fix: UTF-8 cluster.
+3. Run 5 failed on `role "authenticated" does not exist` (19 policy statements) —
+   stock PostgreSQL lacks Supabase's platform roles. Fix: create them (NOLOGIN).
+
+**Restore gate CLOSED CLEAN. Migration and cutover phases are authorised to proceed.**
 
 ## E. Frontend readiness
 

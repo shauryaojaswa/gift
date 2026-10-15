@@ -52,8 +52,15 @@ Customer journey (working, live in production): branded landing → details form
   exit 0; `pg_restore --list` parses cleanly, 653 TOC entries). Production DB password
   rotated into a session file (never in chat). Because the plan is Free, weekly manual
   dumps (keep last 4, verify each) are the sole recovery path — and production needs a
-  weekly keep-alive touch to avoid auto-pause. Restore-test result: see
-  `docs/RELEASE_READINESS.md`.
+  weekly keep-alive touch to avoid auto-pause.
+- **Restore test (2026-10-15) — CLEAN**: the dump restored into a disposable local
+  UTF-8 PostgreSQL 17.11 cluster with `pg_restore` exit 0 / 0 errors (only the 4
+  Supabase-Vault platform TOC entries excluded — Supabase-only extension). Item-by-item
+  diff vs the baseline matched everything: 26 table counts, `GIFT-DDD89040` byte-identical,
+  shop 8/8/10000, 3 migration rows, owner mapping. Disposable cluster destroyed with
+  verification afterwards (dir deleted, port closed, no processes left). Full evidence:
+  `docs/RELEASE_READINESS.md` §Restore test 2026-10-15. **Restore gate CLOSED CLEAN —
+  migration and cutover phases authorised.**
 | `checkpoint` | `essinjjyghevfylkfzwi` | INACTIVE (paused) | Never repurpose/reset |
 | `shauryaojaswa's Project` | `nighrprmeewtxitlqela` | INACTIVE (paused) | Never repurpose/reset |
 | `jriq-staging` | `wpytaorgiqkfnifsuhax` (org `ecqymsoxaiyoawdmimds`, `ap-northeast-2`) | ACTIVE_HEALTHY | Staging target; free tier (2 active projects); synthetic data only |
