@@ -17,8 +17,8 @@ the four new additive migrations **in this order**:
 | # | File | Purpose |
 |---|---|---|
 | 1 | `supabase/migrations/20261015161000_platform_catalog_policies.sql` | `gift_catalog`, `platform_policies` (+ seed: 11-bracket template, max-4 rule, ₹1,000 default), `store_owner_invitations`, `rewards.catalog_gift_id`, synchronisation trigger |
-| 2 | `supabase/migrations/20261015161100_tier_gift_options.sql` | `tier_gift_options` pool table, composite tenant-safe FKs, `reward_tiers.reward_id` DROP NOT NULL |
-| 3 | `supabase/migrations/20261015161200_reward_engine_multipool.sql` | `submit_customer_entry` engine replacement (uniform pool selection + legacy fallback), `save_store_gift_options`, `create_shop`, `set_store_status`, `link_store_owner`, `admin_save_store_tiers`, `save_store_tiers` compat wrapper |
+| 2 | `supabase/migrations/20261015161100_tier_gift_options.sql` | `tier_gift_options` pool table, composite tenant-safe FKs, `UNIQUE (store_id, id)` on `reward_tiers` |
+| 3 | `supabase/migrations/20261015161200_reward_engine_multipool.sql` | `submit_customer_entry` engine replacement (uniform pool selection + legacy fallback), `reward_tiers.reward_id` DROP NOT NULL, `save_store_gift_options`, `create_shop`, `set_store_status`, `link_store_owner`, `admin_save_store_tiers`, `save_store_tiers` compat wrapper |
 | 4 | `supabase/migrations/20261015170000_anon_grant_tightening.sql` | Defence-in-depth: revoke anon defaults on platform tables |
 
 All four were applied to staging in this order and verified (**Verified**: `supabase
@@ -77,7 +77,7 @@ Order (zero downtime; DB first, frontend second):
 6. Regression: live customer flow on `jolly-enterprises` with a synthetic phone + tiny
    amount? **No** — production submissions must stay genuine; regression on production is
    read-only smoke (page loads, tier rendering, vendor login by the real owner) + full
-   functional proof remains on staging (70/70 + 25 UI checks).
+   functional proof remains on staging (70/70 SV + 27/27 UI checks).
 7. Monitor for 48h: error logs in Supabase, `platform_audit_logs`, submission anomalies.
 
 ## 6. Required verified backup (release gate)
@@ -91,11 +91,22 @@ pg_dump "postgresql://postgres@db.awshkiwqkuubkhecszzk.supabase.co:5432/postgres
 
 - Password is entered interactively at the prompt (or via `PGPASSWORD` set in the local
   shell only — never in chat, scripts or git).
-- **Restore-verification (mandatory)**: restore the dump into a scratch database
-  (`pg_restore --list` for integrity + row counts of `submissions`, `rewards`,
-  `reward_tiers`, `stores`) and confirm the count of submissions ≥ the known genuine rows,
-  including `dsklks`.
-- Keep the dump file local-only; do not commit it.
+- **Network requirement (Verified 2026-10-15)**: direct (5432) and pooler (6543) TCP to
+  Supabase is **blocked from the current machine/network** — `pg_dump`, `pg_restore` and
+  `supabase migration up` cannot run from here as-is. The backup must be executed from a
+  network with DB egress (e.g. a phone hotspot, verified with
+  `Test-NetConnection db.awshkiwqkuubkhecszzk.supabase.co -Port 5432` first) or from a
+  cloud shell/VM. This is a hard prerequisite, not a preference.
+- **Production DB password**: unknown to the project; reset it in the Supabase dashboard
+  (Settings → Database → Reset DB password) before the dump if no password is at hand.
+- **Restore-verification (mandatory)**: restore the dump into a disposable database
+  (local Postgres — Docker is NOT installed on this machine and needs user approval to
+  install — or a temporary free Supabase project created and destroyed for the purpose),
+  verify row counts against the captured baseline, and confirm the protected claim
+  `GIFT-DDD89040` round-trips. Keep the dump file local-only, outside the repo
+  (`%USERPROFILE%\backups\jriq\`); never commit it. Never overwrite an earlier dump.
+- **Pre-migration baseline (mandatory)**: run `scripts/prod-baseline.sql` (read-only,
+  PII-free output) before the dump and save its output beside the dump.
 
 ## 7. Secure password-entry instructions
 
@@ -162,8 +173,16 @@ during the deploy window use the old or new bundle, both compatible.
 
 ## 15. Exact commands (executed only after approval)
 
+> All `pg_*` / `supabase migration` commands below need outbound TCP 5432/6543 to
+> Supabase (Verified blocked from the current network on 2026-10-15). Run them from a
+> network with egress (verify first with `Test-NetConnection ... -Port 5432`), or apply
+> the migration files in order via the Supabase dashboard SQL editor (each file in its
+> own query — Postgres DDL is transactional per file). NEVER use the production SQL
+> editor for anything except these approved files.
+
 ```
-# 0. backup (see §6) + integrity verification
+# 0. baseline (read-only, PII-free) + backup (see §6) + integrity verification
+#    scripts/prod-baseline.sql -> save output outside the repo
 pg_dump "postgresql://postgres@db.awshkiwqkuubkhecszzk.supabase.co:5432/postgres" --format=custom --file=jwellery-pre-jriq-<date>.dump
 pg_restore --list jwellery-pre-jriq-<date>.dump   # exit 0
 
@@ -171,12 +190,12 @@ pg_restore --list jwellery-pre-jriq-<date>.dump   # exit 0
 npx.cmd supabase link --project-ref awshkiwqkuubkhecszzk
 npx.cmd supabase migration list --linked        # expect exactly 4 pending
 
-# 2. apply the four migrations
+# 2. apply the four migrations (order per §1)
 npx.cmd supabase migration up
 
 # 3. verify
 npx.cmd supabase migration list --linked        # Local == Remote
-# read-only SQL checks per §17
+# read-only SQL checks per §17 (compare against the saved baseline)
 
 # 4. frontend release
 git checkout gh-pages && git merge staging && git push origin gh-pages
@@ -195,8 +214,8 @@ git checkout gh-pages && git merge staging && git push origin gh-pages
 ## 17. Pre-release criteria (all must pass)
 
 - [ ] Staging: `scripts/staging-verify.mjs` 70/70 (latest run recorded).
-- [ ] Staging: `scripts/ui-verify.mjs` full UI pass (latest run recorded).
-- [ ] `npm test` 213/213, `npm run lint` 0, `tsc -b` 0, `npm run build` 0.
+- [ ] Staging: `scripts/ui-verify.mjs` 27/27 (latest run recorded).
+- [ ] `npm test` 216/216, `npm run lint` 0, `tsc -b` 0, `npm run build` 0, `npm run build:root` 0.
 - [ ] `scripts/preflight.mjs pages` 0 failures with production env classification.
 - [ ] Secret scan clean (source + dist role classification).
 - [ ] Verified `pg_dump` exists and restores (§8).

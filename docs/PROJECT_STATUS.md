@@ -50,16 +50,26 @@ Any production DB operation requires an explicit re-link and approval.
 
 ### Domain and hosting
 
-- `jriq.in`: **Reported** registered/active in MilesWeb dashboard, expiry **14 October 2027**.
-  Registrar = **MilesWeb** (Reported by user 2026-10-15) — same company as the hosting, so
-  DNS and hosting are managed from one MilesWeb login. DNS **Verified** NOT resolving on
-  2026-10-15 (nameservers unconfigured). At cutover, one of two settings in the MilesWeb
-  client area makes the domain live: (a) point the domain's nameservers at MilesWeb's
-  (they will show as "MilesWeb DNS"/`ns*.milesweb.*` in the hosting panel), or (b) add an
-  A record to the shared hosting IP shown in cPanel. (a) is recommended — it keeps DNS and
-  hosting together. Hosting plan, document root, SSL, upload method, SPA rewrite support:
-  **Unknown** — MilesWeb verification outstanding (needs the user's dashboard login, Phase 7).
-  GitHub Pages remains the rollback deployment.
+- `jriq.in` (five separate facts, Verified 2026-10-15):
+  - **Registration**: Active, registered 2026-10-14, expires **14 October 2027**; registrar
+    of record = Hosting Concepts B.V. dba **Openprovider** (IANA 1647) — sold via MilesWeb
+    (REPORTED by user; RDAP corroborates a reseller path). Domain id 74851 in the MilesWeb
+    client area.
+  - **DNS**: delegation **is** configured — `luna/odin/neon.mydnsvault.com` (VERIFIED via
+    RDAP; corrects the earlier "nameservers unconfigured" note). Resolution fails with
+    SERVFAIL because the DNS **zone at MyDNSVault was never created**. Fix = create the
+    zone + records in MilesWeb DNS (not a nameserver change).
+  - **Hosting**: MilesWeb "Premium" shared plan, Active, bound to `jriq.in`, due 2027-10-14
+    (25 GB NVMe, unmetered bandwidth, daily backups, free SSL per site — REPORTED from
+    MilesWeb public specs). **No website space provisioned yet** — mPanel only offers the
+    "add website" wizard (provisioning = deployment action, approval required).
+  - **SSL**: not issued yet (free SSL included in plan) — UNKNOWN until provisioning.
+  - **Live deployment**: not live; GitHub Pages (base `/gift/`) is the live app and rollback.
+  - DB egress from the current network to Supabase (5432/6543) is **blocked** (VERIFIED) —
+    `pg_dump`/`pg_restore`/`supabase migration up` need another network or the SQL editor.
+- GitHub Pages deploy: Actions workflow on the `gh-pages` branch (`deploy.yml`), builds with
+  repo `VITE_*` Actions variables, `base: '/gift/'`, SPA deep-link restore via `public/404.html`
+  + the `?p=` restore script in `index.html` (both now present on `staging` too).
 - GitHub Pages deploy: Actions workflow on the `gh-pages` branch (`deploy.yml`), builds with
   repo `VITE_*` Actions variables, `base: '/gift/'`, SPA deep-link restore via `public/404.html`
   + the `?p=` restore script in `index.html` (both now present on `staging` too).
