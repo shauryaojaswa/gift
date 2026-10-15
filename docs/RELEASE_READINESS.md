@@ -172,6 +172,42 @@ down and its script deleted). Authenticated successfully via
 local Supabase link intentionally remains on staging; all production commands use the
 explicit `--project-ref` / connection string.
 
+## Backup execution 2026-10-15 (Part 1)
+
+**Pre-write safety (VERIFIED):** backup directory `C:\Users\ojaswa\backups\jriq` is
+**local-only** — plain directory, no reparse point, outside the OneDrive root; Desktop/
+Documents are not cloud-redirected (no folder-backup sync covers it). The production
+password session file is distinctly named from the staging one and lives outside the
+repo tree (existence only — contents never referenced).
+
+**COMPLETED (VERIFIED):** `pg_dump (PostgreSQL) 17.11`, target re-verified aloud as
+`jwellery` / `awshkiwqkuubkhecszzk` immediately before the dump. Password supplied only
+via the session file into the process environment (never on a logged command line).
+- Data: `jwellery-20261015-150511.dump` — 416,184 bytes, written 2026-10-15T15:06:13
+  (`pg_dump --format=custom --no-owner --no-privileges`, exit 0)
+- DDL: `jwellery-schema-20261015-150511.sql` — 296,904 bytes (exit 0)
+- Integrity: `pg_restore --list` → 653 TOC entries, **exit 0**, no warnings
+
+**RESTORE-TESTED:** see the dated restore-test result below (item-by-item baseline diff).
+
+### Free-tier consequence — operational requirements (Pro upgrade held 2026-10-15)
+
+With no Supabase backups/PITR on the Free plan, **`pg_dump` is the sole recovery path**.
+Until Pro is enabled, the following recurring discipline is required:
+
+1. **Weekly dump** (same command shape as above): data dump + `--schema-only` snapshot
+   into `C:\Users\ojaswa\backups\jriq\`, timestamped filenames.
+2. **Rotation: keep the last 4** weekly dumps (≈1 month of history); never delete or
+   overwrite a dump that hasn't been superseded by a newer *verified* one.
+3. **Every run:** `pg_restore --list` must parse with exit 0; the newest dump is only
+   considered "verified" after that check passes.
+4. **Production keep-alive (pre-launch):** free projects auto-pause after ~7 idle days.
+   Until real traffic exists, open the app/API against production at least weekly (e.g.
+   one read query) to prevent an unintended pause — a paused project means downtime and
+   invalidates any test result.
+5. **Dated note: revisit the Pro upgrade (≈$25/mo) after launch** — daily backups +
+   7-day PITR + no auto-pause remove the entire class of risk above.
+
 ## E. Frontend readiness
 
 - Release candidate: annotated tag **`v1.0.0`** → commit **`a63ca381dfb6e01182cbfa1e333268a131106fb5`**

@@ -47,6 +47,13 @@ Customer journey (working, live in production): branded landing → details form
   **HELD by the user** — no billing change made. Free-plan risks stand: no project
   backups, no PITR, auto-pause after ~7 idle days. Pre-migration baseline captured
   (read-only, PII-free) — see `docs/RELEASE_READINESS.md` §Baseline 2026-10-15.
+- **Backup (2026-10-15)**: verified `pg_dump` of production COMPLETED to the local-only
+  folder `%USERPROFILE%\backups\jriq\` (416 KB data dump + 297 KB DDL snapshot, both
+  exit 0; `pg_restore --list` parses cleanly, 653 TOC entries). Production DB password
+  rotated into a session file (never in chat). Because the plan is Free, weekly manual
+  dumps (keep last 4, verify each) are the sole recovery path — and production needs a
+  weekly keep-alive touch to avoid auto-pause. Restore-test result: see
+  `docs/RELEASE_READINESS.md`.
 | `checkpoint` | `essinjjyghevfylkfzwi` | INACTIVE (paused) | Never repurpose/reset |
 | `shauryaojaswa's Project` | `nighrprmeewtxitlqela` | INACTIVE (paused) | Never repurpose/reset |
 | `jriq-staging` | `wpytaorgiqkfnifsuhax` (org `ecqymsoxaiyoawdmimds`, `ap-northeast-2`) | ACTIVE_HEALTHY | Staging target; free tier (2 active projects); synthetic data only |
