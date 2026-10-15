@@ -162,6 +162,16 @@ $25.00/month shown, no card on file; user chose to defer). Plan remains **Free**
 no backups/PITR and auto-pause risk stand as recorded in §B. The `pg_dump` backup below
 is therefore the only recovery path and is mandatory before any migration.
 
+**Production DB credentials (2026-10-15):** the production DB password was reset via the
+Supabase dashboard and captured end-to-end **without transiting chat** (page-side
+generation → browser download → moved to the session password file
+`%USERPROFILE%\.supabase\jwellery.db-password.txt`; the unused interim receiver was shut
+down and its script deleted). Authenticated successfully via
+`supabase migration list --project-ref awshkiwqkuubkhecszzk` — which also re-confirmed
+**3 migrations applied / 4 JRIQ files pending** directly from the database. Note: the
+local Supabase link intentionally remains on staging; all production commands use the
+explicit `--project-ref` / connection string.
+
 ## E. Frontend readiness
 
 - Release candidate: annotated tag **`v1.0.0`** → commit **`a63ca381dfb6e01182cbfa1e333268a131106fb5`**
