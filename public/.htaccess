@@ -1,0 +1,12 @@
+# SPA fallback for the jriq.in root deployment (Apache / LiteSpeed shared hosting).
+# All unknown paths serve index.html so client-side routes and QR deep links work:
+#   https://jriq.in/store/<slug>   -> index.html -> React Router resolves the shop
+# GitHub Pages ignores this file (it uses public/404.html + the index restore script).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

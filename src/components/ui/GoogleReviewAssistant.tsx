@@ -43,19 +43,24 @@ function IconGlyph({ kind }: { kind: string }) {
   }
 }
 
+/**
+ * Neutral topic prompts (Google-policy compliant): writing starters, never
+ * prewritten review text. The customer always writes their own words, and
+ * text is copied only when the customer presses a copy button.
+ */
 const SUGGESTIONS: Array<{ text: string; icon: string }> = [
-  { text: 'Beautiful jewellery collection.', icon: 'gem' },
-  { text: 'Very helpful and friendly staff.', icon: 'user' },
-  { text: 'I really liked the jewellery designs.', icon: 'sparkle' },
-  { text: 'Good quality and good service.', icon: 'badge' },
-  { text: 'Very smooth shopping experience.', icon: 'bag' },
-  { text: 'The staff helped me choose the right jewellery.', icon: 'hands' },
-  { text: 'I was happy with the overall experience.', icon: 'heart' },
-  { text: 'Good value for the quality.', icon: 'tag' },
-  { text: 'I found exactly what I was looking for.', icon: 'package' },
-  { text: 'Nice experience from start to finish.', icon: 'smile' },
-  { text: 'The collection had many beautiful options.', icon: 'gift' },
-  { text: 'My visit was a pleasant experience.', icon: 'sparkle' },
+  { text: 'What stood out about the jewellery selection?', icon: 'gem' },
+  { text: 'How would you describe the staff?', icon: 'user' },
+  { text: 'Which designs caught your eye?', icon: 'sparkle' },
+  { text: 'How did you find the quality?', icon: 'badge' },
+  { text: 'How was the shopping experience?', icon: 'bag' },
+  { text: 'Did anyone help you choose?', icon: 'hands' },
+  { text: 'How did you feel about your visit?', icon: 'heart' },
+  { text: 'How did you find the value for money?', icon: 'tag' },
+  { text: 'Did you find what you were looking for?', icon: 'package' },
+  { text: 'How was your visit from start to finish?', icon: 'smile' },
+  { text: 'What did you think of the range available?', icon: 'gift' },
+  { text: 'What made your visit memorable?', icon: 'sparkle' },
 ]
 
 export function GoogleReviewAssistant({
@@ -115,10 +120,12 @@ export function GoogleReviewAssistant({
 
   const handleSelectSuggestion = useCallback(
     (suggestion: string) => {
+      // Insert the topic prompt as an editable starter. No clipboard write:
+      // copying happens only through the explicit copy buttons below.
       setText(suggestion)
-      void copyText(suggestion)
+      setTimeout(() => textareaRef.current?.focus(), 30)
     },
-    [copyText],
+    [],
   )
 
   const handleWriteOwn = useCallback(() => {
@@ -183,6 +190,9 @@ export function GoogleReviewAssistant({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
           {/* Suggestions */}
+          <p className="mb-2 text-sm text-muted">
+            Topic ideas to get you started — write your own honest words.
+          </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {SUGGESTIONS.map(({ text: suggestion, icon }) => {
               const selected = text === suggestion
@@ -240,7 +250,7 @@ export function GoogleReviewAssistant({
           {/* Copy guidance once there is text */}
           {hasText && (
             <div className="review-message mt-2 p-3">
-              <p className="text-sm font-medium">Copy this review, then paste it into Google.</p>
+              <p className="text-sm font-medium">Copy what you have written, then paste it into Google.</p>
               <label htmlFor="review-fallback-text" className="sr-only">
                 Review text to copy
               </label>

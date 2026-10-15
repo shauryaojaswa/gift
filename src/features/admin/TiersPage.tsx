@@ -120,7 +120,8 @@ export function TiersPage() {
     cancelForm()
   }
 
-  const rewardName = (id: string) => rewards.find((r) => r.id === id)?.name ?? '—'
+  const rewardName = (id: string | null) =>
+    id ? rewards.find((r) => r.id === id)?.name ?? '—' : 'Gift pool (selected per spin)'
 
   return (
     <div className="flex flex-col gap-4">
@@ -203,7 +204,7 @@ export function TiersPage() {
                 />
               </FormField>
               <FormField label="Gift">
-                <select className="field-input py-2" value={form.rewardId} onChange={(e) => setForm({ ...form, rewardId: e.target.value })}>
+                <select className="field-input py-2" value={form.rewardId ?? ''} onChange={(e) => setForm({ ...form, rewardId: e.target.value })}>
                   {rewards.map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}

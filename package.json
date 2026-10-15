@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:root": "tsc -b && vite build --mode root",
+    "preflight": "node scripts/preflight.mjs pages",
+    "preflight:root": "node scripts/preflight.mjs root",
     "test": "vitest run",
     "lint": "oxlint",
     "preview": "vite preview"

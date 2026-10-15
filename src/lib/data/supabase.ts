@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../database.types'
+import type { Database, Json } from '../database.types'
 import type { Reward, RewardTier, StoreConfig } from '../../types'
 import type {
   AdminSession,
@@ -15,13 +15,103 @@ import type {
 
 type Client = SupabaseClient<Database>
 
+// ---------------------------------------------------------------------------
+// Typed accessors for submit_customer_entry's jsonb result columns. The RPC
+// contract returns the saved reward/tier snapshot as jsonb (see
+// 20261015161200_reward_engine_multipool.sql); fields are validated here so a
+// malformed payload fails loudly instead of inventing data.
+// ---------------------------------------------------------------------------
+
+interface AssignmentRewardJson {
+  id: string
+  name: string
+  wheel_label: string | null
+  description: string | null
+  voucher_value: number | null
+  claim_code_prefix: string | null
+  validity_text: string | null
+  active: boolean
+}
+
+interface AssignmentTierJson {
+  id: string
+  min_amount: number
+  max_amount: number | null
+  reward_id: string | null
+  target_segment: number
+  active: boolean
+}
+
+function jsonRecord(value: Json | undefined, label: string): Record<string, Json | undefined> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Malformed ${label} in reward assignment`)
+  }
+  return value as Record<string, Json | undefined>
+}
+
+function requiredText(rec: Record<string, Json | undefined>, key: string, label: string): string {
+  const value = rec[key]
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`Malformed ${label}: missing ${key}`)
+  }
+  return value
+}
+
+function optionalText(rec: Record<string, Json | undefined>, key: string): string | null {
+  const value = rec[key]
+  return typeof value === 'string' ? value : null
+}
+
+function optionalNumber(rec: Record<string, Json | undefined>, key: string): number | null {
+  const value = rec[key]
+  return typeof value === 'number' ? value : null
+}
+
+function requiredNumber(rec: Record<string, Json | undefined>, key: string, label: string): number {
+  const value = rec[key]
+  if (typeof value !== 'number') throw new Error(`Malformed ${label}: missing ${key}`)
+  return value
+}
+
+/** Exported for unit tests (malformed-payload and status-mapping behaviour). */
+export function parseAssignmentReward(value: Json | undefined): AssignmentRewardJson {
+  const rec = jsonRecord(value, 'reward')
+  return {
+    id: requiredText(rec, 'id', 'reward'),
+    name: requiredText(rec, 'name', 'reward'),
+    wheel_label: optionalText(rec, 'wheel_label'),
+    description: optionalText(rec, 'description'),
+    voucher_value: optionalNumber(rec, 'voucher_value'),
+    claim_code_prefix: optionalText(rec, 'claim_code_prefix'),
+    validity_text: optionalText(rec, 'validity_text'),
+    active: rec.active === true,
+  }
+}
+
+/** Exported for unit tests (malformed-payload and status-mapping behaviour). */
+export function parseAssignmentTier(value: Json | undefined): AssignmentTierJson {
+  const rec = jsonRecord(value, 'tier')
+  return {
+    id: requiredText(rec, 'id', 'tier'),
+    min_amount: requiredNumber(rec, 'min_amount', 'tier'),
+    max_amount: optionalNumber(rec, 'max_amount'),
+    reward_id: optionalText(rec, 'reward_id'),
+    target_segment: requiredNumber(rec, 'target_segment', 'tier'),
+    active: rec.active === true,
+  }
+}
+
+export function toCollectionStatus(value: string): 'awaiting' | 'collected' {
+  return value === 'collected' ? 'collected' : 'awaiting'
+}
+
 function rowToStore(row: Database['public']['Tables']['stores']['Row']): StoreConfig {
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
     subtitle: row.subtitle ?? 'CUSTOMER EXPERIENCE',
-    logoUrl: row.logo_url ?? '/logo-placeholder.svg',
+    logoUrl: row.logo_url || '/logo-placeholder.svg',
     primaryColor: row.primary_color ?? 'hsl(355 85% 45%)',
     secondaryColor: row.secondary_color ?? 'hsl(200 90% 55%)',
     googleReviewUrl: row.google_review_url ?? null,
@@ -102,26 +192,28 @@ export class SupabaseDataProvider implements DataProvider {
     })
     const assignment = data?.[0]
     if (error || !assignment) throw new Error(error?.message ?? 'Failed to assign a reward')
+    const reward = parseAssignmentReward(assignment.reward)
+    const tier = parseAssignmentTier(assignment.tier)
     return {
       id: assignment.submission_id,
       claimCode: assignment.claim_code,
       reward: {
-        id: assignment.reward.id,
-        name: assignment.reward.name,
-        shortLabel: assignment.reward.wheel_label ?? undefined,
-        description: assignment.reward.description,
-        voucherValue: assignment.reward.voucher_value,
-        claimCodePrefix: assignment.reward.claim_code_prefix,
-        validityText: assignment.reward.validity_text,
-        active: assignment.reward.active,
+        id: reward.id,
+        name: reward.name,
+        shortLabel: reward.wheel_label ?? undefined,
+        description: reward.description ?? '',
+        voucherValue: reward.voucher_value,
+        claimCodePrefix: reward.claim_code_prefix,
+        validityText: reward.validity_text,
+        active: reward.active,
       },
       tier: {
-        id: assignment.tier.id,
-        minAmount: assignment.tier.min_amount,
-        maxAmount: assignment.tier.max_amount,
-        rewardId: assignment.tier.reward_id,
-        targetSegment: assignment.tier.target_segment,
-        active: assignment.tier.active,
+        id: tier.id,
+        minAmount: tier.min_amount,
+        maxAmount: tier.max_amount,
+        rewardId: tier.reward_id,
+        targetSegment: tier.target_segment,
+        active: tier.active,
       },
     }
   }
@@ -192,7 +284,7 @@ export class SupabaseDataProvider implements DataProvider {
       tierMaxAmount: r.assigned_tier_max_amount,
       targetSegment: r.target_segment ?? 0,
       couponCode: r.coupon_code,
-      collectionStatus: r.collection_status,
+      collectionStatus: toCollectionStatus(r.collection_status),
       collectedAt: r.collected_at,
       collectedBy: r.collected_by,
       reviewCtaShown: r.review_cta_shown,
@@ -242,11 +334,14 @@ export class SupabaseDataProvider implements DataProvider {
   async upsertReward(reward: Reward): Promise<Reward> {
     const session = await this.getSession()
     const storeId = await this.adminStoreId(session)
+    // rewards.wheel_label is NOT NULL (1-18 chars); fall back to a truncated
+    // name when the short label is absent so the row is always valid.
+    const wheelLabel = reward.shortLabel?.trim().slice(0, 18) || reward.name.trim().slice(0, 18)
     const { error } = await this.client.from('rewards').upsert({
       id: reward.id,
       store_id: storeId,
       name: reward.name,
-      wheel_label: reward.shortLabel ?? null,
+      wheel_label: wheelLabel,
       description: reward.description,
       voucher_value: reward.voucherValue ?? null,
       claim_code_prefix: reward.claimCodePrefix,

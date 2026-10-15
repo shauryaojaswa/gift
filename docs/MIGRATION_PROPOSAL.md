@@ -1,8 +1,34 @@
 # JRIQ Phase 2 — Migration Proposal (REVIEW REQUIRED — NOT APPLIED)
 
-Status: **Draft for approval.** Nothing in this document has been applied to any database.
-Applying to staging requires your approval of this proposal; applying to production later
-additionally requires a verified backup and separate explicit approval.
+Status: **Approved for staging (2026-10-15 execution order) — implementation in progress.**
+The new-shop default template in §6 is adopted as specified in the execution order.
+Nothing here has been applied to production; production application requires a verified
+backup and separate explicit approval.
+
+## 0. Amendment record (2026-10-15, review pass before implementation)
+
+Deficiencies found on re-review and fixed in the sections below:
+
+1. **`reward_tiers.reward_id` must become nullable** (§3.6). It is `NOT NULL` today, which
+   would force every pool-based bracket to carry a meaningless placeholder reward. Making it
+   nullable is non-destructive (`DROP NOT NULL`); existing rows keep their values.
+2. **`tier_gift_options` links brackets to shop `rewards` rows, not directly to catalogue
+   rows** (§3.2). `submissions.reward_id` and `reward_tiers.reward_id` both FK into
+   `rewards(store_id, id)`, so an assigned prize must resolve to a `rewards` row. A shop's
+   selection of a catalogue gift is therefore materialized as a `rewards` row carrying
+   `catalog_gift_id` (§3.5), and the option table references that row. This keeps every
+   existing FK, query and UI shape valid.
+3. **Materialization point defined** (§4.1): `save_store_gift_options` creates/updates the
+   store-local `rewards` row for each selected catalogue gift inside the same transaction.
+   The `gift_catalog` sync trigger (§3.5) keeps display fields fresh; submissions keep
+   their own immutable snapshot either way.
+4. **`admin_save_store_tiers` relaxation** (§4.2): pool-based brackets may have
+   `reward_id = null`; `target_segment` becomes a display hint (duplicates allowed on the
+   admin path). The legacy one-gift-per-segment rule stays in `save_store_tiers`, which is
+   unchanged for existing owner workflows.
+5. **Onboarding recovery made explicit** (§4.3): `create_shop` is one transaction, idempotent
+   on slug, and new shops start `status='onboarding'` so the public flow stays closed until
+   the platform admin activates — a partially configured shop can never award prizes.
 
 Evidence basis: migration history in `supabase/migrations/` (all three verified applied to
 production 2026-10-14, Local==Remote), read-only schema inspection, and the verified live
@@ -76,18 +102,23 @@ Audit trigger `audit_managed_change` attached (uses `platform_audit_logs`; `stor
 | column | type | notes |
 |---|---|---|
 | id | uuid PK default gen_random_uuid() | |
+| store_id | uuid NOT NULL | denormalized tenant scope for RLS + composite FK |
 | tier_id | uuid NOT NULL → reward_tiers(id) ON DELETE CASCADE | the bracket |
-| catalog_gift_id | uuid NOT NULL → gift_catalog(id) ON DELETE RESTRICT | the gift |
+| reward_id | uuid NOT NULL | the shop's materialized reward row (§3.5) |
 | active | boolean NOT NULL default true | |
 | created_at / updated_at | timestamptz | |
 
-Constraints: `unique (tier_id, catalog_gift_id)`. Index on `tier_id`.
-Integrity trigger: the tier's `store_id` is recorded via a denormalized `store_id uuid NOT NULL`
-column (added here rather than to `reward_tiers`), FK `(store_id, tier_id) → reward_tiers(store_id, id)`,
-so options can never reference another tenant's tier.
+Constraints: `unique (tier_id, reward_id)`; composite FK
+`(store_id, tier_id) → reward_tiers(store_id, id) ON DELETE CASCADE`;
+composite FK `(store_id, reward_id) → rewards(store_id, id) ON DELETE CASCADE`.
+Deleting a shop reward or a tier cleanly removes its option rows; deleting a catalogue gift
+is impossible while referenced (`rewards.catalog_gift_id` is `ON DELETE RESTRICT`, and the
+platform admin deactivates instead of deleting).
+Indexes: `tier_id`, `(store_id, reward_id)`.
 RLS: `all` for `is_store_admin(store_id) or is_platform_admin()`; **no anon read**
 (pools are exposed to customers only through `submit_customer_entry`, which returns the
-single assigned gift — pools must not leak odds/prize lists).
+single assigned gift — pools must not leak odds/prize lists). `rewards` needs a matching
+`unique (store_id, id)`-compatible FK target — already present in the existing schema.
 
 ### 3.3 New table `public.platform_policies` (concept "platform-controlled policies/defaults")
 
@@ -119,13 +150,22 @@ Supabase Auth account at `/vendor/login` with that email, then the platform admi
 
 ### 3.5 Alter `public.rewards` (additive)
 
-- `add column catalog_gift_id uuid null references public.gift_catalog(id)`.
-  Non-null ⇔ this row is the shop's selection instance of a catalogue gift.
-  Index on `catalog_gift_id`.
+- `add column catalog_gift_id uuid null references public.gift_catalog(id) ON DELETE RESTRICT`.
+  Non-null ⇔ this row is the shop's selection instance of a catalogue gift, materialized by
+  `save_store_gift_options` (§4.1). Index on `catalog_gift_id`; partial unique
+  `(store_id, catalog_gift_id) where catalog_gift_id is not null` — one instance per gift
+  per shop.
 - Sync trigger on `gift_catalog` UPDATE: propagate `name, wheel_label, description,
   voucher_value, claim_code_prefix, validity_text` to linked `rewards` rows. The catalogue
   remains the single mutable source; shop rows never become stale copies. Submissions keep
   their own immutable snapshot regardless.
+
+### 3.6 Alter `public.reward_tiers` (additive, non-destructive)
+
+- `alter column reward_id drop not null` — pool-based brackets need no placeholder reward.
+  Existing rows are untouched (all production tiers keep their `reward_id`).
+- Invariant enforced in the write RPCs: every tier must have `reward_id` **or** at least one
+  active `tier_gift_options` row; the engine raises explicitly if neither exists.
 
 ## 4. Reward engine changes (Option B — equal probability, server-authoritative)
 
@@ -136,20 +176,47 @@ Internal selection becomes:
 2. Idempotent replay of identical `request_id` (unchanged); conflicting reuse rejected (unchanged).
 3. Rate limit (unchanged).
 4. Resolve exactly one active tier for the amount (unchanged, half-open brackets).
-5. **Pool construction (new):** active `tier_gift_options` for the tier joined to active
-   `gift_catalog` → linked active `rewards` rows (store-scoped). Inactive gifts, inactive
-   options and inactive catalogue entries can never enter the pool.
+5. **Pool construction (new):** active `tier_gift_options` rows for the tier → active
+   `rewards` rows in the same store (each optionally catalogue-linked; the linked
+   `gift_catalog` row must also be active). Inactive options, inactive rewards and inactive
+   catalogue entries can never enter the pool.
 6. **Uniform selection (new):** `order by random() limit 1` inside the SECURITY DEFINER
    function (trusted server-side randomness). `random()` is not cryptographic; the prize is
    not a security boundary here because the pool itself is server-built and persisted, but
    distribution must be verified in tests (§8).
-7. **Fallback (compatibility):** if the tier has zero option rows, use the tier's legacy
-   `reward_id` exactly as today. Existing shops (including `jolly-enterprises`) therefore
+7. **Fallback (compatibility):** if the tier has zero active option rows, use the tier's
+   legacy `reward_id` exactly as today. Existing shops (including `jolly-enterprises`) therefore
    behave **identically** until someone opts a bracket into multi-gift.
 8. Persist assignment + snapshot + claim code before returning (unchanged). If a bracket has
    no options and no usable legacy reward, raise an explicit error (unchanged wording
    path) rather than awarding anything else.
 9. Return the saved result; the wheel only animates to it.
+
+### 4.1 Materialization (`save_store_gift_options`)
+
+For each requested `catalog_gift_id`: verify the catalogue row exists and is active; ensure a
+store-local `rewards` row with that `catalog_gift_id` exists (insert with display fields
+copied from the catalogue when missing, `wheel_label` truncated to the 1–18 constraint);
+then upsert `tier_gift_options` rows and deactivate/remove rows not in the request. All in
+one transaction, with `max_gift_selections_per_bracket` enforced on the active result.
+
+### 4.2 `admin_save_store_tiers` (platform path)
+
+Same validation core as `save_store_tiers` (contiguity, min-spin alignment, tier-ID
+ownership) plus: `reward_id` may be null when the tier carries active options; `target_segment`
+is a display hint on this path (duplicates allowed). The legacy one-gift-per-segment rule is
+unchanged in `save_store_tiers`.
+
+### 4.3 `create_shop` (onboarding + recovery)
+
+Single transaction: insert `stores` (slug regex + unique, `status='onboarding'`),
+insert the bracket template (§6) as `reward_tiers` rows (`reward_id` null),
+insert `store_subscriptions` (trial), then link the owner if an auth user with that email
+exists, else insert `store_owner_invitations` (`pending`). Slug retry with identical name
+returns the existing shop (idempotent); different content raises. A transaction rollback is
+the only partial-failure outcome, so retries can never duplicate shops or ownership. The
+public flow stays closed (`is_store_campaign_active` requires `status='active'`) until the
+platform admin activates the shop.
 
 Guarantees preserved: assignment persisted before reveal; identical retries return the same
 claim/reward; conflicting `request_id` reuse rejected; config changes after assignment never
@@ -161,10 +228,11 @@ alter saved rewards (snapshot + RESTRICT FK); double collection rejected
 | object | change | auth |
 |---|---|---|
 | `submit_customer_entry(...)` | replaced (same signature/returns; pool + uniform pick + fallback) | anon+authenticated (unchanged) |
-| `save_store_gift_options(p_tier_id uuid, p_catalog_gift_ids uuid[])` | **new** — upserts/deletes option rows for one bracket; enforces `max_gift_selections_per_bracket`, gift `active`, tier ownership | authenticated; caller must be store admin of the tier's store or platform admin |
-| `admin_save_store_tiers(p_store_id uuid, p_tiers jsonb)` | **new** — platform-admin variant of `save_store_tiers` with explicit store (fixes the `limit 1` limitation) | `is_platform_admin()` |
-| `create_shop(p_name text, p_slug text, p_owner_email text, p_logo_url text, p_tiers jsonb default null)` | **new** — creates store (`status='onboarding'`), copies bracket template when `p_tiers` is null, creates trial `store_subscriptions`, links owner if the email already has an auth user, else writes `store_owner_invitations`. Idempotent on slug: retry with identical name returns the existing shop; different content raises "slug in use" | `is_platform_admin()` |
-| `link_store_owner(p_store_id uuid, p_email text)` | **new** — backend lookup of `auth.users` by email, inserts `store_admins` (role 'owner'), marks invitation `linked`, audited | `is_platform_admin()` |
+| `save_store_gift_options(p_tier_id uuid, p_catalog_gift_ids uuid[])` | **new** — materializes catalogue selections (§4.1), upserts option rows; enforces `max_gift_selections_per_bracket`, gift `active`, tier ownership | authenticated; caller must be store admin of the tier's store or platform admin |
+| `admin_save_store_tiers(p_store_id uuid, p_tiers jsonb)` | **new** — platform-admin variant of `save_store_tiers` with explicit store (fixes the `limit 1` limitation); pool-tier rules per §4.2 | `is_platform_admin()` |
+| `create_shop(p_name text, p_slug text, p_owner_email text, p_logo_url text, p_tiers jsonb default null)` | **new** — per §4.3; returns shop id/slug/customer URL/owner-link status | `is_platform_admin()` |
+| `link_store_owner(p_store_id uuid, p_email text)` | **new** — backend lookup of `auth.users` by email, inserts `store_admins` (role 'owner'), marks invitation `linked`, audited; idempotent | `is_platform_admin()` |
+| `set_store_status(p_store_id uuid, p_status text)` | **new** — activate/suspend/onboard shop, audited | `is_platform_admin()` |
 | `mark_submission_collected`, `save_store_tiers` | unchanged | unchanged |
 
 All new functions: `SECURITY DEFINER`, `set search_path = ''`, schema-qualified references,
@@ -215,9 +283,23 @@ enforced in RLS and inside SECURITY DEFINER functions, not in the UI.
 `default_min_spin_amount = 1000` for new shops (existing store keeps 10000).
 `max_gift_selections_per_bracket = 4` (platform-editable).
 
-> **One business question (please answer with your approval):** confirm this 11-bracket
-> default template for new shops — specifically the ₹1,000 starting bracket, the two new
-> upper brackets, and 4 gifts max per bracket. Existing shop brackets are not affected.
+**Adopted (2026-10-15 execution order).** Boundary semantics made explicit:
+
+- All amounts are whole rupees (integer), stored exactly as today.
+- Brackets are **half-open `[min_amount, max_amount)`**; the top bracket has
+  `max_amount IS NULL` and matches every amount `>= 2,000,000`.
+- The 11 ranges are contiguous: every `min_amount` equals the previous `max_amount`
+  (1,000 → 10,000 → 20,000 → 40,000 → 50,000 → 1,00,000 → 1,50,000 → 2,50,000 →
+  5,00,000 → 10,00,000 → 20,00,000 → open). No gaps, no overlaps.
+- The floor rule is unchanged: a submission qualifies only from
+  `greatest(bracket.min_amount, store.min_spin_amount)` upward; with
+  `default_min_spin_amount = 1000` the lowest bracket is fully reachable.
+- Brackets 2–8 are boundary-identical to the existing production tiers (₹10,000–₹5,00,000);
+  the old open-ended ₹5,00,000+ range is split into brackets 9–11 **for new shops only**.
+- Maximum 4 selected gifts per bracket (platform-enforced, `platform_policies`).
+- Equal probability among the bracket's valid selected gifts; no weighted odds.
+- **The existing production shop's tiers, assignments, submissions and behaviour are not
+  modified** to match this template.
 
 ## 7. Migration sequence (files, additive)
 
@@ -262,13 +344,14 @@ tenants Shop A / Shop B with two owner accounts. Test matrix:
 
 - **Existing shop behaviour:** unchanged until a bracket is opted into multi-gift
   (fallback path). Claim `GIFT-DDD89040` and all snapshots untouched (additive DDL only).
-- **Behaviour change (flagged):** bracket-boundary editing proposed to move from shop owner
-  to platform control. Vendor UI keeps gift selection. Say "owner edits brackets" if you
-  want owners to retain that.
-- **Wheel segments:** `save_store_tiers` currently requires one gift per `target_segment`
-  (0–7). Multi-gift pools make segment layout display-only; the wheel will render the
-  resolved bracket's pool and always land on the saved label. The one-gift-per-segment rule
-  stays for legacy rows and is relaxed only for pool-based brackets (documented in code).
+- **Behaviour change (implemented per adopted plan):** bracket-boundary editing moves from
+  shop owner to platform control; shop owners edit gift selections per bracket and their
+  legacy reward rows. `save_store_tiers` remains available for existing owner workflows.
+- **Wheel segments:** `save_store_tiers` keeps its one-gift-per-`target_segment` (0–7) rule
+  for legacy tiers; on the admin path `target_segment` is a display hint. The wheel renders
+  the resolved bracket's pool (legacy brackets: the single reward) and always lands on the
+  saved label — the animation never selects a prize. The new template has 11 brackets vs 8
+  wheel segments, which is precisely why segments stay display-only.
 - **Frontend work:** vendor gift-selection UI, platform admin UI (`/platform/*`), minor
   wheel adaptation. `submit_customer_entry` return shape unchanged, so the customer flow
   needs no contract change.

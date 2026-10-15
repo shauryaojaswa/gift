@@ -36,7 +36,8 @@ export interface RewardTier {
   id: string
   minAmount: number
   maxAmount: number | null
-  rewardId: string
+  /** Legacy single-gift bracket. Null for pool-based brackets (gift options). */
+  rewardId: string | null
   targetSegment: number
   active: boolean
 }

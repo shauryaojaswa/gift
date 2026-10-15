@@ -58,14 +58,16 @@ export function validateTierConfiguration(
     if (!Number.isInteger(current.targetSegment) || current.targetSegment < 0 || current.targetSegment > 7) {
       return 'Choose a wheel segment from 1 to 8.'
     }
-    if (!rewards.some((reward) => reward.id === current.rewardId && reward.active)) {
-      return 'Every active tier must use an active gift.'
+    if (current.rewardId != null) {
+      if (!rewards.some((reward) => reward.id === current.rewardId && reward.active)) {
+        return 'Every active tier must use an active gift.'
+      }
+      const mappedReward = segmentRewards.get(current.targetSegment)
+      if (mappedReward && mappedReward !== current.rewardId) {
+        return 'Different gifts cannot use the same wheel segment.'
+      }
+      segmentRewards.set(current.targetSegment, current.rewardId)
     }
-    const mappedReward = segmentRewards.get(current.targetSegment)
-    if (mappedReward && mappedReward !== current.rewardId) {
-      return 'Different gifts cannot use the same wheel segment.'
-    }
-    segmentRewards.set(current.targetSegment, current.rewardId)
     const next = activeTiers[index + 1]
     if (next && current.maxAmount !== next.minAmount) {
       return current.maxAmount === null || current.maxAmount > next.minAmount
@@ -86,24 +88,39 @@ export function evaluateReward(amount: number, config: StoreConfig): RewardResul
   return { amount, tier, reward, targetSegment }
 }
 
-export function buildSegments(config: StoreConfig): WheelSegment[] {
+/**
+ * Build the decorative wheel segments (display-only — the prize is always the
+ * backend assignment). Legacy brackets map to their configured gift;
+ * pool-based brackets (`rewardId: null`) get a neutral placeholder until the
+ * backend assignment arrives, then the assigned segment is overridden with the
+ * actual saved reward so the wheel always lands on what was awarded.
+ */
+export function buildSegments(config: StoreConfig, assigned?: RewardResult | null): WheelSegment[] {
   const bySegment = new Map<number, WheelSegment>()
   for (const tier of config.tiers) {
     if (!tier.active) continue
-    const reward = config.rewards.find((r) => r.id === tier.rewardId)
-    if (!reward) continue
+    const reward = tier.rewardId ? config.rewards.find((r) => r.id === tier.rewardId) : null
     const existing = bySegment.get(tier.targetSegment)
     if (existing) continue
     bySegment.set(
       tier.targetSegment,
       {
         index: tier.targetSegment,
-        rewardId: reward.id,
-        rewardName: reward.shortLabel || conciseLabel(reward.name),
-        rewardDescription: reward.description,
+        rewardId: reward?.id ?? '',
+        rewardName: reward ? reward.shortLabel || conciseLabel(reward.name) : 'GIFT',
+        rewardDescription: reward?.description ?? '',
         color: segmentColor(tier.targetSegment),
       },
     )
+  }
+  if (assigned) {
+    bySegment.set(assigned.targetSegment, {
+      index: assigned.targetSegment,
+      rewardId: assigned.reward.id,
+      rewardName: assigned.reward.shortLabel || conciseLabel(assigned.reward.name),
+      rewardDescription: assigned.reward.description,
+      color: segmentColor(assigned.targetSegment),
+    })
   }
   return Array.from(bySegment.values()).sort((a, b) => a.index - b.index)
 }

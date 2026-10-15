@@ -16,11 +16,17 @@ const VendorRewards = lazy(() => import('./features/vendor/Rewards'))
 const VendorSettings = lazy(() => import('./features/vendor/Settings'))
 const VendorQR = lazy(() => import('./features/vendor/QRPage'))
 
+const Home = lazy(() => import('./features/home/Home'))
+const PlatformShell = lazy(() => import('./features/platform/PlatformShell'))
+const PlatformLogin = lazy(() => import('./features/platform/PlatformLogin'))
+const PlatformShops = lazy(() => import('./features/platform/ShopsPage'))
+const PlatformCatalog = lazy(() => import('./features/platform/CatalogPage'))
+
 export default function App() {
   return (
     <Suspense fallback={<Spinner fullScreen />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/store/jolly-enterprises" replace />} />
+        <Route path="/" element={<Home />} />
         <Route path="/store/:slug" element={<CustomerFlow />} />
         <Route path="/standee/:slug" element={<Standee />} />
         <Route path="/privacy" element={<Privacy />} />
@@ -39,6 +45,14 @@ export default function App() {
           <Route path="rewards" element={<VendorRewards />} />
           <Route path="settings" element={<VendorSettings />} />
           <Route path="qr-code" element={<VendorQR />} />
+        </Route>
+
+        {/* JRIQ platform administration */}
+        <Route path="/platform/login" element={<PlatformLogin />} />
+        <Route path="/platform" element={<PlatformShell />}>
+          <Route index element={<Navigate to="/platform/shops" replace />} />
+          <Route path="shops" element={<PlatformShops />} />
+          <Route path="catalog" element={<PlatformCatalog />} />
         </Route>
 
         <Route path="*" element={<p className="text-center py-10">Page not found</p>} />

@@ -29,6 +29,7 @@ export function SpinWinScreen() {
     hasSpun,
     spinStatus,
     reviewReturnDetected,
+    rewardResult,
     setRewardResult,
     setSubmissionId,
     setClaimCode,
@@ -44,6 +45,7 @@ export function SpinWinScreen() {
     hasSpun: s.hasSpun,
     spinStatus: s.spinStatus,
     reviewReturnDetected: s.reviewReturnDetected,
+    rewardResult: s.rewardResult,
     setRewardResult: s.setRewardResult,
     setSubmissionId: s.setSubmissionId,
     setClaimCode: s.setClaimCode,
@@ -51,7 +53,10 @@ export function SpinWinScreen() {
     completeSpin: s.completeSpin,
   }))
 
-  const segments: WheelSegment[] = useMemo(() => buildSegments(store), [store])
+  const segments: WheelSegment[] = useMemo(
+    () => buildSegments(store, rewardResult),
+    [store, rewardResult],
+  )
   const [targetSegment, setTargetSegment] = useState<number | null>(null)
   const [wheelSize, setWheelSize] = useState(getWheelSize)
   const headingRef = useRef<HTMLHeadingElement>(null)
