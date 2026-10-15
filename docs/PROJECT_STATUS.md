@@ -211,7 +211,60 @@ artifact), `src/lib/reward-engine.pool.test.ts`, `src/lib/data/supabase.assignme
 `src/components/ui/GoogleReviewAssistant.test.tsx`, `src/features/platform/GiftPoolPanel.test.tsx`;
 plus `getWheelSize` clamp tests in `SpinWinScreen.test.tsx` (negative SVG geometry fix).
 
-## 10. Next actions
+## 10. Audit-trigger defect fix (2026-10-15)
+
+**Legacy defect (VERIFIED, pre-existing since the managed-tenant migration):**
+deleting any shop rolled back — `audit_managed_change()` wrote the dying
+store's id into `platform_audit_logs.store_id` (FK to `stores`) from the same
+statement's AFTER triggers, violating `platform_audit_logs_store_id_fkey`.
+The FK's `ON DELETE SET NULL` never applies (the audit row is created after
+the parent delete). One synthetic smoke shop (`c8831efe-...`) was stranded.
+
+**Trigger audit:** 11 AFTER triggers call the function (stores, rewards,
+reward_tiers, store_admins, store_subscriptions, subscription_plans,
+tier_gift_options, gift_catalog, platform_policies, store_owner_invitations,
+submissions collection updates). `platform_audit_logs` has exactly two FKs
+(actor_id, store_id); no other audited entity can self-conflict. Defect paths:
+direct store delete (observed), all store-delete cascades (child audit
+triggers), and the equivalent actor case (auth.users self-deletion). Full
+record: `docs/RELEASE_READINESS.md` section M.
+
+**Chosen fix** (`supabase/migrations/20261015192000_audit_delete_ref_fix.sql`,
+trigger side only): when the computed store/actor reference no longer exists,
+insert the audit row with NULL in the FK column and preserve the id in the
+existing `details` metadata (`deleted_store_id` / `deleted_actor_id`). Audit
+rows stay durable and complete; valid references keep their linkage.
+
+**Rejected alternative:** making `platform_audit_logs_store_id_fkey`
+`DEFERRABLE INITIALLY DEFERRED` cannot fix this failure — the audit row is
+inserted after its parent is gone, so neither the `ON DELETE SET NULL` action
+nor a commit-time check ever sees a live parent row. Deferral would only move
+the failure to COMMIT.
+
+**Backup readiness:** the restore-tested backup `jwellery-20261015-150511.dump`
+predates the four applied JRIQ migrations and the `CLEAN-0CBBDC9A` claim
+(TOC-verified: zero JRIQ tables present). It is NOT a recovery point for
+current state — a new verified `pg_dump` is mandatory before the production
+fix (free-tier ops: keep last 4 weekly, `pg_restore --list` verify each run).
+
+**Deliverables prepared (offline):** fix migration; `scripts/prod-smoke.mjs`
+assertion corrections (public reads of stores/rewards asserted as the intended
+customer-page model; vendor scoping asserted on private tables only;
+`public_submission_rate_limits` counted on its real PK `store_id`; the smoke
+now performs a normal create -> operate -> delete cycle and asserts the
+deletion audit event survives with the store id recoverable from metadata);
+`scripts/audit-fix-verify.mjs` (staging proof: two fresh create-operate-delete
+cycles + live-store delete probes + the ten acceptance conditions);
+`scripts/prod-residue-clean.mjs` (section-9 cleanup through the normal
+deletion path with hard-abort semantics — no trigger bypass).
+
+**Pending (blocked on DB connectivity):** staging migration + proof run;
+`staging-verify.mjs` regression suite (reward, idempotency, collection, legacy
+fallback, tenant isolation); new production backup; production migration +
+full smoke (expect genuine 100%) + residue cleanup; then Phase M/C cutover
+prep remains gated per the release gates.
+
+## 11. Next actions
 
 1. **User approves** `docs/PRODUCTION_RELEASE_PROPOSAL.md` (production migration + backup + deploy).
 2. User performs the MilesWeb login step (Phase 7) when ready to wire `jriq.in`.

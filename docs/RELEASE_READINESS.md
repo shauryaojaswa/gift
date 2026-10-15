@@ -402,3 +402,146 @@ paused projects, or any change to genuine customer data.
    SPA fallback broken (deep-link 404) · claim persistence failing · auth redirect
    failure → rollback = repoint DNS to GitHub Pages (never went down; TTL 300 = minutes).
 10. After a clean window: restore TTL to 3600+.
+
+## M. Audit-trigger defect fix — root cause, trigger audit, decision record (2026-10-15)
+
+### M.1 The defect (reproduced VERIFIED on production smoke, 2026-10-15)
+
+Every delete of a `stores` row rolled back with:
+
+`insert or update on table "platform_audit_logs" violates foreign key constraint "platform_audit_logs_store_id_fkey"` ... `PL/pgSQL function public.audit_managed_change() line 35`
+
+Consequence: shops could not be deleted at all. One synthetic smoke shop
+(`c8831efe-...`, "Smoke Shop <run>") was stranded on production by this defect.
+
+### M.2 Full trigger audit (VERIFIED against migration source, all 7 files)
+
+`platform_audit_logs` columns: `id, actor_id -> auth.users ON DELETE SET NULL,
+store_id -> stores ON DELETE SET NULL, action, details jsonb, created_at`.
+Exactly two foreign keys (actor_id, store_id). There is no separate
+entity-id/target-id column; `details` jsonb is the only metadata field.
+All other audited entities (rewards, tiers, plans, policies, gifts,
+invitations, memberships, subscriptions) are referenced by name in `action`
+only, so they cannot self-conflict.
+
+`audit_managed_change()` is wired to 11 AFTER-row triggers:
+stores/rewards/reward_tiers/store_admins/store_subscriptions/subscription_plans/
+tier_gift_options/gift_catalog/platform_policies/store_owner_invitations
+(insert|update|delete) and submissions (update of collection_status only;
+submissions have no delete trigger).
+
+Self-referencing deletion paths (audit INSERT pointing at an entity deleted in
+the same statement/transaction):
+
+1. `stores` delete (direct) -> `stores.delete` audit row carries the dying id. OBSERVED FAILURE.
+2. Any `stores` delete cascade -> child audit triggers (rewards, reward_tiers,
+   store_admins, store_subscriptions, tier_gift_options, store_owner_invitations)
+   each emit rows carrying the dying store id. Same violation on every path.
+3. Equivalent case on the actor reference: an auth.users self-deletion cascades
+   to store_admins and the audit rows would carry the deleted actor id.
+
+NOT affected: ordinary child deletes while the store is alive (valid
+references); gift_catalog/platform_policies/subscription_plans deletes (no
+store column); submissions deletes (no delete trigger). So the defect is
+confined to deletions that remove the referenced store (or actor) within the
+same statement/transaction — every audited table shares the defect only
+through that one mechanism.
+
+### M.3 Chosen fix (trigger side) — supabase/migrations/20261015192000_audit_delete_ref_fix.sql
+
+In `audit_managed_change()` only: when the computed store/actor reference no
+longer exists at insert time (the entity is being deleted in the same
+statement/transaction), write NULL into the live FK column and preserve the
+identifier in the existing `details` metadata (`deleted_store_id` /
+`deleted_actor_id`). The audit row is always inserted and stays durable;
+`action`, `created_at`, actor and `changed_fields` are preserved unchanged.
+Valid references are untouched, so live-store child deletions keep their
+store linkage (staging probe asserts this). No schema objects added or dropped;
+historical audit rows untouched. One guard covers all eleven triggers,
+including future ones.
+
+Why this one: it is the narrowest change that satisfies every requirement —
+audit rows survive, FK columns only hold live values, the deleted entity's id
+remains recoverable from existing metadata, and the cascade case (2) and actor
+case (3) are handled by the same explicit guard rather than left broken.
+
+### M.4 Rejected alternative: `platform_audit_logs_store_id_fkey DEFERRABLE INITIALLY DEFERRED`
+
+Rejected as the sole fix, for a sound semantic reason: the audit row is
+INSERTED after its parent is already gone. `ON DELETE SET NULL` is a
+referential ACTION that only runs when the parent row is deleted while child
+rows exist; here the child is created after the parent delete, so no referential
+action ever applies to it. Deferring the check to COMMIT cannot help either —
+the parent row is still absent at COMMIT, so the constraint fails at commit
+instead of at insert. (Deferral is also not free: it changes check timing for
+every writer of the table.) Note the contrast with ordinary delete-order
+problems — see M.6.
+
+Also rejected: switching the audit triggers to BEFORE DELETE (changes timing
+semantics for all events and still leaves the cascade paths broken) and
+per-table special-casing (fragile, leaves future triggers exposed).
+
+### M.5 Backup readiness (section 7 determination, VERIFIED offline)
+
+The verified restore-tested backup `jwellery-20261015-150511.dump`
+(416,184 B, `pg_restore --list` exit 0, 653 TOC entries) contains zero JRIQ
+tables (`tier_gift_options`, `gift_catalog`, `platform_policies`,
+`store_owner_invitations` absent from the TOC) and predates the four applied
+JRIQ migrations, the authorised `CLEAN-0CBBDC9A` claim and the smoke residue.
+It is therefore NOT a recovery point for current production state. A NEW
+verified `pg_dump` (then `pg_restore --list` verification) is MANDATORY before
+the production defect-fix migration, per section 7.
+
+### M.6 Contingency noted, not yet triggered
+
+`reward_tiers` and `submissions` hold composite FKs `(store_id, reward_id) ->
+rewards(store_id, id) ON DELETE RESTRICT`. During a raw store delete these can
+bind depending on cascade order. Unlike M.4, DEFERRABLE INITIALLY DEFERRED
+WOULD fix that case (the referencing rows are deleted within the same
+transaction, so a commit-time check passes while integrity is preserved).
+If the staging create-delete cycle surfaces this, a second narrowly scoped
+migration for exactly those two constraints will be added and re-tested before
+production. No change is made speculatively.
+
+### M.7 Execution status at 2026-10-15 19:30 IST
+
+| Step | State |
+| --- | --- |
+| Root cause + trigger audit | VERIFIED (migration source) |
+| Fix migration authored | DONE (`20261015192000_audit_delete_ref_fix.sql`) |
+| Smoke-harness assertion fixes (public-read model, rate_limits schema, normal delete cycle, audit survival checks) | DONE (scripts/prod-smoke.mjs) |
+| Staging proof script (two create-operate-delete cycles, 10 conditions) | DONE (scripts/audit-fix-verify.mjs) |
+| Production residue cleanup script (normal path, hard-abort semantics) | DONE (scripts/prod-residue-clean.mjs) |
+| Staging migration + proof run | PENDING — no DB-port egress from current network |
+| Regression suite run (staging-verify.mjs) | PENDING — same |
+| New production backup | PENDING — same (pg_dump needs DB port) |
+| Production migration + smoke + residue cleanup | PENDING — gated on all of the above |
+
+### M.8 Local simulation evidence (VERIFIED 2026-10-15, PostgreSQL 17.6 throwaway cluster)
+
+The exact migration file was installed on a disposable local cluster with a
+mirrored mini-schema (stores/rewards/reward_tiers/submissions/store_admins
+with the real composite `ON DELETE RESTRICT` FKs, `platform_audit_logs` with
+both real FKs, 4 audit triggers, `auth.uid()` stub). Results:
+
+| Scenario | Result |
+| --- | --- |
+| Raw `DELETE FROM stores` with pool tier + legacy tier (reward_id set) + submission referencing the reward + membership | `DELETE 1` — succeeds; defect fixed |
+| Composite-FK RESTRICT contingency (M.6) | Did NOT materialize even with referencing tier+submission — no second migration needed (staging will re-confirm on the real schema) |
+| `stores.delete` audit row | present, store_id NULL, `details->>deleted_store_id` = the store id, changed_fields preserved |
+| Cascade audit rows (rewards.delete, 2x reward_tiers.delete, store_admins.delete) | all present, store_id NULL, store id recovered from details |
+| Pre-delete audit rows | durable (store_id set null by the FK action, rows kept) |
+| Live-store child delete (tier) | audit row KEEPS store_id and actor_id — no over-nulling |
+| Actor self-deletion cascade | audit row actor_id NULL, `details->>deleted_actor_id` = actor id |
+
+Command exits: initdb 0, migration file 0, schema 0, scenarios 0. Harnesses
+`node --check` clean. Staging + production runs remain required (real schema,
+RPCs, PostgREST) and are listed as PENDING in M.7.
+
+Network evidence (VERIFIED 2026-10-15): the Supabase DB hostnames are
+currently IPv6-only in public DNS (A = NODATA via Google DoH; AAAA present),
+this network has no IPv6, and outbound TCP 5432/6543 is blocked by the
+carrier/hotspot (portquiz.net:443 succeeds, :5432 fails — conclusive egress
+filtering). HTTPS to the Supabase API works. Remote DB work resumes only on a
+network with working PostgreSQL egress (direct IPv6 or the IPv4 Supavisor
+pooler `aws-0-ap-northeast-2.pooler.supabase.com`, which resolves on IPv4).
