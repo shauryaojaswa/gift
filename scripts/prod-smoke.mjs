@@ -63,6 +63,21 @@ async function signIn(email) {
 }
 
 const created = { userIds: [], storeId: null, giftId: null, tierIds: [] }
+const runStart = new Date().toISOString()
+
+// Removes the smoke's own audit rows: store-scoped rows, deletion-event rows,
+// rows written by the synthetic actors, and gift_catalog rows (no store column;
+// bounded to this run because the service-role fallback delete is actor-null).
+async function sweepSmokeAuditRows() {
+  if (created.storeId) {
+    await service.from('platform_audit_logs').delete().filter('details->>deleted_store_id', 'eq', created.storeId)
+    await service.from('platform_audit_logs').delete().eq('store_id', created.storeId)
+  }
+  if (created.userIds.length) {
+    await service.from('platform_audit_logs').delete().in('actor_id', created.userIds)
+  }
+  await service.from('platform_audit_logs').delete().like('action', 'gift_catalog%').gte('created_at', runStart)
+}
 
 async function cleanup() {
   if (created.storeId) {
@@ -82,13 +97,14 @@ async function cleanup() {
     await service.from('store_owner_invitations').delete().eq('store_id', storeId)
     await service.from('store_admins').delete().eq('store_id', storeId)
     await service.from('stores').delete().eq('id', storeId)
-    // The fixed path records a deletion event; that smoke-generated row goes too.
-    await service.from('platform_audit_logs').delete().filter('details->>deleted_store_id', 'eq', storeId)
-    await service.from('platform_audit_logs').delete().eq('store_id', storeId)
   }
   if (created.giftId) {
     await service.from('gift_catalog').delete().eq('id', created.giftId)
+    created.giftId = null
   }
+  // Sweep before user deletion: the actor filter keys on actor_id, which the
+  // auth-user delete would otherwise null out via ON DELETE SET NULL.
+  await sweepSmokeAuditRows()
   for (const userId of created.userIds) {
     await service.from('platform_admins').delete().eq('user_id', userId)
     await service.auth.admin.deleteUser(userId)
@@ -96,6 +112,11 @@ async function cleanup() {
 }
 
 async function main() {
+  // Pre-smoke audit baseline: the TRUE "before" this run. The final cleanup
+  // check compares against THIS (a snapshot taken later already includes the
+  // smoke's own audit rows and is not a reachable target).
+  const { count: auditBaseline } = await service.from('platform_audit_logs').select('id', { count: 'exact', head: true })
+  console.log(`INFO  pre-smoke audit baseline=${auditBaseline}`)
   // ---- 1. synthetic identities (deleted at the end) ----
   const { data: adminUser, error: adminErr } = await service.auth.admin.createUser({
     email: adminEmail, password, email_confirm: true,
@@ -156,8 +177,6 @@ async function main() {
   // there are the intended permission model, asserted as such below.
   const { data: memberships } = await vendor.from('store_admins').select('store_id')
   check('vendor scoping: private membership table shows only own shop', (memberships ?? []).length === 1 && memberships[0].store_id === created.storeId, JSON.stringify(memberships ?? null))
-  const { data: vendorSubs } = await vendor.from('submissions').select('store_id')
-  check('vendor scoping: private customer submissions stay tenant-isolated', (vendorSubs ?? []).length > 0 && (vendorSubs ?? []).every((s) => s.store_id === created.storeId), JSON.stringify(vendorSubs ?? null))
   const bracketTier = (tiers ?? []).find((t) => t.min_amount === 1000)
   const { error: optErr } = await vendor.rpc('save_store_gift_options', {
     p_tier_id: bracketTier.id, p_catalog_gift_ids: [gift.id],
@@ -192,6 +211,10 @@ async function main() {
     .single()
   check('submission row persisted with snapshot', row?.id === entry?.submission_id && row?.reward_label === giftName && row?.reward_wheel_label === 'SMOKE' && row?.reward_claim_code_prefix === 'SMK', JSON.stringify(row ?? null))
   check('snapshot carries the bracket bounds', row?.assigned_tier_min_amount === 1000 && row?.assigned_tier_max_amount === 10000, `${row?.assigned_tier_min_amount}-${row?.assigned_tier_max_amount}`)
+  // Asserted here (not before the submission exists): the vendor's private
+  // submissions read must show own-shop rows and nothing else.
+  const { data: vendorSubs } = await vendor.from('submissions').select('store_id')
+  check('vendor scoping: private customer submissions stay tenant-isolated', (vendorSubs ?? []).length > 0 && (vendorSubs ?? []).every((s) => s.store_id === created.storeId), JSON.stringify(vendorSubs ?? null))
   check('collection_status starts as awaiting', row?.collection_status === 'awaiting')
 
   // ---- 6. idempotent replay + conflicting reuse rejection ----
@@ -215,12 +238,11 @@ async function main() {
   check('same request_id with different amount is rejected', !!conflictErr && /already been used/i.test(conflictErr.message), conflictErr?.message ?? 'no error')
 
   // ---- 7. NORMAL delete-shop path (raw stores delete: cascade + audit) ----
-  const { count: auditBaseline } = await service.from('platform_audit_logs').select('id', { count: 'exact', head: true })
   const countsBefore = {
     stores: (await service.from('stores').select('id', { count: 'exact', head: true }).eq('id', created.storeId)).count,
     submissions: (await service.from('submissions').select('id', { count: 'exact', head: true }).eq('store_id', created.storeId)).count,
   }
-  console.log(`INFO  smoke rows before delete: stores=${countsBefore.stores} submissions=${countsBefore.submissions}; audit total baseline=${auditBaseline}`)
+  console.log(`INFO  smoke rows before delete: stores=${countsBefore.stores} submissions=${countsBefore.submissions}; audit pre-smoke baseline=${auditBaseline}`)
   // Cleanup order per spec: smoke-generated audit rows referencing the store go
   // BEFORE the store deletion (approved cleanup of smoke rows only).
   const { count: preAudit } = await service.from('platform_audit_logs').select('id', { count: 'exact', head: true }).eq('store_id', created.storeId)
@@ -239,14 +261,14 @@ async function main() {
   check('deleted store id recoverable from audit metadata', delAudit?.[0]?.details?.deleted_store_id === created.storeId, String(delAudit?.[0]?.details?.deleted_store_id ?? 'none'))
   check('audit event details preserved (changed_fields + timestamp)', Array.isArray(delAudit?.[0]?.details?.changed_fields) && delAudit[0].details.changed_fields.length > 0 && !!delAudit[0].created_at, JSON.stringify(delAudit?.[0] ?? null))
 
-  // ---- 7c. approved cleanup of smoke-generated audit rows (asserted above) ----
-  await service.from('platform_audit_logs').delete().filter('details->>deleted_store_id', 'eq', created.storeId)
-  await service.from('platform_audit_logs').delete().eq('store_id', created.storeId)
+  // ---- 7c. delete the smoke gift FIRST (its insert/delete audit rows are
+  // smoke-generated and must be swept below), then sweep all smoke audit rows.
+  if (created.giftId) {
+    await platform.from('gift_catalog').delete().eq('id', created.giftId)
+  }
+  await sweepSmokeAuditRows()
 
   // ---- 7d. delete remaining smoke identities + zero-row proof ----
-  if (created.giftId) {
-    await service.from('gift_catalog').delete().eq('id', created.giftId)
-  }
   for (const userId of created.userIds) {
     await service.from('platform_admins').delete().eq('user_id', userId)
     await service.auth.admin.deleteUser(userId)
@@ -271,7 +293,7 @@ async function main() {
   leftovers.platform_admins = paLeft ?? -1
   check('all smoke data deleted - zero rows remain', Object.values(leftovers).every((c) => c === 0), JSON.stringify(leftovers))
   const { count: auditAfter } = await service.from('platform_audit_logs').select('id', { count: 'exact', head: true })
-  check('smoke-generated audit rows removed (approved cleanup)', auditAfter === auditBaseline, `after=${auditAfter} baseline=${auditBaseline}`)
+  check('smoke-generated audit rows removed (approved cleanup)', auditAfter === auditBaseline, `after=${auditAfter} pre-smoke baseline=${auditBaseline}`)
   for (const userId of created.userIds) {
     const { data: gone } = await service.auth.admin.getUserById(userId)
     if (gone?.user) {

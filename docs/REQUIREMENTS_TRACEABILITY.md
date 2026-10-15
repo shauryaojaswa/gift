@@ -44,7 +44,7 @@ inventory is VERIFIED from the 2026-10-15 run output).
 | R26 | Secret scanning incl. build output | Security rules | `scripts/preflight.mjs` | source strict scan + dist JWT role classification (service_role fails gate) | PASS — VERIFIED | [PR] | Re-run per release |
 | R27 | Domain + hosting verification (jriq.in) | Phase 7 | — | DNS check | PARTIAL | DNS not resolving 2026-10-15; hosting/SSL/root Unknown | Needs MilesWeb login (user action) |
 | R28 | Repeatable, low-effort deployment (both targets) | Phase 9 | build modes, preflight, `.htaccess`, SPA restore | [PR] pages 10/10, root 9/9 | PASS — VERIFIED | [PR][GIT] | MilesWeb upload method Unknown until R27 |
-| R29 | Production backup + rollback readiness | Release gate | `PRODUCTION_RELEASE_PROPOSAL.md` | — | BLOCKED | Proposal prepared; pg_dump requires approval | Execute at release |
+| R29 | Production backup + rollback readiness | Release gate | `PRODUCTION_RELEASE_PROPOSAL.md` | `pg_restore --list` on the pre-change dump | PASS — VERIFIED | `jwellery-20261015-203239.dump` (552,410 B, list exit 0, 914 TOC entries, all JRIQ tables) | Free-tier ops: weekly pg_dump keep-last-4, verify each run |
 | R30 | Existing data + deployments preserved | Standing rule | git discipline | [GIT] main/gh-pages untouched; additive migrations only | PASS — VERIFIED | [GIT] | Protected records policy in status doc |
 | R31 | Final documentation set | Master requirements | `docs/*` | review | PASS — VERIFIED | [GIT] | Keep current per change |
 | R32 | New shops need no deploy / DNS change | Phase 9 requirement | `/store/:slug` client route + data-driven config | [UI] shop created via UI exists in staging and is live at its customer URL immediately | PASS — VERIFIED | [UI] 27/27 (Create Shop → customer URL → full customer journey on that URL) | — |
@@ -53,6 +53,7 @@ inventory is VERIFIED from the 2026-10-15 run output).
 | R35 | Public rate limit (5/hour per store+phone) | Foundation design | `public_submission_rate_limits` | [SV] rate-limit check | PASS — VERIFIED | [SV] | — |
 | R36 | Platform screens: login, shops, catalogue usable | Master requirements | `src/features/platform/*` | [UI] login negative+positive, create shop, status, catalog | PASS — VERIFIED | [UI] 27/27 (platform checks 1–9) | — |
 | R37 | Review copy never fabricated as customer testimony | Google policy | prompts only, no auto-posting | [UT] neutral-prompt assertions; no network posting anywhere | PASS — VERIFIED | [UT] | — |
+| R38 | Shop deletion works; audit trail durable through deletion (store id recoverable) | Release gate 2026-10-15 (legacy defect) | `20261015192000_audit_delete_ref_fix.sql` (trigger-side ref detachment) | [SV] audit-fix-verify 2 cycles: delete commits, zero children, deletion event survives with NULL fk + `deleted_store_id`; live-store refs NOT detached; prod smoke full create→operate→delete; residue deleted via normal path | PASS — VERIFIED | [SV] 23/23; prod smoke 35/35; residue clean 14/14 | DEFERRABLE-FK alternative rejected by experiment (RELEASE_READINESS M.4) |
 
 ## Notes
 

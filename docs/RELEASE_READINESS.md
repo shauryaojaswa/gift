@@ -539,7 +539,7 @@ If the staging create-delete cycle surfaces this, a second narrowly scoped
 migration for exactly those two constraints will be added and re-tested before
 production. No change is made speculatively.
 
-### M.7 Execution status at 2026-10-15 19:30 IST
+### M.7 Execution status at 2026-10-15 20:50 IST
 
 | Step | State |
 | --- | --- |
@@ -549,10 +549,67 @@ production. No change is made speculatively.
 | Smoke-harness assertion fixes (public-read model, rate_limits schema, normal delete cycle, spec cleanup order — smoke audit rows before store deletion, deletion-event asserted then cleaned, baseline restored) | DONE (scripts/prod-smoke.mjs, `node --check` clean) |
 | Staging proof script (two create-operate-delete cycles, 10 conditions) | DONE (scripts/audit-fix-verify.mjs) |
 | Production residue cleanup script (normal path, hard-abort semantics) | DONE (scripts/prod-residue-clean.mjs) |
-| Staging migration + proof run | PENDING — no DB-port egress from current network |
-| Regression suite run (staging-verify.mjs) | PENDING — same |
-| New production backup | PENDING — same (pg_dump needs DB port) |
-| Production migration + smoke + residue cleanup | PENDING — gated on all of the above |
+| Staging migration + proof run | DONE — exit 0; `schema_migrations` 7→8; `audit-fix-verify.mjs` 23/23 exit 0 |
+| Regression suite run (staging-verify.mjs) | DONE — 70/70 exit 0 |
+| New production backup | DONE — `jwellery-20261015-203239.dump` (552,410 B), `pg_restore --list` exit 0, 914 TOC entries incl. all 4 JRIQ tables |
+| Production migration | DONE — exit 0; `schema_migrations` 7→8; function verified carrying the fix; 11 audit triggers intact |
+| Residue cleanup (normal path) | DONE — `prod-residue-clean.mjs` 14/14 exit 0; deletion audit row kept (`fbbbe474-…`) |
+| Production smoke (F-4) | DONE — 35/35 exit 0 (full create→operate→delete cycle; see M.9) |
+
+### M.9 Production execution evidence (VERIFIED 2026-10-15, Supavisor session-mode pooler)
+
+- Staging: `supabase migration up --db-url` applied `20261015192000_audit_delete_ref_fix.sql`
+  exit 0. `schema_migrations` = 8; `prosrc` contains `deleted_store_id` +
+  `deleted_actor_id` (function fix live).
+- Staging proof `scripts/audit-fix-verify.mjs`: **23/23, exit 0** — two full
+  create→operate→delete cycles (10 acceptance conditions each), live-store
+  tier-delete probes (valid store ref NOT detached; actor preserved),
+  store-less table (`gift_catalog`) delete audits clean with NULL store fk,
+  and a referenced catalogue gift correctly refused while in use.
+- Staging regression `scripts/staging-verify.mjs`: **70/70, exit 0** (reward
+  engine + χ² uniformity, idempotency, collection, legacy fallback, tenant
+  isolation, rate limits, permission model).
+- Pre-change production backup (section 7 gate): `jwellery-20261015-203239.dump`
+  — `pg_restore --list` exit 0, 914 TOC entries / 69 TABLE DATA entries,
+  contains `tier_gift_options`, `gift_catalog`, `platform_policies`,
+  `store_owner_invitations`, `schema_migrations`, `platform_audit_logs`.
+  The stale `jwellery-20261015-150511.dump` is retained untouched (keep-last-4).
+- Production: `supabase migration up --db-url` applied the fix migration exit 0;
+  `schema_migrations` = 8; function verified; 11 audit triggers intact; audit
+  baseline 27 before the residue deletion.
+- Residue deletion (the fix's production test): `scripts/prod-residue-clean.mjs`
+  **14/14, exit 0** — identity re-verified unique (`c8831efe-…` / "Smoke Shop
+  mv9fxehs" / `smoke-mv9fxehs`), zero children in all 9 tables, then the NORMAL
+  store-delete path committed: store + children gone, required `stores.delete`
+  audit row present with NULL store fk and the id in `details.deleted_store_id`,
+  no other store affected, protected claims `GIFT-DDD89040` / `CLEAN-0CBBDC9A`
+  and shop `jolly-enterprises` (8 tiers/8 rewards/min 10000) intact before AND
+  after. The deletion audit row is KEPT per spec (`fbbbe474-f8bc-4f55-b49f-d2997b64c372`).
+  Expected audit count documented: 27 baseline + 1 kept deletion event = **28**.
+- Production smoke `scripts/prod-smoke.mjs`: **35/35, exit 0** — identities →
+  platform login → create_shop (11 brackets, trial, min 1000) → activate →
+  catalogue write → vendor login + scoping (private tables only) → pool save →
+  public reads asserted as the intended model → submit→claim→snapshot →
+  idempotent retry + conflict rejection → NORMAL store delete (create→operate→
+  delete) with deletion-event survival, NULL fk, id recoverable from metadata →
+  zero-row proof → audit total returned to the pre-smoke baseline (28) →
+  protected records intact.
+- Harness fixes during F-4 (assertions' intent unchanged): (1) vendor
+  tenant-isolation assertion moved after the submission exists (it demanded
+  rows before any existed); (2) audit-baseline accounting corrected — baseline
+  is captured pre-smoke (a section-7 snapshot already includes the smoke's own
+  rows and is unreachable), and the sweep covers every smoke-written audit row
+  (store-scoped, deletion-event, actor-scoped, and `gift_catalog` rows which
+  carry no store column) before the synthetic users are deleted — user deletion
+  would otherwise null `actor_id` via `ON DELETE SET NULL` and orphan the rows.
+  Two orphan `gift_catalog` audit rows from the intermediate failed run were
+  identified read-only by exact id and removed (approved smoke-generated audit
+  rows); the run then passed 35/35 against the restored baseline of 28.
+
+Limitations / notes: all remote evidence above is VERIFIED via the Supabase
+session-mode pooler and HTTPS REST (direct DB hostnames remain IPv6-only from
+this network). The composite-FK RESTRICT contingency (M.6) did not materialize
+in staging or production — no second migration was needed.
 
 ### M.8 Local simulation evidence (VERIFIED 2026-10-15, PostgreSQL 17.6 throwaway cluster)
 

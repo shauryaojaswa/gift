@@ -202,6 +202,21 @@ git checkout gh-pages && git merge staging && git push origin gh-pages
 # watch the Actions run to success, then smoke the live site
 ```
 
+## 15a. Fifth migration — audit defect fix (applied 2026-10-15, AFTER the four above)
+
+`supabase/migrations/20261015192000_audit_delete_ref_fix.sql` — narrowly scoped,
+separately versioned, applied via `supabase migration up --db-url` (session-mode
+Supavisor pooler; runtime-built URL, output scrubbed) after the staging gates
+passed (`audit-fix-verify.mjs` 23/23, `staging-verify.mjs` 70/70) and after the
+verified pre-change backup `jwellery-20261015-203239.dump` (§8). Trigger-side fix
+in `audit_managed_change()`: dying store/actor refs are written as NULL to the FK
+column with the id preserved in `details.deleted_store_id`/`deleted_actor_id`;
+the audit row is always durable. The alternative
+(`DEFERRABLE INITIALLY DEFERRED` FK) was rejected with executable proof — it only
+relocates the failure to COMMIT (RELEASE_READINESS M.4). Production after the
+fix: residue shop deleted via the normal path (the fix's production test) and
+smoke 35/35 exit 0. Full record: `docs/RELEASE_READINESS.md` section M.
+
 ## 16. Changes requiring explicit approval
 
 1. Running `pg_dump` **and verifying** the production backup.
@@ -218,8 +233,10 @@ git checkout gh-pages && git merge staging && git push origin gh-pages
 - [ ] `npm test` 216/216, `npm run lint` 0, `tsc -b` 0, `npm run build` 0, `npm run build:root` 0.
 - [ ] `scripts/preflight.mjs pages` 0 failures with production env classification.
 - [ ] Secret scan clean (source + dist role classification).
-- [ ] Verified `pg_dump` exists and restores (§8).
-- [ ] Production `migration list` shows exactly the 4 expected pending versions.
+- [x] Verified `pg_dump` exists and restores (§8) — `jwellery-20261015-203239.dump`
+      (552,410 B, `pg_restore --list` exit 0, 914 TOC entries, all JRIQ tables).
+- [x] Production `migration list` shows exactly the 4 expected pending versions —
+      applied 2026-10-15 (exit 0); plus the defect-fix migration 15a (exit 0).
 - [ ] Post-migration: `dsklks`/`GIFT-DDD89040`, 8 rewards, 8 tiers, `min_spin_amount`
       10000 intact; new tables present; RLS enabled on all new tables.
 - [ ] Live smoke: customer page, vendor login (real owner), platform login (platform

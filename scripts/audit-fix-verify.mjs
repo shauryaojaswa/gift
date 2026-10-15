@@ -153,7 +153,10 @@ async function main() {
     .single()
   if (giftAErr) throw new Error(`gift_catalog insert: ${giftAErr.message}`)
   created.giftIds.push(giftA.id)
-  const tierA = (tiersA ?? []).find((t) => t.min_amount === 1000)
+  // Default brackets come from platform_policies.default_brackets
+  // (1000-10000, 10000-20000, ... 2000000-null): select by position, not by
+  // hard-coded amounts that may not exist.
+  const tierA = (tiersA ?? [])[0]
   const { error: optAErr } = await vendor.rpc('save_store_gift_options', {
     p_tier_id: tierA.id, p_catalog_gift_ids: [giftA.id],
   })
@@ -170,7 +173,10 @@ async function main() {
   // ---- direct child-DELETE probes with the store ALIVE (vendor actor) ----
   // The fix must NOT detach still-valid store references: these audit rows keep
   // their store_id and carry the acting vendor as actor.
-  const probeTier = (tiersA ?? []).find((t) => t.min_amount === 3000)
+  // Probe deletes the TOP bracket: nothing references it (the gift pool is on
+  // the lowest bracket and the synthetic entry lands there too).
+  const probeTier = (tiersA ?? []).slice().sort((x, y) => y.min_amount - x.min_amount).find((t) => t.id !== tierA.id)
+  if (!probeTier) throw new Error('no probe tier available for the live-store delete probe')
   const { error: tierDelErr } = await vendor.from('reward_tiers').delete().eq('id', probeTier.id)
   check('direct tier delete succeeds with store alive', !tierDelErr, tierDelErr?.message ?? '')
   const { data: tierAudit } = await service.from('platform_audit_logs')
@@ -185,8 +191,26 @@ async function main() {
   if (optRows?.length) {
     await vendor.from('tier_gift_options').delete().eq('id', optRows[0].id)
   }
-  const { error: giftDelErr } = await platform.from('gift_catalog').delete().eq('id', giftA.id)
+  // Store-less audited table probe: delete a FRESH, unattached catalogue gift.
+  // The pool gift stays referenced by the live shop and is correctly NOT
+  // deletable while in use (rewards_catalog_gift_id_fkey RESTRICT).
+  const { data: probeGift, error: probeGiftErr } = await platform
+    .from('gift_catalog')
+    .insert({ name: `Audit Fix Probe Gift ${run}`, wheel_label: 'AFXP', claim_code_prefix: 'AXP', active: true })
+    .select('id')
+    .single()
+  if (probeGiftErr) throw new Error(`gift_catalog probe insert: ${probeGiftErr.message}`)
+  created.giftIds.push(probeGift.id) // tracked so cleanup removes it if the inline delete below fails
+  const { error: giftDelErr } = await platform.from('gift_catalog').delete().eq('id', probeGift.id)
   check('catalogue gift delete (no store column) works and audits clean', !giftDelErr, giftDelErr?.message ?? '')
+  const { data: giftAudit } = await service.from('platform_audit_logs')
+    .select('store_id, action')
+    .eq('action', 'gift_catalog.delete')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  check('store-less table audit row carries null store fk', giftAudit?.[0]?.action === 'gift_catalog.delete' && giftAudit?.[0]?.store_id === null, JSON.stringify(giftAudit ?? null))
+  const { error: refGiftDelErr } = await platform.from('gift_catalog').delete().eq('id', giftA.id)
+  check('referenced catalogue gift correctly refused while in use', !!refGiftDelErr, 'delete unexpectedly succeeded')
 
   // ---- NORMAL delete of shop A (raw stores delete: cascade + audit) ----
   const { error: delAErr } = await service.from('stores').delete().eq('id', shopA.id)

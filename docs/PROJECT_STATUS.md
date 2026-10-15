@@ -274,11 +274,21 @@ created 2026-10-15T11:13:47Z. Child recheck: 0 rows in all 9 child tables
 GIFT-DDD89040 (50,000/awaiting), CLEAN-0CBBDC9A (15,000/awaiting), real shop
 8 tiers / 8 rewards, owner mapping 1x role owner.
 
-**Pending (blocked on DB connectivity):** staging migration + proof run;
-`staging-verify.mjs` regression suite (reward, idempotency, collection, legacy
-fallback, tenant isolation); new production backup; production migration +
-full smoke (expect genuine 100%) + residue cleanup; then Phase M/C cutover
-prep remains gated per the release gates.
+**Executed and VERIFIED (2026-10-15 evening, Supavisor session-mode pooler):**
+staging migration applied (exit 0, `schema_migrations` 7→8) → `audit-fix-verify.mjs`
+23/23 exit 0 (two create→operate→delete cycles, 10 acceptance conditions +
+live-store no-over-nulling probes) → `staging-verify.mjs` regression 70/70 exit 0
+→ mandatory pre-change backup `jwellery-20261015-203239.dump` (552,410 B,
+`pg_restore --list` exit 0, 914 TOC entries incl. all 4 JRIQ tables) → production
+migration applied (exit 0, 8 migrations, function verified, 11 triggers intact) →
+residue `c8831efe-…` deleted through the NORMAL store-delete path
+(`prod-residue-clean.mjs` 14/14 exit 0 — the fix's production test; deletion
+audit row kept `fbbbe474-…`) → production smoke `prod-smoke.mjs` 35/35 exit 0
+(full create→operate→delete cycle). Audit log: 27 baseline + 1 kept deletion
+event = 28, verified. Full evidence: `docs/RELEASE_READINESS.md` M.7/M.9.
+
+**Remaining (post-fix):** Phase M MilesWeb provisioning (user login required),
+Phase C cutover (gated on M + explicit authorization), Phase H handover docs.
 
 ## 11. Next actions
 
