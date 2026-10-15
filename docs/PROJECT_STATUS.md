@@ -41,6 +41,12 @@ Customer journey (working, live in production): branded landing → details form
 | Name | Reference | Status | Treatment |
 |---|---|---|---|
 | `jwellery` (production) | `awshkiwqkuubkhecszzk` (`ap-northeast-2`) | ACTIVE_HEALTHY | Preserve; no writes without approval |
+
+- **Plan/billing (2026-10-15)**: `jwellery` is on the **Free** plan (org plan Free, project
+  shown as "NANO"). Pro upgrade ($25/mo) reached the "Confirm upgrade" step but was
+  **HELD by the user** — no billing change made. Free-plan risks stand: no project
+  backups, no PITR, auto-pause after ~7 idle days. Pre-migration baseline captured
+  (read-only, PII-free) — see `docs/RELEASE_READINESS.md` §Baseline 2026-10-15.
 | `checkpoint` | `essinjjyghevfylkfzwi` | INACTIVE (paused) | Never repurpose/reset |
 | `shauryaojaswa's Project` | `nighrprmeewtxitlqela` | INACTIVE (paused) | Never repurpose/reset |
 | `jriq-staging` | `wpytaorgiqkfnifsuhax` (org `ecqymsoxaiyoawdmimds`, `ap-northeast-2`) | ACTIVE_HEALTHY | Staging target; free tier (2 active projects); synthetic data only |

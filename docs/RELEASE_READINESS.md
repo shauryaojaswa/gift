@@ -99,6 +99,69 @@ hotspot / other network — verify with `Test-NetConnection db.awshkiwqkuubkhecs
 (2) a cloud VM/shell; (3) dashboard SQL editor for the migrations (files are
 transactional each). Until a restore test passes, "backup verified" reads **UNVERIFIED**.
 
+## Baseline 2026-10-15 (pre-migration evidence — captured VERIFIED, read-only)
+
+Captured via the Supabase dashboard's authenticated query API against production
+(`jwellery` / `awshkiwqkuubkhecszzk`) — SELECT-only statements. **PII excluded**: no
+customer names, phones, or emails in the outputs below (owner mapping records store
+ids only). Post-migration verification (release step 5) compares against exactly this.
+
+**Migration history (3 applied):**
+`20261010202900 initial_schema` · `20261010203000 managed_tenant_foundation` ·
+`20261010203100 submissions_collection_index`
+
+**Row counts (all 26 public tables):**
+
+| Table | Rows | Table | Rows |
+|---|---|---|---|
+| stores | 1 | activity_log | 0 |
+| store_admins | 1 | categories | 0 |
+| platform_admins | 0 | customers | 0 |
+| rewards | 8 | digital_gold_transactions | 0 |
+| reward_tiers | 8 | gold_leases | 0 |
+| submissions | 1 | gold_rate_quotes | 0 |
+| public_submission_rate_limits | 4 | gold_schemes | 0 |
+| store_subscriptions | 0 | invoices | 0 |
+| subscription_plans | 0 | metal_rates | 0 |
+| platform_audit_logs | 27 | order_items | 0 |
+| — | — | orders | 0 |
+| — | — | products | 0 |
+| — | — | promotions | 0 |
+| — | — | scheme_installments | 0 |
+| — | — | tenants | 0 |
+| — | — | users | 0 |
+
+Notes: `public.collections` does **not exist** (`to_regclass` = null — collections are
+modelled as `submissions.collection_status`). `platform_admins` is empty (platform
+admin provisioning happens with the JRIQ migrations).
+
+**Protected claim (PII-free columns):** id `ddd89040-453d-4018-bab3-7ee445e72e83`,
+store `00000000-0000-4000-a000-000000000001`, tier `00000000-0000-4000-b000-0000000000b4`
+(50,000–100,000), reward `00000000-0000-4000-a000-0000000000a4`, claim code
+`GIFT-DDD89040`, purchase ₹50,000, `reward_label` = `PREMIUM GIFT`,
+`reward_wheel_label` = `PREMIUM GIFT`, prefix `GIFT`, `collection_status` = `awaiting`,
+created 2026-10-14 11:16:56 UTC.
+
+**Existing shop:** slug `jolly-enterprises`, name `CUSTOMER REWARDS`, status `active`,
+active = true, `min_spin_amount` = 10000 — tiers **8**, rewards **8**.
+
+**Owner mapping:** `oj@gmail.com` → store `00000000-0000-4000-a000-000000000001`
+(role `owner`). `platform_admins`: no rows.
+
+**RPC signature fingerprint (`pg_proc.proargtypes`, the durable frontend contract):**
+- `save_store_tiers` — 1 arg, `proargtypes = 3802` (json)
+- `submit_customer_entry` — 7 args, `proargtypes = 25 2950 25 25 23 16 16`
+  (text, uuid, text, text, int4, bool, bool)
+
+**DB timezone:** `UTC` (`current_date` = 2026-10-15) — rate limiting is `now()`-rolling-
+window based and timezone-independent (already verified); subscription date checks use
+`current_date` self-consistently.
+
+**Billing:** Pro upgrade **HELD by user 2026-10-15** (checkout reached "Confirm upgrade",
+$25.00/month shown, no card on file; user chose to defer). Plan remains **Free** —
+no backups/PITR and auto-pause risk stand as recorded in §B. The `pg_dump` backup below
+is therefore the only recovery path and is mandatory before any migration.
+
 ## E. Frontend readiness
 
 - Release candidate: annotated tag **`v1.0.0`** → commit **`a63ca381dfb6e01182cbfa1e333268a131106fb5`**
