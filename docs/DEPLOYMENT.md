@@ -188,7 +188,7 @@ bundle `index-ByWVxrmy.js`. deploy-verify **11/11** — including the strict row
 Phase-2 BLOCKED gate, now live evidence), alongside the root-level SPA fallback. Production
 smoke 35/35 (zero audit delta); protected claims 2/2 intact; live manual matrix 15/18
 (three classified findings, no rollback trigger — `docs/FINAL_HANDOVER.md` §12 deviations
-9-10); 30-min watch 10/10 rounds clean (50/50 checks, 09:32 → 09:50 UTC). Rollback
+9-10); 30-min watch 15/15 rounds clean (75/75 checks, 09:32 → 10:00 UTC). Rollback
 (pre-authorised, not needed): redeploy the previous artifact `7cbe8d6`.
 
 **Upload transport (both releases):** the proven mPanel File Manager HTTP API — WHMCS

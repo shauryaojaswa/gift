@@ -27,7 +27,7 @@ Evidence labels: **Verified** (command/file/authenticated response), **Reported*
 > acceptance rows A6b/A8b/A8c added. Backup `jwellery-20261016-142256.logical.json`
 > (validated). Post-deploy: byte-verify 50/50 · deploy-verify 11/11 · prod-smoke 35/35 ·
 > live matrix 15/18 (3 classified findings, no rollback trigger) · 30-min watch
-> 10/10 rounds clean (50/50 checks). Record: `docs/FINAL_HANDOVER.md` §12.
+> 15/15 rounds clean (75/75 checks). Record: `docs/FINAL_HANDOVER.md` §12.
 
 ## 1. Purpose and architecture
 
