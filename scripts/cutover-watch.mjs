@@ -1,9 +1,11 @@
-// Cutover watch (Phase C) — read-only HTTPS/TLS probes during the 60-minute
-// post-cutover watch window. Checks every round:
-//   1. GET <base>/                      -> 200 (site serves the app)
-//   2. GET <base>/store/jolly-enterprises -> 200 (SPA fallback / deep link)
-//   3. TLS certificate of <base> host   -> >= min-cert-days days remaining
-//   4. GET https://shauryaojaswa.github.io/gift/ -> 200 (Pages rollback alive)
+// Cutover watch (Phase C) — read-only HTTPS/TLS probes during the post-cutover
+// watch window. Checks every round (v1.1.x artifact contract):
+//   1. GET <base>/                        -> 200 (site serves the app)
+//   2. GET <base>/jolly-enterprises       -> 200 (root-level deep link / SPA fallback)
+//   3. GET <base>/store/jolly-enterprises -> 301 + exact Location /jolly-enterprises
+//      (the strict legacy-301 row; redirect inspected as served, never auto-followed)
+//   4. TLS certificate of <base> host     -> >= min-cert-days days remaining
+//   5. GET https://shauryaojaswa.github.io/gift/ -> 200 (Pages rollback alive)
 // Writes timestamped PASS/FAIL lines to logs/cutover-watch-<stamp>.log (the
 // logs/ directory is gitignored). Submitting data is impossible by design:
 // only GET requests are issued, never a body.
@@ -65,6 +67,16 @@ async function httpStatus(url) {
   }
 }
 
+async function httpRaw(url) {
+  try {
+    const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(15000) })
+    await res.body?.cancel()
+    return { status: res.status, location: res.headers.get('location') }
+  } catch (err) {
+    return { error: String(err?.message ?? err).slice(0, 160) }
+  }
+}
+
 function certDays(host) {
   return new Promise((resolve) => {
     let settled = false
@@ -89,9 +101,21 @@ async function round(n, totalRounds) {
   if (root.status === 200) line('PASS', 'https root', `${base}/ -> 200`)
   else line('FAIL', 'https root', `${base}/ -> ${root.status ?? root.error}`)
 
-  const deep = await httpStatus(`${base}/store/jolly-enterprises`)
-  if (deepOk.includes(deep.status)) line('PASS', 'deep link', `${base}/store/jolly-enterprises -> ${deep.status} (accepted: ${deepOk.join(',')})`)
-  else line('FAIL', 'deep link', `${base}/store/jolly-enterprises -> ${deep.status ?? deep.error} (accepted: ${deepOk.join(',')})`)
+  const deep = await httpStatus(`${base}/jolly-enterprises`)
+  if (deepOk.includes(deep.status)) line('PASS', 'deep link', `${base}/jolly-enterprises -> ${deep.status} (accepted: ${deepOk.join(',')})`)
+  else line('FAIL', 'deep link', `${base}/jolly-enterprises -> ${deep.status ?? deep.error} (accepted: ${deepOk.join(',')})`)
+
+  // The strict legacy-301 row: the v1.1.x .htaccess answers a real HTTP 301 for
+  // legacy /store/{slug} before the SPA loads. Same acceptance as
+  // deploy-verify.ps1: Location must be exactly the target path, relative or
+  // absolute form.
+  const legacy = await httpRaw(`${base}/store/jolly-enterprises`)
+  const wantLoc = ['/jolly-enterprises', `${base}/jolly-enterprises`]
+  if (legacy.status === 301 && wantLoc.includes(legacy.location)) {
+    line('PASS', 'legacy 301', `/store/jolly-enterprises -> 301 Location=${legacy.location}`)
+  } else {
+    line('FAIL', 'legacy 301', `/store/jolly-enterprises -> ${legacy.status ?? legacy.error} Location=${legacy.location ?? '(none)'} (want 301 + /jolly-enterprises)`)
+  }
 
   const host = new URL(base).hostname
   const cert = await certDays(host)

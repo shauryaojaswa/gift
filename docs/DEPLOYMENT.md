@@ -67,6 +67,16 @@ To deploy an update today: merge `staging` (or `main`) into `gh-pages`, push, wa
 Actions run to `success`. Transient deploy-job failures have occurred twice historically;
 re-running the workflow (or pushing an empty commit) resolved them (**Reported**).
 
+> **State finding (2026-10-16, Verified):** the live Pages deployment is **stale**. It
+> serves bundle `index-DayxwhG_.js` built from source commit `04a9607` (2026-10-14 —
+> **pre-v1.0.0**; no tag contains it). Consequences observed in the v1.1.1 live matrix:
+> `/gift/` renders the old single-shop customer page instead of the JRIQ homepage, and
+> the client-side canonical redirect for `/gift/store/{slug}` does not exist in that
+> build (legacy QR paths still render losslessly there — physical cards keep working).
+> Refreshing Pages is the §4 procedure above — a **production-side action awaiting owner
+> decision, not executed as part of the v1.1.1 refresh**
+> (`docs/FINAL_HANDOVER.md` §12, deviation 10).
+
 ## 5. jriq.in deployment (MilesWeb — Phase M)
 
 ### 5.1 Hosting facts (2026-10-15/16)
@@ -158,6 +168,40 @@ job with stored credentials; **do not assume** any such capability before verify
 **Adding a new shop never requires a deployment or DNS change** — shops are data
 (slug rows in `stores`), and `/store/<slug>` is a client route (**Verified** in code and
 UI tests).
+
+### 5.5 Release actuals — v1.1.0 and v1.1.1 artifact refresh (2026-10-16)
+
+**v1.1.0** (`7cbe8d6`, tag `v1.1.0`): owner-approved and deployed 2026-10-16. Pre-deploy
+logical export 12:43:38 IST (deviation 5 — `pg_dump` egress-blocked), two additive
+migrations applied + history-recorded (10 rows), upload of the root build (42 assets +
+5 root files + `index.html`/`.htaccess` last), deploy-verify 10/10 (bundle
+`index-BKFS76nG.js`), production smoke 35/35, 30-min watch 57/60 (one transient edge/TLS
+blip at round 5, 20 min clean after). History reconciliation: `docs/FINAL_HANDOVER.md` §12.
+
+**v1.1.1** (`d3b158a`, tag `v1.1.1`): owner-approved artifact refresh, deployed
+2026-10-16 with **zero database changes** (migrations: none needed, none run). Pre-deploy
+backup `%USERPROFILE%\backups\jriq\jwellery-20261016-142256.logical.json` (validated —
+deviation 8). Upload: 44 assets → 5 root files → `index.html` + `.htaccess` LAST, all
+chunks HTTP 201; **byte-verification 50/50 files SHA-256-identical to `dist/`**. Live
+bundle `index-ByWVxrmy.js`. deploy-verify **11/11** — including the strict rows: legacy
+`/store/{slug}` answers a real HTTP **301** with `Location` exactly `/{slug}` (the
+Phase-2 BLOCKED gate, now live evidence), alongside the root-level SPA fallback. Production
+smoke 35/35 (zero audit delta); protected claims 2/2 intact; live manual matrix 15/18
+(three classified findings, no rollback trigger — `docs/FINAL_HANDOVER.md` §12 deviations
+9-10); 30-min watch 10/10 rounds clean (50/50 checks, 09:32 → 09:50 UTC). Rollback
+(pre-authorised, not needed): redeploy the previous artifact `7cbe8d6`.
+
+**Upload transport (both releases):** the proven mPanel File Manager HTTP API — WHMCS
+login → SSO → multipart `upload_file[]` POSTs, chunked ≤8 files per request,
+`Expect: 100-continue` disabled (the edge closes such connections). Target subfolders must
+exist before uploading into them (§5.4 quirk). Ordering rule: **`index.html` and
+`.htaccess` are always uploaded last**, so a mid-deploy interruption leaves the previous
+app fully bootable.
+
+**Byte-verification method:** every fetchable deployed file is fetched over HTTPS and
+SHA-256-compared to its local `dist/` counterpart (50 files at v1.1.1, `index.html`
+included). `.htaccess` cannot be served over HTTP by design; its verification is
+behavioural (the strict 301 rows of `deploy-verify.ps1` / `cutover-watch.mjs`).
 
 ## 6. Rollback
 

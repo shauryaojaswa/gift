@@ -19,6 +19,16 @@ Evidence labels: **Verified** (command/file/authenticated response), **Reported*
 > 35/35, live proof `/store/jolly-enterprises` -> `/jolly-enterprises` lossless and `/`
 > = platform homepage. Record + rollback: `docs/V1.1.0_RELEASE_PROPOSAL.md` §7-8.
 
+> **v1.1.1 DEPLOYED — 2026-10-16 (owner-approved artifact refresh): strict legacy 301
+> live.** Tag `v1.1.1 -> d3b158a` (`ls-remote` verified; the exact deployed artifact).
+> Zero database changes. Production serves `index-ByWVxrmy.js`: `public/.htaccess`
+> answers `/store/{slug}` with a real HTTP **301** + exact `Location` to `/{slug}`
+> (Phase-2 BLOCKED gate closed → live evidence), Overview QuickLinks slug-scoped,
+> acceptance rows A6b/A8b/A8c added. Backup `jwellery-20261016-142256.logical.json`
+> (validated). Post-deploy: byte-verify 50/50 · deploy-verify 11/11 · prod-smoke 35/35 ·
+> live matrix 15/18 (3 classified findings, no rollback trigger) · 30-min watch
+> 10/10 rounds clean (50/50 checks). Record: `docs/FINAL_HANDOVER.md` §12.
+
 ## 1. Purpose and architecture
 
 JRIQ is a multi-tenant jewellery rewards SaaS. One shared React SPA + one Supabase project
@@ -207,12 +217,21 @@ includes all new tables and RPCs (stale-types discrepancy resolved).
 
 Open items (none gate production):
 
-- **URL restructure** (root-level slugs `/{slug}`, per-shop `/{slug}/admin`, homepage
-  rebuild) — first post-launch feature; tracked in its own prompt/thread.
+- ~~**URL restructure** (root-level slugs `/{slug}`, per-shop `/{slug}/admin`, homepage
+  rebuild)~~ — **shipped**: live as `v1.1.0 -> 7cbe8d6` and refreshed as
+  `v1.1.1 -> d3b158a` (strict legacy 301 live).
+- **GitHub Pages fallback refresh — decision requested**: the Pages host serves a
+  pre-v1.0.0 build (`docs/DEPLOYMENT.md` §4 state finding; legacy QR links still work
+  there). Documented one-merge procedure; no production-side action taken without
+  explicit approval.
+- **v1.1.2 hardening queue (out of scope until explicitly approved)**: DB slug length cap
+  `length(slug) <= 60`; owner self-rename of the shop slug (`docs/FINAL_HANDOVER.md`
+  §12 deviation 11).
 - **TTL raise 300 -> 3600** — deliberate deferral, revisit at >1000 daily visitors or
   90 days stable (`docs/DEPLOYMENT.md` §5.4, `docs/FINAL_HANDOVER.md` §11).
-- **Rotate the owner test-account password** (`docs/FINAL_HANDOVER.md` §11) — it is a
-  known-rotation credential set via the Auth Admin API on 2026-10-16.
+- **Rotate known-rotation credentials** — owner test-account password and the Supabase
+  dashboard password (`docs/FINAL_HANDOVER.md` §11 deviations 1 and 4); both recorded as
+  tasks only, never values.
 
 ## 9. Test evidence (2026-10-15)
 
@@ -315,7 +334,24 @@ Phase C cutover (gated on M + explicit authorization), Phase H handover docs.
 
 ## 11. Next actions
 
-1. **User approves** `docs/PRODUCTION_RELEASE_PROPOSAL.md` (production migration + backup + deploy).
-2. User performs the MilesWeb login step (Phase 7) when ready to wire `jriq.in`.
-3. After approval: verified `pg_dump` → production migration → root build → upload →
-   HTTPS/route checks → DNS cutover (GitHub Pages remains rollback).
+1. **Owner decision requested — GitHub Pages fallback refresh**: the Pages host serves a
+   pre-v1.0.0 build (`docs/DEPLOYMENT.md` §4). The procedure (merge `staging` into
+   `gh-pages`, push, watch the Actions run) is documented and low-risk; it is a
+   production-side action and will not run without explicit approval.
+2. **In flight — final delivery prompt (staging only; Phase 5 stops for approval)**:
+   vision + visual gap audit with a 390×844 customer-side visual audit (P0-1 — includes
+   the v1.1.1 matrix findings: `store.name` never rendered on the customer landing, and
+   the broken `<img>` logo fallback for logo-less shops), customer-side polish pass, New
+   Shop wizard + deliverables result screen (P1-1), vendor self-service verification
+   (P0-3), snapshot-driven `scripts/e2e-vision.mjs` with demo-kit screenshots (P1-2),
+   onboarding runbook + demo kit (Phase 4), then a written production proposal (Phase 5)
+   that **stops for owner approval**.
+3. **v1.1.2 hardening queue (needs explicit future approval)**: DB slug length cap
+   `length(slug) <= 60`; owner self-rename of the shop slug; optional `create_shop`
+   unique_violation mapper; `MyQrCodePage`/`Standee` QR harmonisation onto
+   `getCampaignUrl` (`docs/FINAL_HANDOVER.md` §12 deviation 11).
+4. **Known-rotation credentials** (tasks only, never values): owner test-account password,
+   Supabase dashboard password (`docs/FINAL_HANDOVER.md` §11 deviations 1 and 4).
+5. **TTL raise 300 -> 3600** at >1000 daily visitors or 90 days stable (§8).
+6. **Weekly `pg_dump` keep-last-4** resumes the first time a machine has pooler egress;
+   validate with `pg_restore --list` then (`docs/FINAL_HANDOVER.md` §8, deviations 5/8).
