@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import QRCode from 'qrcode'
 import { useDataProvider } from '@/providers/DataProviderContext'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { GoogleReviewQrCode } from '@/components/ui/GoogleReviewQrCode'
+import { generateQrSvg, getCampaignUrl } from '@/lib/qr'
 import type { StoreConfig } from '@/types'
 
 export default function Standee() {
@@ -28,18 +28,14 @@ export default function Standee() {
       })
   }, [dataProvider, slug])
 
-  // Build the public campaign URL from the deployment base so the QR code and
-  // the printed link stay correct under a subpath such as GitHub Pages "/gift/".
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
-  const campaignUrl = `${window.location.origin}${basePath}/${slug}`
+  // Canonical public campaign URL: https://jriq.in/{slug} (root-level). The QR
+  // payload and the printed link stay correct under any host the dashboard is
+  // served from, and can never point at an admin or legacy path.
+  const campaignUrl = slug ? getCampaignUrl(slug) : ''
 
   useEffect(() => {
-    QRCode.toString(campaignUrl, {
-      type: 'svg',
-      width: 256,
-      margin: 2,
-      color: { dark: '#B71C1C', light: '#ffffff' },
-    })
+    if (!campaignUrl) return
+    generateQrSvg(campaignUrl)
       .then((svg) => {
         setQrSvg(svg)
         setLoading(false)

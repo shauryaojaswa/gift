@@ -1,4 +1,4 @@
-import type { Reward, RewardTier, StoreConfig, WheelSegment } from '../types'
+import type { GiftOption, Reward, RewardTier, StoreConfig, WheelSegment } from '../types'
 
 export function getPurchaseTier(
   amount: number,
@@ -89,40 +89,87 @@ export function evaluateReward(amount: number, config: StoreConfig): RewardResul
 }
 
 /**
- * Build the decorative wheel segments (display-only — the prize is always the
- * backend assignment). Legacy brackets map to their configured gift;
- * pool-based brackets (`rewardId: null`) get a neutral placeholder until the
- * backend assignment arrives, then the assigned segment is overridden with the
- * actual saved reward so the wheel always lands on what was awarded.
+ * The awardable gifts of one purchase bracket, in wheel order. A bracket with
+ * an approved gift pool offers exactly those gifts; a bracket without a pool
+ * falls back to its configured legacy reward (historical single-gift shops).
+ * Returns [] when the bracket cannot award anything - callers must show the
+ * designed "not configured" state and must not offer a spin.
  */
-export function buildSegments(config: StoreConfig, assigned?: RewardResult | null): WheelSegment[] {
-  const bySegment = new Map<number, WheelSegment>()
-  for (const tier of config.tiers) {
-    if (!tier.active) continue
-    const reward = tier.rewardId ? config.rewards.find((r) => r.id === tier.rewardId) : null
-    const existing = bySegment.get(tier.targetSegment)
-    if (existing) continue
-    bySegment.set(
-      tier.targetSegment,
-      {
-        index: tier.targetSegment,
-        rewardId: reward?.id ?? '',
-        rewardName: reward ? reward.shortLabel || conciseLabel(reward.name) : 'GIFT',
-        rewardDescription: reward?.description ?? '',
-        color: segmentColor(tier.targetSegment),
-      },
-    )
+export function getAwardableOptions(tier: RewardTier, config: StoreConfig): GiftOption[] {
+  if (tier.giftOptions && tier.giftOptions.length > 0) {
+    return tier.giftOptions.map((option) => ({ ...option }))
+  }
+  const reward = tier.rewardId
+    ? config.rewards.find((r) => r.id === tier.rewardId && r.active)
+    : null
+  if (!reward) return []
+  return [
+    {
+      id: reward.id,
+      name: reward.name,
+      wheelLabel: reward.shortLabel || conciseLabel(reward.name),
+      description: reward.description,
+      voucherValue: reward.voucherValue ?? null,
+    },
+  ]
+}
+
+/**
+ * Build the customer wheel from the bracket's REAL awardable gifts.
+ *
+ * Contract (v1.2.0 - do not weaken):
+ *   - every slice label is a real prize of this shop's pool. Placeholder
+ *     labels like 'GIFT' are never rendered;
+ *   - slices cycle the pool to fill the wheel (8 slices, 6 when the pool has
+ *     exactly 3 gifts so each gift shows twice);
+ *   - when the backend's saved assignment is provided, the saved reward always
+ *     wins: its slice shows the saved name (never a live config rename) and the
+ *     wheel stops on it;
+ *   - an empty pool yields no segments at all - the caller must not offer a
+ *     spin when the backend cannot award a valid reward.
+ */
+export function buildWheelSegments(
+  options: GiftOption[],
+  assigned?: RewardResult | null,
+  palette?: string[],
+): WheelSegment[] {
+  if (options.length === 0) return []
+  const sliceCount = options.length >= 8 ? options.length : options.length === 3 ? 6 : 8
+  const segments: WheelSegment[] = []
+  for (let i = 0; i < sliceCount; i += 1) {
+    const option = options[i % options.length]
+    segments.push({
+      index: i,
+      rewardId: option.id,
+      rewardName: option.wheelLabel || conciseLabel(option.name),
+      rewardDescription: option.description,
+      color: palette?.[i % palette.length] ?? HOUSE_WHEEL_PALETTE[i % HOUSE_WHEEL_PALETTE.length],
+    })
   }
   if (assigned) {
-    bySegment.set(assigned.targetSegment, {
-      index: assigned.targetSegment,
+    // The persisted claim is authoritative: its slice carries the saved reward
+    // even if the shop's pool changed after the award.
+    let index = segments.findIndex((s) => s.rewardId === assigned.reward.id)
+    if (index === -1) index = 0
+    segments[index] = {
+      ...segments[index],
       rewardId: assigned.reward.id,
       rewardName: assigned.reward.shortLabel || conciseLabel(assigned.reward.name),
       rewardDescription: assigned.reward.description,
-      color: segmentColor(assigned.targetSegment),
-    })
+    }
   }
-  return Array.from(bySegment.values()).sort((a, b) => a.index - b.index)
+  return segments
+}
+
+/** The slice the wheel must stop on: the one carrying the saved reward. */
+export function landingSegmentIndex(
+  segments: WheelSegment[],
+  assigned?: RewardResult | null,
+): number {
+  if (segments.length === 0) return -1
+  if (!assigned) return 0
+  const index = segments.findIndex((s) => s.rewardId === assigned.reward.id)
+  return index === -1 ? 0 : index
 }
 
 function conciseLabel(name: string): string {
@@ -135,7 +182,8 @@ function conciseLabel(name: string): string {
   return labels.get(name) ?? name
 }
 
-const SEGMENT_COLORS = [
+/** House wheel palette (used when no shop palette is supplied). */
+export const HOUSE_WHEEL_PALETTE = [
   'hsl(350 48% 27%)',
   'hsl(34 31% 40%)',
   'hsl(350 28% 38%)',
@@ -145,7 +193,3 @@ const SEGMENT_COLORS = [
   'hsl(18 31% 37%)',
   'hsl(350 42% 33%)',
 ]
-
-export function segmentColor(index: number): string {
-  return SEGMENT_COLORS[index % SEGMENT_COLORS.length]
-}

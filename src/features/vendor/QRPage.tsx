@@ -1,30 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Download, QrCode as QrIcon, Copy, Check } from 'lucide-react'
-import QRCode from 'qrcode'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import { Spinner } from '@/components/ui/Spinner'
-import { getCampaignUrl } from './lib'
+import {
+  generateQrPng,
+  generateQrSvg,
+  getCampaignUrl,
+  downloadDataUrl,
+  downloadSvgFile,
+} from '@/lib/qr'
 
 export default function QRPage() {
   const { store, loading: storeLoading } = useAdminStore()
   const slug = store?.slug
   const campaignUrl = slug ? getCampaignUrl(slug) : ''
   const [png, setPng] = useState<string | null>(null)
+  const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!campaignUrl) return
     let cancelled = false
-    QRCode.toDataURL(campaignUrl, {
-      width: 640,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-      color: { dark: '#49252d', light: '#fffdf9' },
-    })
-      .then((url) => {
+    Promise.all([generateQrPng(campaignUrl), generateQrSvg(campaignUrl)])
+      .then(([pngUrl, svgText]) => {
         if (!cancelled) {
-          setPng(url)
+          setPng(pngUrl)
+          setSvg(svgText)
           setError(null)
         }
       })
@@ -38,12 +40,12 @@ export default function QRPage() {
 
   const downloadPng = () => {
     if (!png) return
-    const a = document.createElement('a')
-    a.href = png
-    a.download = `${slug}-campaign-qr.png`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    downloadDataUrl(`${slug}-campaign-qr.png`, png)
+  }
+
+  const downloadSvg = () => {
+    if (!svg) return
+    downloadSvgFile(`${slug}-campaign-qr.svg`, svg)
   }
 
   const copyLink = async () => {
@@ -104,6 +106,15 @@ export default function QRPage() {
             </button>
             <button
               type="button"
+              onClick={downloadSvg}
+              disabled={!svg}
+              className="btn-secondary flex items-center justify-center gap-2"
+            >
+              <FileSvgIcon />
+              Download print SVG
+            </button>
+            <button
+              type="button"
               onClick={copyLink}
               className="btn-ghost flex items-center justify-center gap-2 text-sm"
             >
@@ -148,5 +159,28 @@ export default function QRPage() {
         the Spin &amp; Win journey.
       </p>
     </div>
+  )
+}
+
+/** Inline SVG icon (the codebase convention — avoids lucide typing quirks). */
+function FileSvgIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+      <path d="M10 13l-2 2 2 2" />
+      <path d="M14 13l2 2-2 2" />
+    </svg>
   )
 }

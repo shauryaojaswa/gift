@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { LogoFallback } from './LogoFallback'
 
 // Resolve a stored asset path against the deployment base so one build works
 // both at a site root (Vercel, base "/") and under a subpath such as GitHub
@@ -12,22 +14,44 @@ export function resolveAssetUrl(logoUrl: string): string {
   return base + withoutLeadingSlash
 }
 
+const PLACEHOLDER = 'logo-placeholder.svg'
+
+/**
+ * Shop logo with a designed fallback: missing, placeholder or broken logo
+ * URLs render the themed monogram for THIS shop (never another shop's mark).
+ * The failure state is tracked per URL, so navigating between shops cannot
+ * leak one shop's fallback into the next.
+ */
 export function StoreLogo({
   logoUrl,
+  name,
+  alt,
   className,
 }: {
   logoUrl?: string | null
+  name?: string | null
+  alt?: string
   className?: string
 }) {
+  const [failedFor, setFailedFor] = useState<string | null>(null)
+  const cleaned = (logoUrl ?? '').trim()
+  const isPlaceholder = cleaned === '' || cleaned.endsWith(PLACEHOLDER)
+  const failed = failedFor === cleaned
+  const showImage = !isPlaceholder && !failed
+
   return (
     <div className={cn('flex items-center justify-center', className)}>
-      {logoUrl && (
+      {showImage ? (
         <img
-          src={resolveAssetUrl(logoUrl)}
-          alt="Jewellery store logo"
+          key={cleaned}
+          src={resolveAssetUrl(cleaned)}
+          alt={alt ?? name ?? 'Store logo'}
           className="store-logo-image h-auto w-[180px] max-w-[58vw] object-contain"
           loading="eager"
+          onError={() => setFailedFor(cleaned)}
         />
+      ) : (
+        <LogoFallback name={name ?? alt ?? null} />
       )}
     </div>
   )

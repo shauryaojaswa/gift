@@ -1,62 +1,78 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useCustomerFlow } from '../store'
 import { useStoreConfigValue } from '../StoreContext'
-import { useDataProvider } from '@/providers/DataProviderContext'
 import { SpinWheel } from '@/components/ui/SpinWheel'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
-import { buildSegments } from '@/lib/reward-engine'
+import { buildShopTheme, hslToString } from '@/lib/theme'
+import {
+  buildWheelSegments,
+  getAwardableOptions,
+  landingSegmentIndex,
+} from '@/lib/reward-engine'
 import { formatINR } from '@/lib/currency'
-import type { WheelSegment } from '@/types'
+import type { GiftOption, WheelSegment } from '@/types'
 
 export function getWheelSize(): number {
   if (typeof window === 'undefined') return 360
   return Math.max(220, Math.min(420, window.innerWidth - 48))
 }
 
+/**
+ * The reward is already persisted at details-submit (persist-first). This
+ * screen only animates the wheel to the slice carrying the saved reward - no
+ * RPC runs at spin time and the reveal always matches the stored claim.
+ */
 export function SpinWinScreen() {
   const store = useStoreConfigValue()
-  const dataProvider = useDataProvider()
-  const requestStarted = useRef(false)
-  const [submissionError, setSubmissionError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
   const {
     purchaseAmount,
-    fullName,
-    phoneNumber,
-    submissionRequestId,
-    reviewCtaShown,
-    reviewCtaClicked,
     hasSpun,
     spinStatus,
     reviewReturnDetected,
     rewardResult,
-    setRewardResult,
-    setSubmissionId,
-    setClaimCode,
     startSpin,
     completeSpin,
+    setStep,
   } = useCustomerFlow((s) => ({
     purchaseAmount: s.purchaseAmount,
-    fullName: s.fullName,
-    phoneNumber: s.phoneNumber,
-    submissionRequestId: s.submissionRequestId,
-    reviewCtaShown: s.reviewCtaShown,
-    reviewCtaClicked: s.reviewCtaClicked,
     hasSpun: s.hasSpun,
     spinStatus: s.spinStatus,
     reviewReturnDetected: s.reviewReturnDetected,
     rewardResult: s.rewardResult,
-    setRewardResult: s.setRewardResult,
-    setSubmissionId: s.setSubmissionId,
-    setClaimCode: s.setClaimCode,
     startSpin: s.startSpin,
     completeSpin: s.completeSpin,
+    setStep: s.setStep,
   }))
 
-  const segments: WheelSegment[] = useMemo(
-    () => buildSegments(store, rewardResult),
-    [store, rewardResult],
+  const theme = useMemo(
+    () => buildShopTheme(store.primaryColor, store.secondaryColor),
+    [store.primaryColor, store.secondaryColor],
   )
+
+  // The wheel shows the bracket's real awardable gifts. If the shop's pool
+  // changed after the award (or the bracket was removed), the saved reward
+  // itself is the only honest slice to show.
+  const { segments, landing } = useMemo(() => {
+    if (!rewardResult) return { segments: [] as WheelSegment[], landing: -1 }
+    const liveTier = store.tiers.find((t) => t.id === rewardResult.tier.id) ?? rewardResult.tier
+    const pool = getAwardableOptions(liveTier, store)
+    const options: GiftOption[] =
+      pool.length > 0
+        ? pool
+        : [
+            {
+              id: rewardResult.reward.id,
+              name: rewardResult.reward.name,
+              wheelLabel:
+                rewardResult.reward.shortLabel || rewardResult.reward.name,
+              description: rewardResult.reward.description,
+              voucherValue: rewardResult.reward.voucherValue ?? null,
+            },
+          ]
+    const segs = buildWheelSegments(options, rewardResult, theme.wheelPalette)
+    return { segments: segs, landing: landingSegmentIndex(segs, rewardResult) }
+  }, [store, rewardResult, theme.wheelPalette])
+
   const [targetSegment, setTargetSegment] = useState<number | null>(null)
   const [wheelSize, setWheelSize] = useState(getWheelSize)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -74,68 +90,44 @@ export function SpinWinScreen() {
   }, [reviewReturnDetected])
 
   const isSpinning = spinStatus === 'spinning'
-  const canSpin = !hasSpun && !isSpinning && !submitting && purchaseAmount !== null && purchaseAmount > 0
+  const canSpin = !hasSpun && !isSpinning && rewardResult !== null && segments.length > 0
 
-  const handleSpinRequested = useCallback(async () => {
-    if (requestStarted.current || hasSpun || isSpinning || purchaseAmount === null || purchaseAmount <= 0) return
-    requestStarted.current = true
-    setSubmitting(true)
-    setSubmissionError(null)
-    try {
-      const assignment = await dataProvider.createSubmission({
-        storeSlug: store.slug,
-        requestId: submissionRequestId,
-        customerName: fullName,
-        customerPhone: phoneNumber,
-        purchaseAmount,
-        reviewCtaShown,
-        reviewCtaClicked,
-      })
-      const result = {
-        amount: purchaseAmount,
-        reward: assignment.reward,
-        tier: assignment.tier,
-        targetSegment: assignment.tier.targetSegment,
-      }
-      setSubmissionId(assignment.id)
-      setClaimCode(assignment.claimCode)
-      setRewardResult(result)
-      if (!startSpin()) throw new Error('This spin has already been used.')
-      setTargetSegment(result.targetSegment)
-    } catch (error) {
-      requestStarted.current = false
-      setSubmissionError(error instanceof Error ? error.message : 'We could not save your entry. Please try again.')
-    } finally {
-      setSubmitting(false)
-    }
-  }, [
-    dataProvider,
-    fullName,
-    hasSpun,
-    isSpinning,
-    phoneNumber,
-    purchaseAmount,
-    reviewCtaClicked,
-    reviewCtaShown,
-    setClaimCode,
-    setRewardResult,
-    setSubmissionId,
-    startSpin,
-    store.slug,
-    submissionRequestId,
-  ])
+  const handleSpinRequested = useCallback(() => {
+    if (!startSpin()) return
+    setTargetSegment(landing)
+  }, [startSpin, landing])
 
-  const handleSpinComplete = useCallback((finalRotation: number) => {
-    completeSpin(finalRotation)
-  }, [completeSpin])
+  const handleSpinComplete = useCallback(
+    (finalRotation: number) => {
+      completeSpin(finalRotation)
+    },
+    [completeSpin],
+  )
+
+  // Without a saved reward there is nothing to spin for: never offer a spin
+  // the backend cannot honour.
+  if (!rewardResult || segments.length === 0) {
+    return (
+      <div className="spin-win-content flex flex-col items-center text-center gap-5">
+        <h2 className="font-display text-3xl font-bold text-ink">YOUR REWARD IS NOT READY</h2>
+        <p className="font-body text-balance text-center text-sm text-muted max-w-xs">
+          We could not restore your saved reward. Please continue to re-enter your details — your
+          entry reference makes sure nothing is lost.
+        </p>
+        <PrimaryButton className="max-w-sm" onClick={() => setStep('DETAILS')}>
+          BACK TO DETAILS
+        </PrimaryButton>
+      </div>
+    )
+  }
 
   return (
     <div className="spin-win-content flex flex-col items-center text-center gap-5">
       <h2 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-bold text-ink">
-        {reviewReturnDetected || isSpinning ? 'WELCOME BACK!' : 'YOUR REWARD IS READY'}
+        {reviewReturnDetected ? 'WELCOME BACK!' : 'YOUR REWARD IS READY'}
       </h2>
       <p className="font-body text-balance text-center text-sm text-muted max-w-xs">
-        {reviewReturnDetected || isSpinning
+        {reviewReturnDetected
           ? "Ready to see what you've won?"
           : 'Your purchase has unlocked a special reward.'}
       </p>
@@ -155,6 +147,9 @@ export function SpinWinScreen() {
         onSpinRequested={canSpin ? handleSpinRequested : undefined}
         size={wheelSize}
         disabled={!canSpin}
+        rimColor={theme.wheelStroke}
+        accentColor={hslToString(theme.primary)}
+        ringFill={hslToString({ h: theme.secondary.h, s: theme.secondary.s * 0.5, l: 0.94 })}
       />
 
       {reviewReturnDetected && !isSpinning && !hasSpun && (
@@ -167,12 +162,9 @@ export function SpinWinScreen() {
         </PrimaryButton>
       )}
 
-      {isSpinning && !canSpin && (
+      {isSpinning && (
         <p className="font-body text-sm text-muted font-medium">Spinning… your reward is on its way!</p>
       )}
-
-      {submitting && <p className="font-body text-sm text-muted">Saving your entry and assigning your reward…</p>}
-      {submissionError && <p role="alert" className="max-w-sm text-sm text-red-700">{submissionError}</p>}
 
       {!isSpinning && !hasSpun && (
         <p className="font-body text-xs text-muted">Tap the SPIN button on the wheel</p>

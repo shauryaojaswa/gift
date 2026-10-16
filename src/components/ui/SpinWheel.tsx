@@ -19,6 +19,12 @@ interface SpinWheelProps {
   onSpinRequested?: () => void
   size?: number
   disabled?: boolean
+  /** Rim / separator highlight (defaults to the house gold). */
+  rimColor?: string
+  /** Pointer + hub accent (defaults to the house burgundy). */
+  accentColor?: string
+  /** Backdrop fill behind the rim (defaults to the house cream-gold). */
+  ringFill?: string
 }
 
 function describeAnnulus(
@@ -100,6 +106,9 @@ export function SpinWheel({
   onSpinRequested,
   size = 360,
   disabled = false,
+  rimColor = 'hsl(39 42% 68%)',
+  accentColor = 'hsl(350 48% 27%)',
+  ringFill = 'hsl(39 34% 94%)',
 }: SpinWheelProps) {
   const [rotation, setRotation] = useState(0)
   const rotationRef = useRef(rotation)
@@ -119,6 +128,12 @@ export function SpinWheel({
   const buttonRadius = buttonDiameter / 2 - 4
   const segAngle = segmentAngle(segments.length)
   const canSpin = !isSpinning && targetSegment === null && !disabled && onSpinRequested !== undefined
+  // WCAG 2.5.3 (Label in Name): the wheel's accessible name must contain the
+  // text visibly drawn on its slices, so assistive tech announces the prizes
+  // the customer can actually see.
+  const visibleLabels = Array.from(
+    new Set(segments.map((seg) => displayLabel(seg.rewardName, segments.length).join(' '))),
+  ).join(', ')
 
   useEffect(() => {
     if (targetSegment === null) return
@@ -185,7 +200,7 @@ export function SpinWheel({
         height={size}
         viewBox={`0 0 ${size} ${size}`}
         role="img"
-        aria-label={`Win wheel with ${segments.length} rewards`}
+        aria-label={visibleLabels ? `Spin wheel showing ${visibleLabels}` : 'Spin wheel'}
         className={cn(
           'wheel',
           'absolute inset-0 h-full w-full',
@@ -202,8 +217,8 @@ export function SpinWheel({
         </defs>
 
         <g transform={`translate(${cx} ${cy})`}>
-          <circle cx={0} cy={0} r={R_outer + 5} fill="hsl(39 34% 94%)" stroke="hsl(39 42% 68%)" strokeWidth={5} />
-          <circle cx={0} cy={0} r={R_outer + 1} fill="none" stroke="hsl(350 48% 27%)" strokeWidth={1.5} />
+          <circle cx={0} cy={0} r={R_outer + 5} fill={ringFill} stroke={rimColor} strokeWidth={5} />
+          <circle cx={0} cy={0} r={R_outer + 1} fill="none" stroke={accentColor} strokeWidth={1.5} />
           <g
             className="wheel-rotor"
             transform={`rotate(${rotation})`}
@@ -225,7 +240,8 @@ export function SpinWheel({
                   <path
                     d={describeAnnulus(0, 0, R_inner, R_outer, start, end)}
                     fill={seg.color}
-                    stroke="hsl(39 34% 59%/0.55)"
+                    stroke={rimColor}
+                    strokeOpacity={0.55}
                     strokeWidth={1.5}
                   />
                   <path d={describeAnnulus(0, 0, R_inner, R_outer, start, end)} fill="url(#wheel-gloss)" opacity={0.55} />
@@ -237,7 +253,7 @@ export function SpinWheel({
                     fontSize={labelFontSize}
                     fontWeight={600}
                     letterSpacing={0.15}
-                    aria-label={seg.rewardName}
+                    aria-label={lines.join(' ')}
                     fill="hsl(40 33% 99%)"
                     paintOrder="stroke"
                     stroke="rgba(35, 22, 20, 0.58)"
@@ -257,15 +273,15 @@ export function SpinWheel({
               )
             })}
           </g>
-          <circle cx={0} cy={0} r={buttonRadius + 4} fill="none" stroke="hsl(39 34% 59%)" strokeWidth={3} />
-          <circle cx={0} cy={0} r={R_inner} fill="none" stroke="hsl(39 34% 74%)" strokeWidth={1.5} />
-          <circle cx={0} cy={0} r={buttonRadius + 10} fill="none" stroke="hsl(39 34% 59%/0.7)" strokeWidth={1} />
+          <circle cx={0} cy={0} r={buttonRadius + 4} fill="none" stroke={rimColor} strokeWidth={3} />
+          <circle cx={0} cy={0} r={R_inner} fill="none" stroke={rimColor} strokeOpacity={0.8} strokeWidth={1.5} />
+          <circle cx={0} cy={0} r={buttonRadius + 10} fill="none" stroke={rimColor} strokeOpacity={0.7} strokeWidth={1} />
         </g>
 
         <g transform={`translate(${cx} ${cy})`}>
           <g className={cn('wheel-pointer', isSpinning && 'wheel-pointer-spinning')}>
-            <polygon points={`${-22},${-R_outer - 12} ${22},${-R_outer - 12} 0,${-R_outer + 19 - 12}`} fill="hsl(350 48% 27%)" stroke="hsl(39 34% 59%)" strokeWidth={2.5} />
-            <circle cx={0} cy={-R_outer - 8} r={3} fill="hsl(39 34% 78%)" />
+            <polygon points={`${-22},${-R_outer - 12} ${22},${-R_outer - 12} 0,${-R_outer + 19 - 12}`} fill={accentColor} stroke={rimColor} strokeWidth={2.5} />
+            <circle cx={0} cy={-R_outer - 8} r={3} fill={rimColor} />
           </g>
         </g>
       </svg>
@@ -288,7 +304,7 @@ export function SpinWheel({
         }}
         disabled={!canSpin}
         onClick={handleSpin}
-        aria-label={canSpin ? 'Spin the wheel' : 'Spinning...'}
+        aria-label={isSpinning ? 'Spinning...' : 'Spin the wheel'}
       >
         {isSpinning ? (
         <span className="pointer-events-none text-[10px] uppercase">Spinning...</span>

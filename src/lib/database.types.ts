@@ -690,6 +690,17 @@ export type Database = {
           shop_slug: string
         }[]
       }
+      get_store_gift_pool: {
+        Args: { p_store_slug: string }
+        Returns: {
+          gift_description: string
+          gift_name: string
+          reward_id: string
+          tier_id: string
+          voucher_value: number
+          wheel_label: string
+        }[]
+      }
       is_platform_admin: { Args: never; Returns: boolean }
       is_store_admin: { Args: { p_store_id: string }; Returns: boolean }
       is_store_campaign_active: {

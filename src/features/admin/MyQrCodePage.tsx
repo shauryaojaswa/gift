@@ -1,30 +1,36 @@
 import { useEffect, useState } from 'react'
-import QRCode from 'qrcode'
 import { useAdminStore } from './useAdminStore'
 import { Spinner } from '@/components/ui/Spinner'
+import {
+  generateQrPng,
+  generateQrSvg,
+  getCampaignUrl,
+  downloadDataUrl,
+  downloadSvgFile,
+} from '@/lib/qr'
 
 export function MyQrCodePage() {
   const { store, loading } = useAdminStore()
   const [qr, setQr] = useState<string | null>(null)
+  const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const campaignUrl = store ? `${window.location.origin}/${store.slug}` : ''
+  // Canonical customer address (https://jriq.in/{slug}) - never an admin path.
+  const campaignUrl = store ? getCampaignUrl(store.slug) : ''
 
   useEffect(() => {
     if (!campaignUrl) return
     let cancelled = false
-    QRCode.toDataURL(campaignUrl, {
-      width: 640,
-      margin: 2,
-      color: { dark: '#5f1722', light: '#fffdf9' },
-    }).then((dataUrl) => {
-      if (!cancelled) {
-        setQr(dataUrl)
-        setError(null)
-      }
-    }).catch((reason: unknown) => {
-      if (!cancelled) setError(reason instanceof Error ? reason.message : 'QR code could not be created')
-    })
+    Promise.all([generateQrPng(campaignUrl), generateQrSvg(campaignUrl)])
+      .then(([pngUrl, svgText]) => {
+        if (!cancelled) {
+          setQr(pngUrl)
+          setSvg(svgText)
+          setError(null)
+        }
+      }).catch((reason: unknown) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : 'QR code could not be created')
+      })
     return () => {
       cancelled = true
     }
@@ -35,10 +41,12 @@ export function MyQrCodePage() {
 
   const download = () => {
     if (!qr) return
-    const link = document.createElement('a')
-    link.href = qr
-    link.download = `${store.slug}-spin-and-win-qr.png`
-    link.click()
+    downloadDataUrl(`${store.slug}-campaign-qr.png`, qr)
+  }
+
+  const downloadSvg = () => {
+    if (!svg) return
+    downloadSvgFile(`${store.slug}-campaign-qr.svg`, svg)
   }
 
   const copyLink = async () => {
@@ -72,6 +80,9 @@ export function MyQrCodePage() {
           <div className="flex w-full flex-col gap-2">
             <button type="button" className="btn-primary" disabled={!qr} onClick={download}>
               Download QR code
+            </button>
+            <button type="button" className="btn-secondary text-sm" disabled={!svg} onClick={downloadSvg}>
+              Download print SVG
             </button>
             <button type="button" className="btn-ghost text-sm" onClick={copyLink}>
               {copied ? 'Copied!' : 'Copy campaign link'}

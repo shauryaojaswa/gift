@@ -32,6 +32,19 @@ export interface Reward {
   active: boolean
 }
 
+/**
+ * One approved gift of a purchase bracket (from the shop's gift pool), with the
+ * display fields the customer wheel needs. `id` is the reward id, so an option
+ * can be matched against the backend's saved assignment.
+ */
+export interface GiftOption {
+  id: string
+  name: string
+  wheelLabel: string
+  description: string
+  voucherValue: number | null
+}
+
 export interface RewardTier {
   id: string
   minAmount: number
@@ -40,6 +53,8 @@ export interface RewardTier {
   rewardId: string | null
   targetSegment: number
   active: boolean
+  /** Approved gift pool for this bracket (may be empty). */
+  giftOptions?: GiftOption[]
 }
 
 export type StoreStatus = 'active' | 'suspended' | 'onboarding'

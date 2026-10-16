@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '../database.types'
-import type { Reward, RewardTier, StoreConfig, StoreStatus } from '../../types'
+import type { GiftOption, Reward, RewardTier, StoreConfig, StoreStatus } from '../../types'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -156,6 +156,25 @@ export class SupabaseDataProvider implements DataProvider {
     if (rewardsError) throw new Error(rewardsError.message)
     if (tiersError) throw new Error(tiersError.message)
 
+    // Approved gift pools per bracket (public display fields only; awarding
+    // stays server-side in submit_customer_entry).
+    const { data: poolRows, error: poolError } = await this.client.rpc('get_store_gift_pool', {
+      p_store_slug: store.slug,
+    })
+    if (poolError) throw new Error(poolError.message)
+    const poolByTier = new Map<string, GiftOption[]>()
+    for (const row of poolRows ?? []) {
+      const list = poolByTier.get(row.tier_id) ?? []
+      list.push({
+        id: row.reward_id,
+        name: row.gift_name,
+        wheelLabel: row.wheel_label,
+        description: row.gift_description ?? '',
+        voucherValue: row.voucher_value ?? null,
+      })
+      poolByTier.set(row.tier_id, list)
+    }
+
     return {
       ...rowToStore(store),
       rewards: (rewards ?? []).map((r) => ({
@@ -175,6 +194,7 @@ export class SupabaseDataProvider implements DataProvider {
         rewardId: t.reward_id,
         targetSegment: t.target_segment,
         active: t.active,
+        giftOptions: poolByTier.get(t.id) ?? [],
       })),
     }
   }

@@ -44,7 +44,7 @@ export function RewardScreen() {
       </FadeUp>
 
       <FadeUp delay={240}>
-        <span className="font-display text-3xl font-bold uppercase text-brand">{reward.shortLabel?.trim() || reward.name}</span>
+        <span className="font-display text-3xl font-bold uppercase text-brand">{reward.name?.trim() || reward.shortLabel}</span>
       </FadeUp>
 
       <FadeUp delay={320}>

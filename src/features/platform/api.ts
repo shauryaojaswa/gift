@@ -128,6 +128,29 @@ export async function createShop(
   }
 }
 
+/**
+ * Upload a shop logo before the shop exists (new-shop wizard). Platform
+ * admins may upload anywhere in the `store-logos` bucket (storage policy);
+ * the resulting public URL is passed to create_shop as p_logo_url.
+ */
+export async function uploadShopLogo(client: PlatformClient, file: File): Promise<string> {
+  const extensions: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+  }
+  const extension = extensions[file.type]
+  if (!extension || file.size <= 0 || file.size > 5 * 1024 * 1024) {
+    throw new Error('Choose a JPG, PNG or WebP image smaller than 5 MB')
+  }
+  const path = `new-shops/${crypto.randomUUID()}.${extension}`
+  const { error } = await client.storage
+    .from('store-logos')
+    .upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false })
+  if (error) throw new Error(error.message)
+  return client.storage.from('store-logos').getPublicUrl(path).data.publicUrl
+}
+
 export async function setStoreStatus(
   client: PlatformClient,
   storeId: string,

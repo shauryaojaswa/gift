@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import type { StoreConfig } from '@/types'
 import { Spinner } from '@/components/ui/Spinner'
 import { FormField } from '@/components/ui/FormField'
 import { Card, CardBody, CardHeader, CardFooter } from '@/components/ui/Card'
 import { validateUrl } from './lib'
+import { buildShopTheme, hslToString, parseColor, toHex, HOUSE_PRIMARY } from '@/lib/theme'
 
 export default function Settings() {
   const { store, loading, error, reload } = useAdminStore()
@@ -23,6 +24,8 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
   const [logoUrl, setLogoUrl] = useState(store.logoUrl ?? '')
   const [googleReviewUrl, setGoogleReviewUrl] = useState(store.googleReviewUrl ?? '')
   const [campaignBadge, setCampaignBadge] = useState(store.campaignBadge ?? '')
+  const [primaryColor, setPrimaryColor] = useState(toHexSafe(store.primaryColor))
+  const [secondaryColor, setSecondaryColor] = useState(toHexSafe(store.secondaryColor))
   const [minSpinAmount, setMinSpinAmount] = useState(String(store.minSpinAmount))
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -30,6 +33,12 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
   const [formError, setFormError] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Live preview of the effective theme customers will see (readability-clamped).
+  const theme = useMemo(
+    () => buildShopTheme(primaryColor, secondaryColor),
+    [primaryColor, secondaryColor],
+  )
 
   const handleSave = async () => {
     setSaving(true)
@@ -59,6 +68,8 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
         name: name.trim(),
         subtitle: subtitle.trim(),
         logoUrl: logoUrl.trim(),
+        primaryColor,
+        secondaryColor,
         googleReviewUrl: googleReviewUrl.trim() || null,
         campaignBadge: campaignBadge.trim(),
         minSpinAmount: Math.round(amount),
@@ -147,6 +158,42 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
             />
           </FormField>
 
+          {/* Brand colors */}
+          <div>
+            <p className="mb-1 text-sm font-medium text-ink">Brand colors</p>
+            <p className="mb-3 text-xs text-muted">
+              Used across your public campaign — buttons, progress, badges, forms and the spin
+              wheel.
+            </p>
+            <div className="flex flex-wrap items-start gap-4">
+              <ColorSwatch label="Primary" value={primaryColor} onChange={setPrimaryColor} />
+              <ColorSwatch label="Secondary" value={secondaryColor} onChange={setSecondaryColor} />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted">Preview</span>
+                <div className="flex items-center gap-2 rounded-xl border border-border-soft p-2">
+                  <span
+                    className="rounded-lg px-3 py-2 text-sm font-semibold"
+                    style={{ background: hslToString(theme.primary), color: theme.onPrimary }}
+                  >
+                    Spin & Win
+                  </span>
+                  <span
+                    className="rounded-lg px-3 py-2 text-sm font-semibold"
+                    style={{ background: hslToString(theme.secondary), color: theme.onSecondary }}
+                  >
+                    Badge
+                  </span>
+                </div>
+                {theme.adjusted && (
+                  <p className="max-w-[22rem] text-xs text-amber-700" role="status">
+                    Your primary color is deepened slightly on the public page so text stays
+                    readable on it. The preview shows exactly what customers see.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <FormField label="Google Review URL" hint="Your store's Google review link. Customers may skip this.">
             <input
               className="field-input py-2"
@@ -221,5 +268,34 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
         )}
       </Card>
     </div>
+  )
+}
+
+function toHexSafe(color: string | null | undefined): string {
+  const rgb = parseColor(color) ?? parseColor(HOUSE_PRIMARY)!
+  return toHex(rgb)
+}
+
+function ColorSwatch({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (hex: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-muted">{label}</span>
+      <input
+        type="color"
+        aria-label={`${label} color`}
+        className="h-11 w-24 cursor-pointer rounded-lg border border-border-soft bg-white p-1"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <span className="text-xs uppercase text-muted">{value}</span>
+    </label>
   )
 }
