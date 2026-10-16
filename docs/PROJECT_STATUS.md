@@ -10,6 +10,15 @@ Evidence labels: **Verified** (command/file/authenticated response), **Reported*
 > MilesWeb PRIMARY, GitHub Pages `/gift/` honored fallback. Declarations and evidence:
 > `docs/FINAL_HANDOVER.md` §11.
 
+> **v1.1.0 candidate — 2026-10-16: URL restructure staged, awaiting production approval.**
+> Candidate `7cbe8d6` (branch `staging`, `ls-remote` verified). All gates green:
+> unit 273/273 · staging-verify 70/70 · slug-swap 72/72 · prod-smoke pattern 28/28 ·
+> URL acceptance 72/72 on both builds · preflight root 11/11 + pages 12/12 (prod env).
+> Two additive migrations applied + history-recorded on **staging only** (10 rows);
+> production remains at 8 with 2/2 protected claims intact. Proposal with deploy steps
+> and rollback: `docs/V1.1.0_RELEASE_PROPOSAL.md`. Production deploy is approval-gated;
+> tag `v1.1.0` is created only on the owner's explicit yes.
+
 ## 1. Purpose and architecture
 
 JRIQ is a multi-tenant jewellery rewards SaaS. One shared React SPA + one Supabase project

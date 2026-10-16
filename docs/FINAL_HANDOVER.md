@@ -179,9 +179,17 @@ Platform flows are additionally exercised by the approved harnesses (`scripts/pr
 3. **mPanel upload quirk**: subdirectory uploads silently vanish unless the folder exists
    first; folder creation is a separate POST (`item_type=folder`). Also: the edge closes
    connections on `Expect: 100-continue` — the uploader disables it.
+4. **Rotation required — Supabase dashboard password**: the dashboard account password was
+   pasted into a chat thread during the v1.1.0 work (2026-10-16). It was never echoed,
+   stored, used, or committed here (source secret scan clean), but any credential that has
+   been typed into a chat must be treated as exposed: **rotate the Supabase dashboard
+   password** (and confirm the GitHub and MilesWeb passwords are not reused elsewhere).
+   This item is recorded as a task only — never the value.
 
 **Open item (does not gate anything):** the URL restructure — root-level shop slugs
-`/{slug}`, per-shop `/{slug}/admin`, and the homepage rework — is the first post-launch
-feature and lives in its own prompt/thread. Its Phase 1 diagnosis (evidence-based) found
-that `/` already renders the JRIQ landing in the deployed build; pending the owner's
-(a)/(b) observation answer before implementation.
+`/{slug}`, per-shop `/{slug}/admin`, and the homepage rework — is implemented and staged
+as **v1.1.0 candidate `7cbe8d6`** (branch `staging`, all gates green: unit 273/273,
+staging-verify 70/70, slug-swap 72/72, prod-smoke pattern 28/28, URL acceptance 72/72 on
+both builds, preflight 11/11 + 12/12). Production is untouched; the release is
+approval-gated and fully specified in `docs/V1.1.0_RELEASE_PROPOSAL.md` (deploy steps +
+rollback included). Tag `v1.1.0` is created only on the owner's explicit yes.
