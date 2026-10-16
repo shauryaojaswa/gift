@@ -8,7 +8,8 @@ import { GoogleReviewQrCode } from '@/components/ui/GoogleReviewQrCode'
 import type { StoreConfig } from '@/types'
 
 export default function Standee() {
-  const { slug = 'jolly-enterprises' } = useParams<{ slug: string }>()
+  // Strict: the URL is the only slug source. Never fall back to another shop.
+  const { slug = '' } = useParams<{ slug: string }>()
   const dataProvider = useDataProvider()
   const [store, setStore] = useState<StoreConfig | null>(null)
   const [storeError, setStoreError] = useState<string | null>(null)
@@ -30,7 +31,7 @@ export default function Standee() {
   // Build the public campaign URL from the deployment base so the QR code and
   // the printed link stay correct under a subpath such as GitHub Pages "/gift/".
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
-  const campaignUrl = `${window.location.origin}${basePath}/store/${slug}`
+  const campaignUrl = `${window.location.origin}${basePath}/${slug}`
 
   useEffect(() => {
     QRCode.toString(campaignUrl, {

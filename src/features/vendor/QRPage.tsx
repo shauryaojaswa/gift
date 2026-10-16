@@ -7,13 +7,14 @@ import { getCampaignUrl } from './lib'
 
 export default function QRPage() {
   const { store, loading: storeLoading } = useAdminStore()
-  const slug = store?.slug ?? 'jolly-enterprises'
-  const campaignUrl = getCampaignUrl(slug)
+  const slug = store?.slug
+  const campaignUrl = slug ? getCampaignUrl(slug) : ''
   const [png, setPng] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
+    if (!campaignUrl) return
     let cancelled = false
     QRCode.toDataURL(campaignUrl, {
       width: 640,

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '../database.types'
-import type { Reward, RewardTier, StoreConfig } from '../../types'
+import type { Reward, RewardTier, StoreConfig, StoreStatus } from '../../types'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -105,6 +105,10 @@ export function toCollectionStatus(value: string): 'awaiting' | 'collected' {
   return value === 'collected' ? 'collected' : 'awaiting'
 }
 
+function toStoreStatus(value: string | null): StoreStatus {
+  return value === 'suspended' || value === 'onboarding' ? value : 'active'
+}
+
 function rowToStore(row: Database['public']['Tables']['stores']['Row']): StoreConfig {
   return {
     id: row.id,
@@ -117,6 +121,7 @@ function rowToStore(row: Database['public']['Tables']['stores']['Row']): StoreCo
     googleReviewUrl: row.google_review_url ?? null,
     campaignBadge: row.campaign_badge ?? null,
     minSpinAmount: row.min_spin_amount ?? 10000,
+    status: toStoreStatus(row.status),
     rewards: [],
     tiers: [],
   }

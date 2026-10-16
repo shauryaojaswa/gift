@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import type { CSSProperties } from 'react'
-import { useParams } from 'react-router-dom'
 import { useCustomerFlow } from './store'
 import { useStoreConfig } from '@/providers/DataProviderContext'
+import NotFound from '@/features/not-found/NotFound'
 import { StoreLogo } from '@/components/ui/StoreLogo'
 import { ProgressIndicator } from '@/components/ui/ProgressIndicator'
 import { Spinner } from '@/components/ui/Spinner'
@@ -36,8 +36,7 @@ function StepRenderer({ step }: { step: FlowState }) {
   }
 }
 
-export default function CustomerFlow() {
-  const { slug = 'jolly-enterprises' } = useParams<{ slug: string }>()
+export default function CustomerFlow({ slug }: { slug: string }) {
   const { store, loading, error } = useStoreConfig(slug)
   const flow = useCustomerFlow((s) => s.step)
   const flowSlug = useCustomerFlow((s) => s.slug)
@@ -62,15 +61,32 @@ export default function CustomerFlow() {
 
   if (error || !store) {
     return (
+      <NotFound
+        message={
+          error
+            ? error
+            : `No shop is published at this address. If you scanned a QR code, check that the link is complete.`
+        }
+      />
+    )
+  }
+
+  if (store.status !== 'active') {
+    return (
       <Card className="mt-6">
         <CardHeader>
-          <h1 className="font-display text-center text-xl">Store not found</h1>
+          <h1 className="font-display text-center text-xl">{store.name}</h1>
         </CardHeader>
         <CardBody>
           <p className="text-center text-muted">
-            {error ?? `No store configured for "${slug}".`}
+            This campaign is not active right now. New entries are not being accepted — please ask
+            the shop team when it reopens.
           </p>
-          <button type="button" onClick={() => (window.location.href = '/')} className="mt-4 w-full btn-primary">
+          <button
+            type="button"
+            onClick={() => (window.location.href = '/')}
+            className="mt-4 w-full btn-primary"
+          >
             Return home
           </button>
         </CardBody>

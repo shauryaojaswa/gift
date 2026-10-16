@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation, useParams } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
@@ -14,14 +14,26 @@ import { AdminAuthProvider, useAdminAuth } from '@/features/admin/AdminContext'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import { dataProviderKind, PERSISTENCE_UNAVAILABLE_MESSAGE } from '@/providers/DataProviderContext'
 import { Spinner } from '@/components/ui/Spinner'
+import Forbidden from '@/features/not-found/Forbidden'
+import NotFound from '@/features/not-found/NotFound'
 
-const NAV = [
-  { to: '/vendor/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { to: '/vendor/customers', label: 'Customers', icon: Users },
-  { to: '/vendor/rewards', label: 'Rewards & Tiers', icon: Gift },
-  { to: '/vendor/qr-code', label: 'My QR Code', icon: QrCode },
-  { to: '/vendor/settings', label: 'Store Settings', icon: Settings },
-]
+type NavIcon = typeof LayoutDashboard
+
+interface NavItem {
+  to: string
+  label: string
+  icon: NavIcon
+}
+
+function navItems(base: string): NavItem[] {
+  return [
+    { to: `${base}/dashboard`, label: 'Overview', icon: LayoutDashboard },
+    { to: `${base}/customers`, label: 'Customers', icon: Users },
+    { to: `${base}/rewards`, label: 'Rewards & Tiers', icon: Gift },
+    { to: `${base}/qr-code`, label: 'My QR Code', icon: QrCode },
+    { to: `${base}/settings`, label: 'Store Settings', icon: Settings },
+  ]
+}
 
 export default function VendorShell() {
   return (
@@ -33,9 +45,10 @@ export default function VendorShell() {
 
 function VendorShellInner() {
   const { session, loading, logout } = useAdminAuth()
-  const { store } = useAdminStore()
+  const { store, loading: storeLoading } = useAdminStore()
   const navigate = useNavigate()
   const location = useLocation()
+  const urlSlug = useParams<{ slug?: string }>().slug
   const persistent = dataProviderKind() === 'supabase'
 
   useEffect(() => {
@@ -49,7 +62,7 @@ function VendorShellInner() {
     navigate('/vendor/login', { replace: true })
   }
 
-  if (loading) {
+  if (loading || (session && storeLoading && urlSlug)) {
     return (
       <div className="flex min-h-[60vh] w-full items-center justify-center">
         <Spinner />
@@ -58,6 +71,20 @@ function VendorShellInner() {
   }
   if (!session) return null
 
+  // Ownership wall: the URL slug is an address, never a key. Mismatch => 403 with
+  // zero shop data. The backend independently refuses cross-shop access
+  // (store_admins + RLS + RPC checks), so this is UX, not the security boundary.
+  if (urlSlug) {
+    if (!store) {
+      return <NotFound message="Your account is not linked to a shop yet." />
+    }
+    if (store.slug !== urlSlug) {
+      return <Forbidden storeSlug={store.slug} />
+    }
+  }
+
+  const base = urlSlug ? `/${urlSlug}/admin` : '/vendor'
+  const items = navItems(base)
   const storeName = store?.name ?? 'Your Store'
 
   return (
@@ -76,7 +103,7 @@ function VendorShellInner() {
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-6 flex flex-col gap-4">
             <StoreBadge name={storeName} />
-            <SidebarNav onSignOut={signOut} />
+            <SidebarNav items={items} onSignOut={signOut} />
           </div>
         </aside>
 
@@ -88,7 +115,7 @@ function VendorShellInner() {
         </main>
       </div>
 
-      <MobileBottomNav />
+      <MobileBottomNav items={items} />
     </div>
   )
 }
@@ -113,10 +140,10 @@ function navClass(isActive: boolean) {
     : 'text-ink hover:bg-brand/10'
 }
 
-function SidebarNav({ onSignOut }: { onSignOut: () => void }) {
+function SidebarNav({ items, onSignOut }: { items: NavItem[]; onSignOut: () => void }) {
   return (
     <nav className="flex flex-col gap-1" aria-label="Vendor navigation">
-      {NAV.map(({ to, label, icon: Icon }) => (
+      {items.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -157,13 +184,13 @@ function MobileTopBar({ storeName, onSignOut }: { storeName: string; onSignOut: 
   )
 }
 
-function MobileBottomNav() {
+function MobileBottomNav({ items }: { items: NavItem[] }) {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border-soft bg-paper/95 backdrop-blur lg:hidden"
       aria-label="Vendor navigation"
     >
-      {NAV.map(({ to, label, icon: Icon }) => (
+      {items.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}

@@ -42,6 +42,8 @@ export interface RewardTier {
   active: boolean
 }
 
+export type StoreStatus = 'active' | 'suspended' | 'onboarding'
+
 export interface StoreConfig {
   id: string
   slug: string
@@ -53,6 +55,8 @@ export interface StoreConfig {
   googleReviewUrl: string | null
   campaignBadge: string | null
   minSpinAmount: number
+  /** Lifecycle status — non-active shops show the inactive page and accept no entries. */
+  status: StoreStatus
   rewards: Reward[]
   tiers: RewardTier[]
 }

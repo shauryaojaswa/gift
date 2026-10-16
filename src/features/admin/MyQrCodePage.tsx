@@ -8,7 +8,7 @@ export function MyQrCodePage() {
   const [qr, setQr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const campaignUrl = store ? `${window.location.origin}/store/${store.slug}` : ''
+  const campaignUrl = store ? `${window.location.origin}/${store.slug}` : ''
 
   useEffect(() => {
     if (!campaignUrl) return

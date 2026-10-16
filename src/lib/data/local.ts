@@ -1,5 +1,5 @@
 import type { Reward, RewardTier, StoreConfig } from '../../types'
-import { ALL_STORES } from '../stores'
+import { ALL_STORES, JOLLY_ENTERPRISES_SLUG } from '../stores'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -61,7 +61,7 @@ export class LocalDataProvider implements DataProvider {
   }
 
   async getAdminStoreConfig(): Promise<StoreConfig | null> {
-    return this.getStoreConfig('jolly-enterprises')
+    return this.getStoreConfig(JOLLY_ENTERPRISES_SLUG)
   }
 
   async createSubmission(input: CreateSubmissionInput): Promise<RewardAssignment> {
@@ -315,7 +315,7 @@ export class LocalDataProvider implements DataProvider {
   }
 
   private async currentStore(): Promise<StoreConfig> {
-    const store = await this.getStoreConfig('jolly-enterprises')
+    const store = await this.getStoreConfig(JOLLY_ENTERPRISES_SLUG)
     if (!store) throw new Error('No active store')
     return store
   }

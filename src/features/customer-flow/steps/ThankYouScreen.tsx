@@ -87,7 +87,7 @@ export function ThankYouScreen() {
           className="btn-primary"
           onClick={() => {
             resetAll()
-            navigate(`/store/${store.slug}`)
+            navigate(`/${store.slug}`)
           }}
         >
           DONE
