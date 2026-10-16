@@ -13,6 +13,7 @@ const CSV_COLUMNS = [
   { header: 'Customer', value: (r: SubmissionRecord) => r.customerName },
   { header: 'Phone', value: (r: SubmissionRecord) => r.customerPhone },
   { header: 'Purchase Amount (INR)', value: (r: SubmissionRecord) => r.purchaseAmount },
+  { header: 'Bracket', value: (r: SubmissionRecord) => bracketLabel(r) },
   { header: 'Reward', value: (r: SubmissionRecord) => r.rewardLabel },
   { header: 'Claim Code', value: (r: SubmissionRecord) => r.couponCode ?? '' },
   { header: 'Status', value: (r: SubmissionRecord) => (r.collectionStatus === 'collected' ? 'Collected' : 'Awaiting') },
@@ -20,6 +21,11 @@ const CSV_COLUMNS = [
   { header: 'Collected At', value: (r: SubmissionRecord) => r.collectedAt ?? '' },
   { header: 'Collected By', value: (r: SubmissionRecord) => r.collectedBy ?? '' },
 ]
+
+function bracketLabel(r: SubmissionRecord): string {
+  const min = formatINR(r.tierMinAmount)
+  return r.tierMaxAmount === null ? `${min} and above` : `${min} – ${formatINR(r.tierMaxAmount - 1)}`
+}
 
 export default function Customers() {
   const { dataProvider, session } = useAdminStore()
@@ -166,7 +172,9 @@ export default function Customers() {
                   <th className="px-4 py-2.5 font-medium">Customer</th>
                   <th className="px-4 py-2.5 font-medium">Phone</th>
                   <th className="px-4 py-2.5 font-medium">Amount</th>
+                  <th className="px-4 py-2.5 font-medium">Bracket</th>
                   <th className="px-4 py-2.5 font-medium">Reward</th>
+                  <th className="px-4 py-2.5 font-medium">Claim code</th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
                   <th className="px-4 py-2.5 font-medium">Action</th>
                 </tr>
@@ -185,7 +193,9 @@ export default function Customers() {
                     </td>
                     <td className="px-4 py-2.5 text-ink">{r.customerPhone}</td>
                     <td className="px-4 py-2.5 text-ink">{formatINR(r.purchaseAmount)}</td>
+                    <td className="px-4 py-2.5 text-muted">{bracketLabel(r)}</td>
                     <td className="px-4 py-2.5 text-ink">{r.rewardLabel}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-ink">{r.couponCode ?? '—'}</td>
                     <td className="px-4 py-2.5">
                       <StatusBadge status={r.collectionStatus} />
                     </td>
@@ -222,9 +232,12 @@ export default function Customers() {
                   <StatusBadge status={r.collectionStatus} />
                 </div>
                 <p className="mt-1 text-xs text-muted">
-                  {r.customerPhone} · {formatINR(r.purchaseAmount)}
+                  {r.customerPhone} · {formatINR(r.purchaseAmount)} · {bracketLabel(r)}
                 </p>
-                <p className="mt-0.5 text-xs text-ink">{r.rewardLabel}</p>
+                <p className="mt-0.5 text-xs text-ink">
+                  {r.rewardLabel}
+                  {r.couponCode ? <span className="font-mono text-muted"> · {r.couponCode}</span> : null}
+                </p>
                 {r.collectionStatus === 'collected' ? (
                   <p className="mt-2 text-xs text-muted">
                     Collected {formatDateTime(r.collectedAt)}
@@ -317,6 +330,7 @@ function CustomerDrawer({
     ['Customer', record.customerName],
     ['Phone', record.customerPhone],
     ['Purchase amount', formatINR(record.purchaseAmount)],
+    ['Bracket', bracketLabel(record)],
     ['Reward', record.rewardLabel],
     ['Claim code', record.couponCode ?? '—'],
     ['Submitted', formatDateTime(record.createdAt) || '—'],

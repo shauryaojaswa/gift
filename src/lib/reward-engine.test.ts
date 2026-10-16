@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getPurchaseTier, getRewardForAmount, evaluateReward, buildSegments, getWheelTargetSegment, validateTierConfiguration } from './reward-engine'
+import { getPurchaseTier, getRewardForAmount, evaluateReward, buildWheelSegments, getAwardableOptions, landingSegmentIndex, getWheelTargetSegment, validateTierConfiguration } from './reward-engine'
 import { JOLLY_ENTERPRISES } from './stores'
 
 const cfg = JOLLY_ENTERPRISES
@@ -76,12 +76,22 @@ describe('reward resolution', () => {
     expect(getWheelTargetSegment('reward_8', cfg)).toBe(7)
   })
 
-  it('buildSegments produces one segment per tier, ordered', () => {
-    const segments = buildSegments(cfg)
-    expect(segments.length).toBe(8)
-    expect(segments.map((s) => s.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
-    expect(segments[0].rewardId).toBe('reward_1')
-    expect(segments[7].rewardId).toBe('reward_8')
+  it('buildWheelSegments fills the wheel from real gift labels only', () => {
+    const options = getAwardableOptions(cfg.tiers[3], cfg)
+    expect(options).toHaveLength(1)
+    expect(options[0].id).toBe('reward_4')
+    const segments = buildWheelSegments(options)
+    expect(segments.length).toBeGreaterThan(0)
+    expect(new Set(segments.map((s) => s.rewardName))).toEqual(new Set(['PREMIUM GIFT']))
+    expect(segments.map((s) => s.rewardName)).not.toContain('GIFT')
+  })
+
+  it('every demo bracket offers at least one real awardable gift', () => {
+    for (const t of cfg.tiers) {
+      const options = getAwardableOptions(t, cfg)
+      expect(options.length).toBeGreaterThan(0)
+      for (const o of options) expect(o.name.length).toBeGreaterThan(0)
+    }
   })
 })
 

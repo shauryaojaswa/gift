@@ -22,6 +22,23 @@ export function formatINRNumber(amount: number): string {
   return numberFormatter.format(amount)
 }
 
+function trimCompact(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+/**
+ * Compact Indian currency for chips and wheel labels:
+ * 10000 -> ₹10K, 150000 -> ₹1.5L, 2000000 -> ₹20L, 10000000 -> ₹1Cr.
+ */
+export function formatCompactINR(amount: number): string {
+  if (!Number.isFinite(amount) || amount < 0) return '₹0'
+  const abs = Math.abs(amount)
+  if (abs >= 10000000) return `₹${trimCompact(amount / 10000000)}Cr`
+  if (abs >= 100000) return `₹${trimCompact(amount / 100000)}L`
+  if (abs >= 1000) return `₹${trimCompact(amount / 1000)}K`
+  return formatINR(amount)
+}
+
 export function parseINR(input: string): number | null {
   const cleaned = input.replace(/₹/g, '').replace(/,/g, '').replace(/\s/g, '').trim()
   if (cleaned === '') return null

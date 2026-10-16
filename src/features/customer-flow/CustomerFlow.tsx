@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { CSSProperties } from 'react'
-import { useParams } from 'react-router-dom'
 import { useCustomerFlow } from './store'
 import { useStoreConfig } from '@/providers/DataProviderContext'
+import NotFound from '@/features/not-found/NotFound'
 import { StoreLogo } from '@/components/ui/StoreLogo'
+import { buildShopTheme, hslToString } from '@/lib/theme'
 import { ProgressIndicator } from '@/components/ui/ProgressIndicator'
 import { Spinner } from '@/components/ui/Spinner'
 import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/Card'
@@ -36,16 +37,41 @@ function StepRenderer({ step }: { step: FlowState }) {
   }
 }
 
-export default function CustomerFlow() {
-  const { slug = 'jolly-enterprises' } = useParams<{ slug: string }>()
+export default function CustomerFlow({ slug }: { slug: string }) {
   const { store, loading, error } = useStoreConfig(slug)
   const flow = useCustomerFlow((s) => s.step)
   const flowSlug = useCustomerFlow((s) => s.slug)
   const initFlow = useCustomerFlow((s) => s.init)
 
+  // Saved shop colors become the live UI theme (buttons, progress, badges,
+  // forms, review modal, wheel chrome) via CSS custom properties.
+  const theme = useMemo(
+    () => buildShopTheme(store?.primaryColor, store?.secondaryColor),
+    [store?.primaryColor, store?.secondaryColor],
+  )
+  const themeVars = useMemo(
+    () =>
+      ({
+        '--brand-h': theme.primary.h.toFixed(1),
+        '--brand-s': `${(theme.primary.s * 100).toFixed(1)}%`,
+        '--brand-l': `${(theme.primary.l * 100).toFixed(1)}%`,
+        '--brand': hslToString(theme.primary),
+        '--brand-hover-h': theme.primaryHover.h.toFixed(1),
+        '--brand-hover-s': `${(theme.primaryHover.s * 100).toFixed(1)}%`,
+        '--brand-hover-l': `${(theme.primaryHover.l * 100).toFixed(1)}%`,
+        '--brand-hover': hslToString(theme.primaryHover),
+        '--secondary-h': theme.secondary.h.toFixed(1),
+        '--secondary-s': `${(theme.secondary.s * 100).toFixed(1)}%`,
+        '--secondary-l': `${(theme.secondary.l * 100).toFixed(1)}%`,
+        '--secondary': hslToString(theme.secondary),
+        '--on-brand': theme.onPrimary,
+      }) as CSSProperties,
+    [theme],
+  )
+
   useEffect(() => {
-    document.title = 'Customer Rewards - Spin & Win'
-  }, [])
+    document.title = store ? `${store.name} · Spin & Win` : 'Customer Rewards · Spin & Win'
+  }, [store?.name])
 
   useEffect(() => {
     initFlow(slug)
@@ -62,15 +88,32 @@ export default function CustomerFlow() {
 
   if (error || !store) {
     return (
+      <NotFound
+        message={
+          error
+            ? error
+            : `No shop is published at this address. If you scanned a QR code, check that the link is complete.`
+        }
+      />
+    )
+  }
+
+  if (store.status !== 'active') {
+    return (
       <Card className="mt-6">
         <CardHeader>
-          <h1 className="font-display text-center text-xl">Store not found</h1>
+          <h1 className="font-display text-center text-xl">{store.name}</h1>
         </CardHeader>
         <CardBody>
           <p className="text-center text-muted">
-            {error ?? `No store configured for "${slug}".`}
+            This campaign is not active right now. New entries are not being accepted — please ask
+            the shop team when it reopens.
           </p>
-          <button type="button" onClick={() => (window.location.href = '/')} className="mt-4 w-full btn-primary">
+          <button
+            type="button"
+            onClick={() => (window.location.href = '/')}
+            className="mt-4 w-full btn-primary"
+          >
             Return home
           </button>
         </CardBody>
@@ -89,15 +132,12 @@ export default function CustomerFlow() {
   return (
     <Card
       className={`customer-flow-card mt-4 ${flow === 'SPIN' || flow === 'SPINNING' ? 'customer-flow-spin' : ''}`}
-      style={{
-        '--brand': store.primaryColor,
-        '--brand-hover': store.primaryColor,
-        '--secondary': store.secondaryColor,
-      } as CSSProperties}
+      style={themeVars}
     >
       <CardHeader className="customer-flow-header">
-        <StoreLogo logoUrl={store.logoUrl} />
-        <div className="flex flex-col items-center mt-2">
+        <StoreLogo logoUrl={store.logoUrl} alt={store.name} />
+        <h1 className="mt-2 text-center font-display text-xl font-bold text-ink">{store.name}</h1>
+        <div className="flex flex-col items-center mt-1">
           {store.subtitle && (
             <span className="font-body font-medium uppercase tracking-[0.15em] text-muted text-xs">
               {store.subtitle}

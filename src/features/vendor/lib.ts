@@ -1,24 +1,24 @@
 import type { RewardTier } from '@/types'
 
 /**
- * Canonical public campaign URL for a store slug.
+ * Canonical public campaign URL for a store slug (root-level: `/{slug}`).
  * - Uses VITE_PUBLIC_APP_URL when configured (the canonical production domain),
  *   so the QR always points at real customers even if the dashboard is served
  *   from a preview/staging host.
  * - Otherwise falls back to the current origin + Vite base, which works on both
- *   Vercel (base "/") and GitHub Pages (base "/gift/").
- * Never points at the vendor dashboard or localhost in production.
+ *   the root build (base "/") and GitHub Pages (base "/gift/").
+ * Never points at an admin URL, the vendor dashboard, or localhost in production.
  */
 export function getCampaignUrl(slug: string): string {
   const configured = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined)?.trim()
   if (configured) {
     const base = configured.replace(/\/$/, '')
-    return `${base}/store/${slug}`
+    return `${base}/${slug}`
   }
   const basePath = ((import.meta.env.BASE_URL as string | undefined) ?? '/').replace(/\/$/, '')
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  if (!basePath || basePath === '/') return `${origin}/store/${slug}`
-  return `${origin}${basePath}/store/${slug}`
+  if (!basePath || basePath === '/') return `${origin}/${slug}`
+  return `${origin}${basePath}/${slug}`
 }
 
 export interface TierRange {

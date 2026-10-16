@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Users, Gift, Package, PackageCheck, IndianRupee, TrendingUp } from 'lucide-react'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import type { AdminStats, SubmissionRecord } from '@/lib/data'
@@ -9,6 +9,11 @@ import { Spinner } from '@/components/ui/Spinner'
 
 export default function Overview() {
   const { dataProvider, session } = useAdminStore()
+  // Slug-scoped admin links (v1.1.0): the URL slug is an address used for
+  // navigation only. Legacy /vendor/* still works via VendorLegacyRedirect, but
+  // links inside /{slug}/admin must stay in the slug-scoped URL space.
+  const { slug: urlSlug } = useParams()
+  const base = urlSlug ? `/${urlSlug}/admin` : '/vendor'
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [recent, setRecent] = useState<SubmissionRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,7 +83,7 @@ export default function Overview() {
             here automatically.
           </p>
           <Link
-            to="/vendor/qr-code"
+            to={`${base}/qr-code`}
             className="mt-4 inline-block rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-paper"
           >
             Share your campaign QR
@@ -103,7 +108,7 @@ export default function Overview() {
               <h2 id="recent-heading" className="font-display text-base font-semibold text-ink">
                 Recent customers
               </h2>
-              <Link to="/vendor/customers" className="text-sm font-medium text-brand underline">
+              <Link to={`${base}/customers`} className="text-sm font-medium text-brand underline">
                 View all
               </Link>
             </div>
@@ -144,10 +149,10 @@ export default function Overview() {
           </section>
 
           <nav className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Quick links">
-            <QuickLink to="/vendor/customers" label="Customers" icon={Users} />
-            <QuickLink to="/vendor/rewards" label="Campaign" icon={Gift} />
-            <QuickLink to="/vendor/qr-code" label="QR Code & Branding" icon={Package} />
-            <QuickLink to="/vendor/settings" label="Account" icon={TrendingUp} />
+            <QuickLink to={`${base}/customers`} label="Customers" icon={Users} />
+            <QuickLink to={`${base}/rewards`} label="Campaign" icon={Gift} />
+            <QuickLink to={`${base}/qr-code`} label="QR Code & Branding" icon={Package} />
+            <QuickLink to={`${base}/settings`} label="Account" icon={TrendingUp} />
           </nav>
         </>
       )}

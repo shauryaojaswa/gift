@@ -13,6 +13,7 @@ export const JOLLY_ENTERPRISES: StoreConfig = {
   googleReviewUrl: null,
   campaignBadge: 'SPIN & WIN',
   minSpinAmount: 10000,
+  status: 'active',
   rewards: [
     {
       id: 'reward_1',

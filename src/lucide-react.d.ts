@@ -42,4 +42,7 @@ declare module 'lucide-react' {
   export const Trash2: (props: LucideProps) => JSX.Element
   export const Pencil: (props: LucideProps) => JSX.Element
   export const Link2: (props: LucideProps) => JSX.Element
+  // JRIQ platform admin icons
+  export const ShieldCheck: (props: LucideProps) => JSX.Element
+  export const Sparkles: (props: LucideProps) => JSX.Element
 }

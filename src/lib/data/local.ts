@@ -1,5 +1,5 @@
 import type { Reward, RewardTier, StoreConfig } from '../../types'
-import { ALL_STORES } from '../stores'
+import { ALL_STORES, JOLLY_ENTERPRISES_SLUG } from '../stores'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -11,7 +11,7 @@ import type {
   StorePatch,
   RewardAssignment,
 } from './types'
-import { evaluateReward, validateTierConfiguration } from '../reward-engine'
+import { getAwardableOptions, getPurchaseTier, validateTierConfiguration } from '../reward-engine'
 
 const SUBMISSIONS_KEY = (storeId: string) => `gift:local:submissions:${storeId}`
 const STORE_KEY = (slug: string) => `gift:local:store:${slug}`
@@ -45,23 +45,26 @@ export class LocalDataProvider implements DataProvider {
     if (cached) return cached
     const seed = ALL_STORES.find((s) => s.slug === slug)
     if (!seed) return null
+    // Deep-copy the seed: callers may mutate the returned config (admin edits,
+    // tests) and must never corrupt the shared demo fixture.
+    const base: StoreConfig = structuredClone(seed)
     const edited = readJSON<Partial<StoreConfig> | null>(STORE_KEY(slug), null)
     if (!edited) {
-      this.storeCache.set(slug, seed)
-      return seed
+      this.storeCache.set(slug, base)
+      return base
     }
     const merged: StoreConfig = {
-      ...seed,
+      ...base,
       ...edited,
-      rewards: edited.rewards ?? seed.rewards,
-      tiers: edited.tiers ?? seed.tiers,
+      rewards: edited.rewards ?? base.rewards,
+      tiers: edited.tiers ?? base.tiers,
     }
     this.storeCache.set(slug, merged)
     return merged
   }
 
   async getAdminStoreConfig(): Promise<StoreConfig | null> {
-    return this.getStoreConfig('jolly-enterprises')
+    return this.getStoreConfig(JOLLY_ENTERPRISES_SLUG)
   }
 
   async createSubmission(input: CreateSubmissionInput): Promise<RewardAssignment> {
@@ -105,8 +108,26 @@ export class LocalDataProvider implements DataProvider {
         claimCode: existing.couponCode ?? `${reward.claimCodePrefix ?? 'GIFT'}-${id.slice(-6).toUpperCase()}`,
       }
     }
-    const result = evaluateReward(input.purchaseAmount, store)
-    if (!result) throw new Error('Purchase does not qualify for an active reward')
+    // Mirror the trusted backend: the bracket's approved pool (or its legacy
+    // reward) awards the gift. A bracket with no usable pool raises rather than
+    // awarding a placeholder prize.
+    const resolvedTier = getPurchaseTier(input.purchaseAmount, store)
+    if (!resolvedTier) throw new Error('Purchase does not qualify for an active reward')
+    const options = getAwardableOptions(resolvedTier, store)
+    if (options.length === 0) {
+      throw new Error('No unique active reward is configured for this purchase amount')
+    }
+    const pick = options[Math.floor(Math.random() * options.length)]
+    const pickedReward = store.rewards.find((item) => item.id === pick.id)
+    if (!pickedReward) {
+      throw new Error('No unique active reward is configured for this purchase amount')
+    }
+    const result = {
+      amount: input.purchaseAmount,
+      tier: resolvedTier,
+      reward: pickedReward,
+      targetSegment: resolvedTier.targetSegment,
+    }
     const record: SubmissionRecord = {
       id,
       storeId: store.id,
@@ -315,7 +336,7 @@ export class LocalDataProvider implements DataProvider {
   }
 
   private async currentStore(): Promise<StoreConfig> {
-    const store = await this.getStoreConfig('jolly-enterprises')
+    const store = await this.getStoreConfig(JOLLY_ENTERPRISES_SLUG)
     if (!store) throw new Error('No active store')
     return store
   }

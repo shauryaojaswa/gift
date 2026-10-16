@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react'
 import { Trash2, Package } from 'lucide-react'
 import { useAdminStore } from '@/features/admin/useAdminStore'
+import { GiftPoolPanel } from '@/features/platform/GiftPoolPanel'
 import { Spinner } from '@/components/ui/Spinner'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { FormField } from '@/components/ui/FormField'
@@ -22,7 +23,8 @@ export default function Rewards() {
   if (loading) return <Spinner />
   if (!store) return <p className="text-muted">Unable to load your rewards.</p>
 
-  const rewardName = (id: string) => rewards.find((r) => r.id === id)?.name ?? '—'
+  const rewardName = (id: string | null) =>
+    id ? rewards.find((r) => r.id === id)?.name ?? '—' : 'Gift pool (selected per spin)'
 
   const flash = (msg: string) => {
     setToast(msg)
@@ -335,6 +337,13 @@ export default function Rewards() {
         )}
       </section>
 
+      {/* Gift options per bracket (multi-gift pools) */}
+      {store?.id && (
+        <section aria-label="Gift options per purchase bracket" className="rounded-xl border border-border-soft bg-paper p-5">
+          <GiftPoolPanel storeId={store.id} />
+        </section>
+      )}
+
       {/* Tier editor form */}
       {tierForm && (
         <Card>
@@ -369,7 +378,7 @@ export default function Rewards() {
             <FormField label="Reward">
               <select
                 className="field-input py-2.5 text-base"
-                value={tierForm.rewardId}
+                value={tierForm.rewardId ?? ''}
                 onChange={(e) => setTierForm({ ...tierForm, rewardId: e.target.value })}
               >
                 {rewards.map((r) => (

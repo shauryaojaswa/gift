@@ -9,6 +9,7 @@ export function CurrencyInput({
   id,
   autoFocus,
   onBlur,
+  disabled = false,
 }: {
   value: number | null
   onChange: (value: number | null) => void
@@ -16,6 +17,7 @@ export function CurrencyInput({
   id?: string
   autoFocus?: boolean
   onBlur?: () => void
+  disabled?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [internal, setInternal] = useState('')
@@ -85,6 +87,7 @@ export function CurrencyInput({
       autoComplete="off"
       spellCheck={false}
       autoFocus={autoFocus}
+      disabled={disabled}
       aria-label="Purchase amount in Indian Rupees"
     />
   )

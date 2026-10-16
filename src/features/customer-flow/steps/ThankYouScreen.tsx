@@ -60,7 +60,7 @@ export function ThankYouScreen() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted">Reward</dt>
-            <dd className="font-medium text-ink">{reward?.shortLabel ?? reward?.name ?? '—'}</dd>
+            <dd className="font-medium text-ink">{reward?.name?.trim() || reward?.shortLabel || '—'}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted">Phone</dt>
@@ -87,7 +87,7 @@ export function ThankYouScreen() {
           className="btn-primary"
           onClick={() => {
             resetAll()
-            navigate(`/store/${store.slug}`)
+            navigate(`/${store.slug}`)
           }}
         >
           DONE

@@ -114,10 +114,18 @@ describe('CSV escaping', () => {
 })
 
 describe('getCampaignUrl', () => {
-  it('builds a store URL from the configured public origin when set', () => {
+  it('builds a root-level store URL from the configured public origin when set', () => {
     vi.stubEnv('VITE_PUBLIC_APP_URL', 'https://gift-alpha-pearl.vercel.app/')
     expect(getCampaignUrl('jolly-enterprises')).toBe(
-      'https://gift-alpha-pearl.vercel.app/store/jolly-enterprises',
+      'https://gift-alpha-pearl.vercel.app/jolly-enterprises',
     )
+  })
+  it('never emits an admin or legacy /store/ path', () => {
+    vi.stubEnv('VITE_PUBLIC_APP_URL', 'https://jriq.in')
+    const url = getCampaignUrl('kalyan-jewellers')
+    expect(url).toBe('https://jriq.in/kalyan-jewellers')
+    expect(url).not.toContain('/store/')
+    expect(url).not.toContain('/admin')
+    expect(url).not.toContain('/vendor')
   })
 })

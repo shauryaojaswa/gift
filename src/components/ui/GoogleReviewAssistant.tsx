@@ -43,19 +43,24 @@ function IconGlyph({ kind }: { kind: string }) {
   }
 }
 
+/**
+ * Neutral topic prompts (Google-policy compliant): writing starters, never
+ * prewritten review text. The customer always writes their own words, and
+ * text is copied only when the customer presses a copy button.
+ */
 const SUGGESTIONS: Array<{ text: string; icon: string }> = [
-  { text: 'Beautiful jewellery collection.', icon: 'gem' },
-  { text: 'Very helpful and friendly staff.', icon: 'user' },
-  { text: 'I really liked the jewellery designs.', icon: 'sparkle' },
-  { text: 'Good quality and good service.', icon: 'badge' },
-  { text: 'Very smooth shopping experience.', icon: 'bag' },
-  { text: 'The staff helped me choose the right jewellery.', icon: 'hands' },
-  { text: 'I was happy with the overall experience.', icon: 'heart' },
-  { text: 'Good value for the quality.', icon: 'tag' },
-  { text: 'I found exactly what I was looking for.', icon: 'package' },
-  { text: 'Nice experience from start to finish.', icon: 'smile' },
-  { text: 'The collection had many beautiful options.', icon: 'gift' },
-  { text: 'My visit was a pleasant experience.', icon: 'sparkle' },
+  { text: 'What stood out about the jewellery selection?', icon: 'gem' },
+  { text: 'How would you describe the staff?', icon: 'user' },
+  { text: 'Which designs caught your eye?', icon: 'sparkle' },
+  { text: 'How did you find the quality?', icon: 'badge' },
+  { text: 'How was the shopping experience?', icon: 'bag' },
+  { text: 'Did anyone help you choose?', icon: 'hands' },
+  { text: 'How did you feel about your visit?', icon: 'heart' },
+  { text: 'How did you find the value for money?', icon: 'tag' },
+  { text: 'Did you find what you were looking for?', icon: 'package' },
+  { text: 'How was your visit from start to finish?', icon: 'smile' },
+  { text: 'What did you think of the range available?', icon: 'gift' },
+  { text: 'What made your visit memorable?', icon: 'sparkle' },
 ]
 
 export function GoogleReviewAssistant({
@@ -74,6 +79,8 @@ export function GoogleReviewAssistant({
   const [text, setText] = useState('')
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
+  const [popupBlocked, setPopupBlocked] = useState(false)
+  const [opened, setOpened] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
@@ -82,6 +89,8 @@ export function GoogleReviewAssistant({
       setText('')
       setCopied(false)
       setCopyError(null)
+      setPopupBlocked(false)
+      setOpened(false)
       document.body.style.overflow = 'hidden'
       setTimeout(() => closeRef.current?.focus(), 50)
     } else {
@@ -101,24 +110,28 @@ export function GoogleReviewAssistant({
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  const copyText = useCallback(async (value: string) => {
-    if (!value) return
+  const copyText = useCallback(async (value: string): Promise<boolean> => {
+    if (!value) return false
     setCopyError(null)
     try {
       await navigator.clipboard.writeText(value)
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
+      return true
     } catch {
       setCopyError('Could not copy automatically. Please select and copy the text manually.')
+      return false
     }
   }, [])
 
   const handleSelectSuggestion = useCallback(
     (suggestion: string) => {
+      // Insert the topic prompt as an editable starter. No clipboard write:
+      // copying happens only through the explicit copy buttons below.
       setText(suggestion)
-      void copyText(suggestion)
+      setTimeout(() => textareaRef.current?.focus(), 30)
     },
-    [copyText],
+    [],
   )
 
   const handleWriteOwn = useCallback(() => {
@@ -126,13 +139,23 @@ export function GoogleReviewAssistant({
     setTimeout(() => textareaRef.current?.focus(), 30)
   }, [])
 
-  const handleCopyAndOpen = useCallback(() => {
-    void copyText(text)
+  // Copy is confirmed only when the platform confirms it; a blocked popup or a
+  // failed copy keeps the flow open with an understandable fallback. Nothing
+  // is ever claimed to be filled in or posted automatically.
+  const handleCopyAndOpen = useCallback(async () => {
+    if (!text.trim()) return
+    const ok = await copyText(text)
+    if (!ok) return
     if (reviewUrl) {
-      window.open(reviewUrl, '_blank', 'noopener,noreferrer')
+      const win = window.open(reviewUrl, '_blank', 'noopener,noreferrer')
+      if (!win) {
+        setPopupBlocked(true)
+        return
+      }
       onReviewed?.()
     }
-    onSkip()
+    setOpened(true)
+    setTimeout(() => onSkip(), 700)
   }, [copyText, text, reviewUrl, onReviewed, onSkip])
 
   const handleOpenGoogle = useCallback(() => {
@@ -183,6 +206,9 @@ export function GoogleReviewAssistant({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
           {/* Suggestions */}
+          <p className="mb-2 text-sm text-muted">
+            Topic ideas to get you started — write your own honest words.
+          </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {SUGGESTIONS.map(({ text: suggestion, icon }) => {
               const selected = text === suggestion
@@ -201,9 +227,6 @@ export function GoogleReviewAssistant({
                 >
                   <IconGlyph kind={icon} />
                   <span className="flex-1">{suggestion}</span>
-                  {selected && copied && (
-                    <span className="shrink-0 text-xs font-medium text-green-700">✓ Copied</span>
-                  )}
                 </button>
               )
             })}
@@ -240,7 +263,7 @@ export function GoogleReviewAssistant({
           {/* Copy guidance once there is text */}
           {hasText && (
             <div className="review-message mt-2 p-3">
-              <p className="text-sm font-medium">Copy this review, then paste it into Google.</p>
+              <p className="text-sm font-medium">Copy what you have written, then paste it into Google.</p>
               <label htmlFor="review-fallback-text" className="sr-only">
                 Review text to copy
               </label>
@@ -284,14 +307,46 @@ export function GoogleReviewAssistant({
 
         {/* Footer */}
         <footer className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t border-border-soft bg-paper px-5 py-4 sm:px-6">
+          {opened && (
+            <p role="status" className="text-sm font-medium text-green-700">
+              ✓ Copied to your clipboard — Google is opening in a new tab. Paste your text there;
+              nothing is filled in or posted automatically.
+            </p>
+          )}
+          {popupBlocked && (
+            <div role="alert" className="rounded-lg border border-border-soft bg-cream p-3 text-sm">
+              <p className="font-medium text-ink">Your browser blocked the new tab.</p>
+              <p className="mt-1 text-muted">
+                Your text is copied — open Google with the link below and paste it into your review.
+              </p>
+              {reviewUrl && (
+                <a
+                  href={reviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => onReviewed?.()}
+                  className="btn-secondary tap-target mt-2 inline-flex min-h-11 items-center justify-center"
+                >
+                  Open Google Review
+                </a>
+              )}
+              <button type="button" className="btn-ghost tap-target mt-2 min-h-11" onClick={onSkip}>
+                CONTINUE TO SPIN
+              </button>
+            </div>
+          )}
           <button
             type="button"
             className="btn-primary tap-target min-h-12"
             disabled={!hasText}
-            onClick={handleCopyAndOpen}
+            onClick={() => void handleCopyAndOpen()}
           >
-            Copy &amp; Open Google →
+            Copy &amp; Open Google Review
           </button>
+          <p className="text-xs text-muted">
+            Your text is copied for you to paste on Google. Nothing is filled in or posted
+            automatically — choose the rating that matches your experience.
+          </p>
         </footer>
       </div>
     </div>

@@ -40,6 +40,9 @@ jobs:
           # app truthfully falls back to LocalDataProvider (demo mode).
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Canonical campaign host: printed QR artefacts must decode to exactly
+          # https://jriq.in/{slug} on every surface, including this fallback host.
+          VITE_PUBLIC_APP_URL: https://jriq.in
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

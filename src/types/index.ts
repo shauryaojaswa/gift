@@ -32,14 +32,32 @@ export interface Reward {
   active: boolean
 }
 
+/**
+ * One approved gift of a purchase bracket (from the shop's gift pool), with the
+ * display fields the customer wheel needs. `id` is the reward id, so an option
+ * can be matched against the backend's saved assignment.
+ */
+export interface GiftOption {
+  id: string
+  name: string
+  wheelLabel: string
+  description: string
+  voucherValue: number | null
+}
+
 export interface RewardTier {
   id: string
   minAmount: number
   maxAmount: number | null
-  rewardId: string
+  /** Legacy single-gift bracket. Null for pool-based brackets (gift options). */
+  rewardId: string | null
   targetSegment: number
   active: boolean
+  /** Approved gift pool for this bracket (may be empty). */
+  giftOptions?: GiftOption[]
 }
+
+export type StoreStatus = 'active' | 'suspended' | 'onboarding'
 
 export interface StoreConfig {
   id: string
@@ -52,6 +70,8 @@ export interface StoreConfig {
   googleReviewUrl: string | null
   campaignBadge: string | null
   minSpinAmount: number
+  /** Lifecycle status — non-active shops show the inactive page and accept no entries. */
+  status: StoreStatus
   rewards: Reward[]
   tiers: RewardTier[]
 }

@@ -6,7 +6,7 @@ export function WelcomeScreen() {
   return (
     <div className="flex flex-col items-center text-center gap-5">
       <h1 className="font-display text-3xl font-bold text-ink text-balance">
-        THANK YOU FOR SHOPPING WITH US
+        YOUR REWARD IS WAITING
       </h1>
       <p className="font-body text-balance text-center text-muted max-w-sm">
         Enter a few details and discover your special reward.
@@ -14,7 +14,9 @@ export function WelcomeScreen() {
       <button type="button" className="btn-primary w-full mt-2" onClick={() => setStep('DETAILS')}>
         START
       </button>
-      <p className="font-body text-xs text-muted">Takes less than 60 seconds · Quick &amp; simple · Spin &amp; Win</p>
+      <p className="font-body text-xs text-muted">
+        Takes less than 60 seconds · Quick &amp; simple · Spin &amp; Win
+      </p>
     </div>
   )
 }
