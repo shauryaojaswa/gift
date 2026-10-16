@@ -84,7 +84,104 @@ node scripts/ui-verify.mjs        # UI flows incl. Create Shop UI + customer spi
 
 ## 6. Release process (summary)
 
-Staging is the release branch for now. Production release = the approved proposal:
-`pg_dump` (verified) → 4 migrations → frontend deploy (Pages merge or MilesWeb upload) →
-smoke. GitHub Pages stays the rollback target until `jriq.in` cutover is approved.
+Staging is the release branch for now. Production release = verified `pg_dump` → additive
+migrations via `supabase migration up --db-url` → frontend deploy (MilesWeb upload for the
+root build; Pages merge for the `/gift/` build) → smoke. Since **2026-10-16 `jriq.in`
+(MilesWeb) is PRIMARY** and GitHub Pages `/gift/` is the honored fallback, kept live.
 Adding a shop = platform admin UI action — **no deploy, no DNS**.
+
+## 7. Production data state (pre-cutover reference, 2026-10-15 VERIFIED)
+
+Counts captured before the jriq.in cutover; the watch window compares against these
+(full table in `docs/CUTOVER_CHECKLIST.md` §0): stores 1, submissions 2,
+`platform_audit_logs` 28 (27 baseline + the kept residue-deletion event
+`fbbbe474-…`, per `RELEASE_READINESS.md` M.9), reward_tiers 8, rewards 8,
+store_admins 1, platform_admins **0**, protected claims 2 (`GIFT-DDD89040`,
+`CLEAN-0CBBDC9A`, both `awaiting`), `schema_migrations` 8 (the audit-delete-ref fix
+migration `20261015192000_audit_delete_ref_fix.sql` is applied).
+
+Defect/fix/experiment record: `docs/RELEASE_READINESS.md` M.4 (DEFERRABLE experiment —
+rejected variant B with proof), M.7 (status), M.9 (production evidence). Smoke:
+`scripts/prod-smoke.mjs` 35/35; harnesses `scripts/audit-fix-verify.mjs` (23/23) and
+`scripts/staging-verify.mjs` (70/70) are re-runnable evidence producers.
+
+## 8. Backups & keep-alive (free tier)
+
+- **Weekly `pg_dump` of production, keep last 4**, every Sunday. Verify each dump with
+  `pg_restore --list` (exit 0) before retiring an older one. Store outside the repo:
+  `C:\Users\ojaswa\backups\jriq\` (e.g. `jwellery-YYYYMMDD-HHMMSS.dump` — the verified
+  pre-change dump `jwellery-20261015-203239.dump` is the current reference). Never
+  overwrite an old dump; only rotate beyond 4. Passwords: `%USERPROFILE%\.supabase\*.db-password.txt`.
+- **Pro upgrade revisit: after first revenue**, with a dated backstop of **2026-11-15** —
+  free-tier limits (project pausing, egress, daily backups) become a risk once real
+  customer traffic is continuous; revisit then, earlier at first revenue, or if
+  submissions grow materially.
+- **Keep-alive**: `node scripts/keepalive.mjs` (one authenticated read-only query) —
+  use **only if there has been no organic traffic for ~5 days** to prevent free-tier
+  project pausing. Env: `SUPABASE_URL` (production) + anon/service key, injected at
+  runtime, never committed.
+
+## 9. platform_admins — bootstrap record & instructions
+
+**Bootstrapped 2026-10-15 20:20 UTC** — `platform_admins` holds exactly one row: user
+`631881cb-a92f-4087-a788-d5a9bb1dbf1b` (the owner's account), inserted by the owner via
+the Table Editor under the approved bootstrap exception. VERIFIED 2026-10-16 at API level
+(sign-in 200 + JWT; `is_platform_admin()` resolves true; shop-list surface returns exactly
+`jolly-enterprises`, zero cross-tenant rows). To bootstrap an additional admin (2 minutes):
+
+1. Sign in to the Supabase dashboard → project `awshkiwqkuubkhecszzk` → Authentication →
+   Users → find (or invite) the admin's user → copy its `auth.uid` (UUID).
+2. SQL editor is **not** used for JRIQ changes. Use the Table Editor on
+   `platform_admins` → Insert row → `user_id` = that UUID. (This single insert is the
+   approved bootstrap exception; all other DB changes go through migrations.)
+3. Verify: `https://jriq.in/platform/login` signs in and shows the shops dashboard.
+   Record who was bootstrapped and when in this section.
+
+Platform flows are additionally exercised by the approved harnesses (`scripts/prod-smoke.mjs`,
+`scripts/postlaunch-smoke.mjs`).
+
+## 10. Evidence locations
+
+| Evidence | Where |
+|---|---|
+| Fix experiment + release evidence | `docs/RELEASE_READINESS.md` M.4/M.7/M.9 |
+| Cutover checklist + pre-cutover counts | `docs/CUTOVER_CHECKLIST.md` |
+| Rollback steps | `docs/ROLLBACK.md` |
+| Hosting facts + DNS sheet | `docs/DEPLOYMENT.md` §5 |
+| Watch logs | `logs/cutover-watch-*.log` (gitignored) |
+| Backups | `C:\Users\ojaswa\backups\jriq\` |
+| Upload staging + SHA256s | `C:\Users\ojaswa\AppData\Local\Temp\opencode\jriq-deploy\` |
+| Harness scripts | `scripts/prod-smoke.mjs`, `audit-fix-verify.mjs`, `staging-verify.mjs`, `postlaunch-smoke.mjs`, `cutover-watch.mjs`, `keepalive.mjs` |
+
+## 11. Launch record (2026-10-16)
+
+**Declaration — 2026-10-16, 08:38 IST (03:08 UTC): `jriq.in` is live and verified.**
+
+| Item | Record |
+|---|---|
+| Cutover matrix | 6/6 VERIFIED (site loads, hard-refresh deep link, spin-persistence 15/15 w/ zero audit delta, vendor scoping, platform login API-level, Pages `/gift/` warm) |
+| 60-min watch | 2026-10-15 20:06 → 21:04 UTC — 30/30 rounds, **120/120 checks PASS, zero blips**, no pre-authorised trigger fired. Log: `logs/cutover-watch-2026-10-15T20-06-02-619Z.log` (gitignored) |
+| TTL | **300 retained deliberately** — (a) browser automation worked but no authenticated MyDNSVault/mPanel session existed; (b) no DNS API/credentials in-environment. Safer 5-min rollback propagation while young. **Revisit: >1000 daily visitors or 90 days stable, whichever first.** Click-path (1 min): MyDNSVault → zone `jriq.in` → A record `@` (`45.199.139.29`) → TTL 300 → 3600 → Save |
+| Bootstrap | `platform_admins` row `631881cb-a92f-4087-a788-d5a9bb1dbf1b`, 2026-10-15 20:20 UTC, owner via Table Editor (approved exception) — §9 |
+| Backups | Weekly `pg_dump` keep-last-4, Sundays; baseline `jwellery-20261015-203239.dump` (verified) — §8 |
+| Revisit-Pro | After first revenue (backstop 2026-11-15) — §8 |
+
+**Deviations & corrections (honest record):**
+
+1. **Test-credential set via Auth Admin API** (not the dashboard recovery email — the
+   account's inbox is a non-routed test address). The owner test password
+   (`oj@gmail.com`) was generated programmatically and written only to
+   `%USERPROFILE%\.jriq-test-login.txt`; it never appeared in chat, logs, or the repo.
+   **Rotate it at your convenience** — it is a known-rotation credential.
+2. **Assertion bug (mine, not the system's)**: one verification compared the store's
+   `name` ("CUSTOMER REWARDS") against `jolly-enterprises`, which is the store's **slug**.
+   Read-only query proved the data correct; the row re-verified cleanly.
+3. **mPanel upload quirk**: subdirectory uploads silently vanish unless the folder exists
+   first; folder creation is a separate POST (`item_type=folder`). Also: the edge closes
+   connections on `Expect: 100-continue` — the uploader disables it.
+
+**Open item (does not gate anything):** the URL restructure — root-level shop slugs
+`/{slug}`, per-shop `/{slug}/admin`, and the homepage rework — is the first post-launch
+feature and lives in its own prompt/thread. Its Phase 1 diagnosis (evidence-based) found
+that `/` already renders the JRIQ landing in the deployed build; pending the owner's
+(a)/(b) observation answer before implementation.

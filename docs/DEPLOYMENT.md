@@ -67,32 +67,93 @@ To deploy an update today: merge `staging` (or `main`) into `gh-pages`, push, wa
 Actions run to `success`. Transient deploy-job failures have occurred twice historically;
 re-running the workflow (or pushing an empty commit) resolved them (**Reported**).
 
-## 5. jriq.in deployment (prepared, not deployed — awaiting approval)
+## 5. jriq.in deployment (MilesWeb — Phase M)
 
-**Reported**: `jriq.in` registered at MilesWeb, expiry 2027-10-14. **Verified**: DNS does
-not resolve (2026-10-15). Hosting plan / document root / SSL / upload method: **Unknown** —
-requires the user's MilesWeb login (one step at a time).
+### 5.1 Hosting facts (2026-10-15/16)
 
-Prepared artefacts (all **Verified** in repo):
+| Fact | Value | Label |
+|---|---|---|
+| Domain registration | `jriq.in`, Active, due 2027-10-14 | Verified |
+| Hosting plan | MilesWeb Premium (mPanel), Active, due 2027-10-17 | Verified |
+| Document root | `public_html` | Verified |
+| DNS delegation | `luna/odin/neon.mydnsvault.com` | Verified |
+| DNS zone | created 2026-10-15 (SOA serial `2026101500`) | Verified |
+| A record | `45.199.139.29` (apex `@`) | Verified |
+| IPv6 | **No AAAA record** — IPv6-only clients cannot connect | Verified |
+| TLS | certificate issued at provisioning, trusted chain, valid to 2027-01-13 | Verified |
+| Edge stack | `Server: BitNinja-WafPro`, `Via: 1.1 Caddy` (proxy ahead of the origin web server) | Verified |
+| AutoSSL mechanism | issued automatically at site provisioning (mPanel) | Verified (effect) |
+| File-size limit | >= 2.26 MB per file accepted (`brand-logo.png` = 2,258,024 B uploaded + byte-verified); server-side ceiling never reached | Verified |
+| Upload method | mPanel File Manager HTTP API — authenticated multipart POST over the WHMCS->mPanel SSO session, chunked batches (<= 8 files), `Expect: 100-continue` disabled (the edge closes connections on it). Direct SFTP/FTP auth was rejected server-side on both ports; SFTP-key/FTP-account automation failed; zip+extract unsupported (no server-side route) -> extracted tree uploaded | Verified |
+| mod_rewrite / `.htaccess` honoured | **YES** — deep link `/store/jolly-enterprises` returns 200 + the app shell through BitNinja/Caddy; `deploy-verify.ps1` 2026-10-16 | Verified |
+| MySQL | account `jriq_in01` exists (mPanel default) — **unused**, JRIQ data lives in Supabase | Verified |
 
-- `npm run build:root` — root-base production build (preflight-verified).
-- `public/.htaccess` — SPA rewrite fallback for Apache/LiteSpeed shared hosting.
-- `scripts/preflight.mjs root` — the pre-upload gate.
-
-Lowest-effort repeatable deployment once hosting is verified (assumed Apache/LiteSpeed —
-confirm before use):
+Placeholder handling (upload discipline): `public_html` contained one MilesWeb-managed
+file before deployment — `.htaccess` with the block below. It is **deliberately replaced**
+by the verified `dist/.htaccess` (byte-identical, sha256-checkable) so the deployed SPA
+fallback stays auditable. Displaced content, recorded verbatim:
 
 ```
-npm run preflight:root            # must end RESULT 0 failed
-# upload the contents of dist/ to the MilesWeb document root for jriq.in
-# (File Manager or FTP — whichever the plan actually supports)
+# BEGIN MilesWeb-ErrorPages
+ErrorDocument 503 /error_pages/503.html
+# END MilesWeb-ErrorPages
 ```
 
-Then verify: `https://jriq.in/` (root page), `/store/jolly-enterprises` (deep link),
-`/platform/login`, `/vendor/login`, one QR scan, and HTTPS certificate validity.
+### 5.2 Deployable artefact + order
 
-Automation (optional, later): if the plan supports SSH/SFTP, add a CI job with stored
-credentials; **do not assume** any such capability before verifying it.
+The verified `dist/` (root build at `a63ca38`, `index-lQHqJPH9.js`, `preflight:root`
+11/11) is deployed **as-is — do not rebuild**. Upload order:
+
+1. `assets/` + favicon/icons/logos/404 (`jriq-assets.zip`, 47 files)
+2. `index.html` + `.htaccess` (`jriq-final.zip`) — **LAST**
+3. Keep the last 3 asset generations; `index.html` no-cache, hashed assets immutable 1y.
+
+Local staging: `C:\Users\ojaswa\AppData\Local\Temp\opencode\jriq-deploy\`
+(SHA256 `jriq-assets.zip` = `95CA529B…9F5DE7`, `jriq-final.zip` = `3870853D…79A5CE`).
+
+Then verify: `https://jriq.in/` (root page), `/store/jolly-enterprises` (deep link —
+**the mod_rewrite verdict**), `/platform/login`, `/vendor/login`, one QR scan, and HTTPS
+certificate validity. `docs/CUTOVER_CHECKLIST.md` holds the full matrix.
+
+### 5.3 DNS record sheet (MyDNSVault — fill-in block)
+
+Zone `jriq.in` at MyDNSVault. Values below reflect the zone as created by hosting
+provisioning (2026-10-15). Adjust here if the zone is edited.
+
+| Name | Type | Value | TTL | Status |
+|---|---|---|---|---|
+| `@` | A | `45.199.139.29` | 300 — **retained deliberately** (see §5.4) | in place |
+| `@` | AAAA | *(none — IPv6 not served)* | — | n/a |
+| `www` | CNAME | **recommendation**: CNAME → `jriq.in` with TTL 300, so the apex stays the single source of truth; add only if `www` traffic is expected | 300 | optional |
+| `@` | SOA | primary `luna.mydnsvault.com`, serial `2026101500` | 1400 | managed by MyDNSVault |
+
+Cutover TTL discipline: keep TTL 300 through the 60-minute watch; raise to 3600+ only on
+a clean window (`docs/CUTOVER_CHECKLIST.md` §7). Rollback repoint: `docs/ROLLBACK.md`.
+
+### 5.4 Deployment actuals + TTL decision (2026-10-16)
+
+Deploy executed 2026-10-15/16 via the mPanel File Manager HTTP API (49 files: 42 assets,
+5 root files, then `index.html` + `.htaccess` LAST). One upload defect encountered and
+fixed: subdirectory uploads silently vanish unless the target folder exists first —
+folder creation is a separate POST (`item_type=folder`). Deployment verification
+(`deploy-verify.ps1`): 10 rows — root 200 + app shell + bundle ref, all 4 index-referenced
+assets byte-count matched, deep-link SPA fallback 200 (the mod_rewrite verdict), TLS OK.
+The cert row asserted an OpenSSL message that Windows curl (Schannel) never prints;
+trust is evidenced by Schannel completing without `-k` + `tls` probe `authorized=true`
+(valid to 2027-01-13).
+
+**TTL decision (2026-10-16, engineering decision — deliberate deferral):** TTL stays
+**300**. Evaluated: (a) browser automation functional but no authenticated MyDNSVault or
+mPanel session existed (all expired to login), (b) no MyDNSVault API/credentials in the
+environment — the zone is delegated to `luna/odin/neon.mydnsvault.com` and not editable
+from mPanel. Rationale: at current traffic the query-volume difference is negligible;
+TTL 300 keeps rollback/change propagation at 5 minutes — the operationally safer posture
+while the deployment is young. **Revisit: >1000 daily visitors or 90 days stable,
+whichever first** — one-minute task: MyDNSVault -> zone `jriq.in` -> A record `@` ->
+TTL 300 -> 3600 -> save (same click-path as `docs/FINAL_HANDOVER.md` §11).
+
+Automation (optional, later): if the plan supports SSH/SFTP with per-key auth, add a CI
+job with stored credentials; **do not assume** any such capability before verifying it.
 
 **Adding a new shop never requires a deployment or DNS change** — shops are data
 (slug rows in `stores`), and `/store/<slug>` is a client route (**Verified** in code and
@@ -100,10 +161,14 @@ UI tests).
 
 ## 6. Rollback
 
-- GitHub Pages remains the canonical deployment until `jriq.in` cutover is approved and
-  verified. DNS for `jriq.in` is not delegated yet — nothing to roll back today.
-- After cutover: rollback = revert DNS to the current state (or re-publish the previous
-  `dist` upload); the Pages deployment keeps serving the old flow independently.
+- **2026-10-16: cutover complete — `jriq.in` (MilesWeb) is PRIMARY; GitHub Pages
+  `/gift/` is the honored fallback**, kept live and warm, never decommissioned.
+- Rollback = repoint the `jriq.in` apex A record at the Pages origin (TTL 300 -> changes
+  propagate in <= 5 min), exact steps in `docs/ROLLBACK.md`. Note the Pages artefact is
+  `/gift/`-based: the apex cannot render it — printed QR codes point at
+  `shauryaojaswa.github.io/gift/...` and are never at risk. Alternative: re-publish the
+  previous `dist` upload to `public_html` (keep-last-3 asset generations + the zips in
+  `C:\Users\ojaswa\AppData\Local\Temp\opencode\jriq-deploy\`).
 - Database rollback: see `docs/PRODUCTION_RELEASE_PROPOSAL.md` (verified `pg_dump` before
   any migration; additive-only migrations; forward-fix guidance).
 

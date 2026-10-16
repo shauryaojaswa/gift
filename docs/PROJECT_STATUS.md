@@ -1,9 +1,14 @@
 # JRIQ — Project Status
 
-Last reconciled: 2026-10-15 (against actual repository, migrations, staging project and
-authenticated CLI output).
+Last reconciled: 2026-10-16 (post-launch — against actual repository, migrations, production
+and staging projects and authenticated CLI output).
 Evidence labels: **Verified** (command/file/authenticated response), **Reported** (user/audit),
 **Inferred**, **Unknown**.
+
+> **Launch record — 2026-10-16 (08:38 IST / 03:08 UTC): `jriq.in` is live and verified.**
+> Cutover matrix 6/6, 60-min watch 30/30 rounds clean (2026-10-15 20:06 -> 21:04 UTC),
+> MilesWeb PRIMARY, GitHub Pages `/gift/` honored fallback. Declarations and evidence:
+> `docs/FINAL_HANDOVER.md` §11.
 
 ## 1. Purpose and architecture
 
@@ -70,26 +75,22 @@ Any production DB operation requires an explicit re-link and approval.
 
 ### Domain and hosting
 
-- `jriq.in` (five separate facts, Verified 2026-10-15):
+- `jriq.in` (reconciled against live state, 2026-10-16):
   - **Registration**: Active, registered 2026-10-14, expires **14 October 2027**; registrar
     of record = Hosting Concepts B.V. dba **Openprovider** (IANA 1647) — sold via MilesWeb
     (REPORTED by user; RDAP corroborates a reseller path). Domain id 74851 in the MilesWeb
     client area.
-  - **DNS**: delegation **is** configured — `luna/odin/neon.mydnsvault.com` (VERIFIED via
-    RDAP; corrects the earlier "nameservers unconfigured" note). Resolution fails with
-    SERVFAIL because the DNS **zone at MyDNSVault was never created**. Fix = create the
-    zone + records in MilesWeb DNS (not a nameserver change).
-  - **Hosting**: MilesWeb "Premium" shared plan, Active, bound to `jriq.in`, due 2027-10-14
-    (25 GB NVMe, unmetered bandwidth, daily backups, free SSL per site — REPORTED from
-    MilesWeb public specs). **No website space provisioned yet** — mPanel only offers the
-    "add website" wizard (provisioning = deployment action, approval required).
-  - **SSL**: not issued yet (free SSL included in plan) — UNKNOWN until provisioning.
-  - **Live deployment**: not live; GitHub Pages (base `/gift/`) is the live app and rollback.
-  - DB egress from the current network to Supabase (5432/6543) is **blocked** (VERIFIED) —
-    `pg_dump`/`pg_restore`/`supabase migration up` need another network or the SQL editor.
-- GitHub Pages deploy: Actions workflow on the `gh-pages` branch (`deploy.yml`), builds with
-  repo `VITE_*` Actions variables, `base: '/gift/'`, SPA deep-link restore via `public/404.html`
-  + the `?p=` restore script in `index.html` (both now present on `staging` too).
+  - **DNS**: zone live at MyDNSVault — delegation `luna/odin/neon.mydnsvault.com`, SOA
+    serial `2026101500`, apex A `45.199.139.29`, TTL 300 (deliberately retained —
+    `docs/DEPLOYMENT.md` §5.4), no AAAA. Resolves locally and via 1.1.1.1 (VERIFIED).
+  - **Hosting**: MilesWeb "Premium" (mPanel), Active, bound to `jriq.in`; document root
+    `public_html`; the verified `dist/` is deployed and serving (VERIFIED 2026-10-16).
+  - **TLS**: trusted chain, valid to **2027-01-13** (AutoSSL at provisioning) (VERIFIED).
+  - **Live deployment**: **`jriq.in` is PRIMARY since 2026-10-16** (SPA fallback honoured
+    through BitNinja/Caddy); GitHub Pages `/gift/` remains live as the honored fallback.
+    Full facts + evidence: `docs/DEPLOYMENT.md` §5.
+  - DB egress to Supabase pooler (5432) **works from this machine** (pg_dump, psql,
+    `supabase migration up` all executed here) — supersedes the earlier "blocked" note.
 - GitHub Pages deploy: Actions workflow on the `gh-pages` branch (`deploy.yml`), builds with
   repo `VITE_*` Actions variables, `base: '/gift/'`, SPA deep-link restore via `public/404.html`
   + the `?p=` restore script in `index.html` (both now present on `staging` too).
@@ -116,8 +117,9 @@ Build targets (no config editing required):
 > the OUT parameter name of `submit_customer_entry` (same value). `rewards.claim_code_prefix`
 > is a separate real column holding the prefix (e.g. `GIFT`).
 
-Migration history (7 migrations; additive only; never rewritten). Local == Remote on
-staging (Verified `supabase migration list --linked`, 2026-10-15):
+Migration history (8 migrations; additive only; never rewritten). Local == Remote on
+staging (Verified `supabase migration list --linked`, 2026-10-15); production
+`schema_migrations` = 8 (VERIFIED 2026-10-15):
 
 1. `20261010202900_initial_schema.sql`
 2. `20261010203000_managed_tenant_foundation.sql`
@@ -129,6 +131,10 @@ staging (Verified `supabase migration list --linked`, 2026-10-15):
    fallback, shop-management RPCs (`create_shop`, `set_store_status`, `link_store_owner`,
    `admin_save_store_tiers`, `save_store_gift_options`)
 7. `20261015170000_anon_grant_tightening.sql` — defence-in-depth grant revokes
+8. `20261015192000_audit_delete_ref_fix.sql` — **defect fix** (store-deletion audit):
+   trigger-side audit capture chosen by executable experiment; the rejected DEFERRABLE
+   variant is documented with proof in `docs/RELEASE_READINESS.md` M.4. Applied to
+   staging + production 2026-10-15 (verified backup first); `schema_migrations` = 8.
 
 Tables (14): previous 10 + `gift_catalog`, `tier_gift_options`, `platform_policies`,
 `store_owner_invitations`. RLS enabled on all; pools invisible to anon.
@@ -181,15 +187,23 @@ includes all new tables and RPCs (stale-types discrepancy resolved).
 | 2 migrations | Complete on staging | 4 new migrations applied + verified 70/70; proposal amended (§0 corrections) |
 | 3–5 catalogue / engine / platform admin | Complete on staging | Platform screens, vendor gift panel, engine pools, RPC authz |
 | 6 customer flow polish | Complete | Neutral review prompts; wheel reveals saved reward (both modes) |
-| 7 jriq.in deployment | Prepared, not deployed | root build + preflight + .htaccess ready; MilesWeb verification needs user login; DNS not resolving |
-| 8 acceptance | In progress | Staging acceptance complete; production release proposal prepared |
+| 7 jriq.in deployment | **Complete — LIVE 2026-10-16** | verified `dist/` (`a63ca38`) deployed to MilesWeb via mPanel File Manager HTTP API; SPA fallback + TLS + asset byte-match verified; **`jriq.in` PRIMARY**, Pages `/gift/` honored fallback |
+| 8 acceptance + cutover | **Complete** | production release 2026-10-15 (backup -> 5 migrations -> prod-smoke 35/35); cutover matrix 6/6 VERIFIED; 60-min watch 30/30 rounds (120/120 checks), zero blips, no trigger fired |
 
-## 8. Blockers (production-only)
+## 8. Blockers — all cleared (2026-10-16)
 
-1. Production release (migrations + backup + deploy + cutover) — **awaiting explicit user
-   approval**; a verified `pg_dump` backup must exist before any production migration.
-2. `jriq.in` deployment — DNS not resolving; MilesWeb hosting/SSL/document root Unknown;
-   verification needs the user's dashboard login (one step at a time). Not blocking code.
+1. ~~Production release awaiting approval~~ — **executed 2026-10-15** with verified backup
+   `jwellery-20261015-203239.dump` before any migration.
+2. ~~`jriq.in` deployment~~ — **live and verified 2026-10-16** (`docs/DEPLOYMENT.md` §5).
+
+Open items (none gate production):
+
+- **URL restructure** (root-level slugs `/{slug}`, per-shop `/{slug}/admin`, homepage
+  rebuild) — first post-launch feature; tracked in its own prompt/thread.
+- **TTL raise 300 -> 3600** — deliberate deferral, revisit at >1000 daily visitors or
+  90 days stable (`docs/DEPLOYMENT.md` §5.4, `docs/FINAL_HANDOVER.md` §11).
+- **Rotate the owner test-account password** (`docs/FINAL_HANDOVER.md` §11) — it is a
+  known-rotation credential set via the Auth Admin API on 2026-10-16.
 
 ## 9. Test evidence (2026-10-15)
 
