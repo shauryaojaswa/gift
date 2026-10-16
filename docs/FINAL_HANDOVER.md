@@ -199,11 +199,16 @@ Platform flows are additionally exercised by the approved harnesses (`scripts/pr
    a false negative. The row now validates the X509 chain through .NET (throws
    `TrustFailure` on an untrusted chain) and prints cert expiry; also no longer hardcodes
    a bundle hash (it derives it from `dist/index.html`).
+7. **Correction — test count (mine, not the system's)**: the v1.1.0 release records first
+   claimed a unit-suite figure of 273 across 20 files. The measured suite is **269/269
+   across 19 files** (verified 2026-10-16: 0 skipped/TODO tests; identical test-file sets
+   in HEAD and on disk). The real number is the one in the Phase 2 report; the earlier
+   figure was a miscount and has been corrected everywhere it appeared.
 
 **Open item: none — v1.1.0 shipped 2026-10-16.** The URL restructure — root-level shop
 slugs `/{slug}`, per-shop `/{slug}/admin`, lossless `/store/:slug` redirect, reserved-slug
 wall (router + DB) and the JRIQ homepage — is **live on `jriq.in`** as tag
-`v1.1.0 -> 7cbe8d6`. Gates pre-deploy: unit 273/273, staging-verify 70/70, slug-swap
+`v1.1.0 -> 7cbe8d6`. Gates pre-deploy: unit 269/269, staging-verify 70/70, slug-swap
 72/72, prod-smoke pattern 28/28, URL acceptance 72/72 on both builds, preflight 11/11 +
 12/12. Post-deploy: deploy-verify 10/10, production smoke 35/35, live legacy-QR redirect
 proof. Record and rollback: `docs/V1.1.0_RELEASE_PROPOSAL.md` §7-8.

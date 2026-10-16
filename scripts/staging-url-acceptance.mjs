@@ -149,7 +149,7 @@ async function runRows(browser, label, distDir, mountPath, mode, data) {
   const { server, port } = await startServer(distDir, mountPath, mode)
   const origin = `http://127.0.0.1:${port}`
   const home = `${origin}${mountPath === '/' ? '/' : mountPath}`
-  const ctx = await browser.newContext()
+  const ctx = await browser.newContext({ acceptDownloads: true })
   const page = await ctx.newPage()
   page.setDefaultTimeout(25000)
   const shot = async (tag) => {
@@ -251,6 +251,14 @@ async function runRows(browser, label, distDir, mountPath, mode, data) {
   await expectGone(`A6 ${label}: unknown slug never falls back to another shop`, data.subtitleB)
   await shot('a6-not-found')
 
+  // A6b canonical slug policy: an uppercase URL must NOT case-fold to a real shop
+  // (the defined treatment is "not found" — no ambiguous case-insensitive match).
+  await goto(`${home}${data.slugA.toUpperCase()}`)
+  await hardReload()
+  await expectText(`A6b ${label}: uppercase /{SLUG} shows not-found (no case folding)`, page.getByText('Page not found'))
+  await expectGone(`A6b ${label}: uppercase URL loads no shop data`, data.subtitleA)
+  await shot('a6b-uppercase')
+
   // A7 suspended shop: inactive page + backend rejects submissions
   await platform.rpc('set_store_status', { p_store_id: data.shopBId, p_status: 'suspended' })
   await goto(`${home}${data.slugB}`)
@@ -280,6 +288,22 @@ async function runRows(browser, label, distDir, mountPath, mode, data) {
   check(`A8 ${label}: QR never shows legacy /store/ paths`, !a8Body.includes(`/store/${data.slugA}`))
   check(`A8 ${label}: QR never shows an admin path`, !a8Body.includes(`/${data.slugA}/admin`))
   await shot('a8-qr')
+
+  // A8b the QR payload itself: decode the rendered symbol (not the visible text).
+  const { PNG } = await import('pngjs')
+  const { default: jsQR } = await import('jsqr')
+  const qrBuffer = await page.locator('img[alt="QR code linking to your public campaign"]').first().screenshot()
+  const png = PNG.sync.read(qrBuffer)
+  const decoded = jsQR(new Uint8ClampedArray(png.data.buffer, png.data.byteOffset, png.data.length), png.width, png.height)
+  check(`A8b ${label}: decoded QR payload is exactly https://jriq.in/{slug}`,
+    decoded?.data === `https://jriq.in/${data.slugA}`, decoded?.data ?? 'no QR symbol decoded')
+
+  // A8c real browser download of the QR artefact
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 15000 }),
+    page.getByRole('button', { name: 'Download QR code' }).click(),
+  ])
+  check(`A8c ${label}: QR download succeeds`, download.suggestedFilename() === `${data.slugA}-campaign-qr.png`, download.suggestedFilename())
 
   // A9 engine invariant through the new URL: entry -> spin -> claim code
   await clearSession()

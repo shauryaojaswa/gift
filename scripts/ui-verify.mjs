@@ -165,7 +165,9 @@ async function main() {
     await page.waitForTimeout(2500)
     const shopsText = await page.textContent('body')
     check('Create Shop UI persists a new shop row', (shopsText ?? '').includes(shopSlug), 'slug not listed')
-    check('shop row shows the customer URL', (shopsText ?? '').includes(`/store/${shopSlug}`))
+    // v1.1.0: the customer URL is root-level /{slug}; the legacy /store/ shape must no longer be shown.
+    check('shop row shows the customer URL', (shopsText ?? '').includes(`/${shopSlug}`), 'root-level customer URL not listed')
+    check('shop row shows no legacy /store/ customer URL', !(shopsText ?? '').includes(`/store/${shopSlug}`))
     check('shop row renders a QR graphic', (await page.locator('img, canvas, svg').count()) > 0)
     await shot(page, '04-shop-created')
 

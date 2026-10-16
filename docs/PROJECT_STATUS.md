@@ -12,7 +12,7 @@ Evidence labels: **Verified** (command/file/authenticated response), **Reported*
 
 > **v1.1.0 DEPLOYED — 2026-10-16 (owner-approved): URL restructure live on `jriq.in`.**
 > Tag `v1.1.0 -> 7cbe8d6` (`ls-remote` verified). All gates green pre-deploy:
-> unit 273/273 · staging-verify 70/70 · slug-swap 72/72 · prod-smoke pattern 28/28 ·
+> unit 269/269 · staging-verify 70/70 · slug-swap 72/72 · prod-smoke pattern 28/28 ·
 > URL acceptance 72/72 on both builds · preflight root 11/11 + pages 12/12 (prod env).
 > Production: 2 additive migrations applied + history-recorded (10 rows), protected
 > claims 2/2 intact; deploy-verify 10/10 (bundle `index-BKFS76nG.js`), production smoke
