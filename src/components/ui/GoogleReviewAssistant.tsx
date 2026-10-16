@@ -187,11 +187,16 @@ export function GoogleReviewAssistant({
 
   const handleOpenGoogle = useCallback(() => {
     if (reviewUrl) {
-      const win = window.open(reviewUrl, '_blank', 'noopener,noreferrer')
-      if (!win) {
+      // Browsers implementing "noopener" return null from window.open even
+      // when the tab opened, so blocked-vs-open is detected with a short-lived
+      // probe window first. The real call keeps "noopener,noreferrer".
+      const probe = window.open('', '_blank')
+      if (!probe) {
         setPopupBlocked(true)
         return
       }
+      probe.close()
+      window.open(reviewUrl, '_blank', 'noopener,noreferrer')
       onReviewed?.()
       setOpened(true)
     }

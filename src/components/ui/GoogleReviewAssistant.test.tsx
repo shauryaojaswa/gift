@@ -183,7 +183,7 @@ describe('GoogleReviewAssistant', () => {
   })
 
   it('provides exactly the four explicit customer-controlled actions', async () => {
-    openSpy.mockReturnValue({} as Window) // the browser opens the new tab
+    openSpy.mockReturnValue({ close: () => {} } as unknown as Window) // the browser opens the new tab
     const onReviewed = vi.fn()
     const onSkip = vi.fn()
     render(
