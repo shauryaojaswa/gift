@@ -145,3 +145,73 @@ export function animateSpin(
 }
 
 export { TWO_PI }
+
+export function displayLabel(name: string, segmentCount: number): string[] {
+  const normalized = name.toUpperCase().trim()
+
+  // Spec-mandated concise wheel labels — kept separate from the full reward
+  // name that the reveal screen shows. Checked before the generic voucher rule
+  // so abbreviated forms (₹1K, ₹2.5K, ₹5K) win over "₹1,000" style.
+  const conciseLabels: Record<string, string[]> = {
+    'JEWELLERY CLEANING': ['CLEANING'],
+    'PREMIUM GIFT': ['PREMIUM', 'GIFT'],
+    'SILVER GIFT': ['SILVER', 'GIFT'],
+    '₹1,000 VOUCHER': ['₹1K', 'VOUCHER'],
+    '₹2,500 VOUCHER': ['₹2.5K', 'VOUCHER'],
+    '₹5,000 VOUCHER': ['₹5K', 'VOUCHER'],
+  }
+  if (conciseLabels[normalized]) return conciseLabels[normalized]
+
+  const voucherAmount = normalized.match(/^(₹[\d,]+)\s+VOUCHER$/)
+  if (voucherAmount) return [voucherAmount[1], 'VOUCHER']
+
+  // Prize bundles (e.g. "Bag + ₹1,200 Saree Coupon"): the wheel wraps the
+  // COMPLETE bundle name across its lines (13 chars each) so every component -
+  // including the coupon - stays visible; nothing is abbreviated or concealed.
+  // The reward reveal and the vendor collection record show the same complete
+  // name.
+  if (normalized.includes(' + ')) {
+    const bundleLines: string[] = []
+    let bundleLine = ''
+    for (const word of normalized.split(/\s+/)) {
+      const candidate = bundleLine ? `${bundleLine} ${word}` : word
+      if (candidate.length <= 13) {
+        bundleLine = candidate
+      } else {
+        if (bundleLine) bundleLines.push(bundleLine)
+        bundleLine = word
+      }
+    }
+    if (bundleLine) bundleLines.push(bundleLine)
+    return bundleLines
+  }
+
+  const maxPerLine = segmentCount > 9 ? 7 : 10
+  const words = normalized.split(/\s+/)
+  const lines: string[] = []
+  let line = ''
+  let wasTruncated = false
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (candidate.length <= maxPerLine) {
+      line = candidate
+    } else {
+      if (lines.length === 0) {
+        if (line) lines.push(line)
+        line = word.length > maxPerLine ? word.slice(0, maxPerLine) : word
+        wasTruncated = word.length > maxPerLine
+      } else {
+        wasTruncated = true
+        break
+      }
+    }
+  }
+
+  if (line) {
+    if (lines.length < 2) lines.push(line)
+    else wasTruncated = true
+  }
+  if (wasTruncated && lines.length > 0) lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, maxPerLine - 1)}…`
+  return lines
+}

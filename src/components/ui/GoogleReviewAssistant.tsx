@@ -177,13 +177,15 @@ export function GoogleReviewAssistant({
     setTimeout(() => textareaRef.current?.focus(), 30)
   }, [])
 
-  // Copy is confirmed only when the platform confirms it; a blocked popup or a
-  // failed copy keeps the flow open with an understandable fallback. Nothing
-  // is ever claimed to be filled in or posted automatically.
-  const handleCopyAndOpen = useCallback(async () => {
+  // Copy is confirmed only when the platform confirms it. Nothing is ever
+  // claimed to be filled in or posted automatically, and the customer stays in
+  // control of every action: copy, open Google, continue or skip.
+  const handleCopy = useCallback(async () => {
     if (!text.trim()) return
-    const ok = await copyText(text)
-    if (!ok) return
+    await copyText(text)
+  }, [copyText, text])
+
+  const handleOpenGoogle = useCallback(() => {
     if (reviewUrl) {
       const win = window.open(reviewUrl, '_blank', 'noopener,noreferrer')
       if (!win) {
@@ -191,15 +193,7 @@ export function GoogleReviewAssistant({
         return
       }
       onReviewed?.()
-    }
-    setOpened(true)
-    setTimeout(() => onSkip(), 700)
-  }, [copyText, text, reviewUrl, onReviewed, onSkip])
-
-  const handleOpenGoogle = useCallback(() => {
-    if (reviewUrl) {
-      window.open(reviewUrl, '_blank', 'noopener,noreferrer')
-      onReviewed?.()
+      setOpened(true)
     }
   }, [reviewUrl, onReviewed])
 
@@ -313,7 +307,7 @@ export function GoogleReviewAssistant({
             ✍ Write Your Own Review
           </button>
 
-          {/* Copy guidance once there is text */}
+          {/* Manual-copy fallback once there is text */}
           {hasText && (
             <div className="review-message mt-2 p-3">
               <p className="text-sm font-medium">Copy what you have written, then paste it into Google.</p>
@@ -326,22 +320,6 @@ export function GoogleReviewAssistant({
                 readOnly
                 value={text}
               />
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn-secondary tap-target mt-2 min-h-11"
-                  onClick={() => void copyText(text)}
-                >
-                  Copy Again
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost tap-target mt-2 min-h-11"
-                  onClick={handleOpenGoogle}
-                >
-                  Open Google Review
-                </button>
-              </div>
               {copied && (
                 <p role="status" className="mt-2 text-sm font-medium text-green-700">
                   Copied to clipboard
@@ -362,7 +340,7 @@ export function GoogleReviewAssistant({
         <footer className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t border-border-soft bg-paper px-5 py-4 sm:px-6">
           {opened && (
             <p role="status" className="text-sm font-medium text-green-700">
-              ✓ Copied to your clipboard — Google is opening in a new tab. Paste your text there;
+              ✓ Google is opening in a new tab. Paste your text there;
               nothing is filled in or posted automatically.
             </p>
           )}
@@ -370,7 +348,7 @@ export function GoogleReviewAssistant({
             <div role="alert" className="rounded-lg border border-border-soft bg-cream p-3 text-sm">
               <p className="font-medium text-ink">Your browser blocked the new tab.</p>
               <p className="mt-1 text-muted">
-                Your text is copied — open Google with the link below and paste it into your review.
+                Use the link below to open Google and paste your text into your review.
               </p>
               {reviewUrl && (
                 <a
@@ -380,25 +358,37 @@ export function GoogleReviewAssistant({
                   onClick={() => onReviewed?.()}
                   className="btn-secondary tap-target mt-2 inline-flex min-h-11 items-center justify-center"
                 >
-                  Open Google Review
+                  Open Google Reviews
                 </a>
               )}
-              <button type="button" className="btn-ghost tap-target mt-2 min-h-11" onClick={onSkip}>
-                CONTINUE TO SPIN
-              </button>
             </div>
           )}
-          <button
-            type="button"
-            className="btn-primary tap-target min-h-12"
-            disabled={!hasText}
-            onClick={() => void handleCopyAndOpen()}
-          >
-            Copy &amp; Open Google Review
-          </button>
-          <button type="button" className="btn-ghost tap-target min-h-11" onClick={onSkip}>
-            Skip for now
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className="btn-primary tap-target min-h-12"
+              disabled={!hasText}
+              onClick={() => void handleCopy()}
+            >
+              Copy
+            </button>
+            <button
+              type="button"
+              className="btn-secondary tap-target min-h-12"
+              disabled={!hasText || !reviewUrl}
+              onClick={handleOpenGoogle}
+            >
+              Open Google Reviews
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button type="button" className="btn-ghost tap-target min-h-11" onClick={onSkip}>
+              Continue
+            </button>
+            <button type="button" className="btn-ghost tap-target min-h-11" onClick={onSkip}>
+              Skip for now
+            </button>
+          </div>
           <p className="text-xs text-muted">
             Your text is copied for you to paste on Google. Nothing is filled in or posted
             automatically - choose the rating that matches your experience. You can also skip this

@@ -155,7 +155,7 @@ describe('GoogleReviewAssistant', () => {
     fireEvent.change(textarea, { target: { value: 'My own honest words.' } })
     expect(writeText).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Again' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(writeText).toHaveBeenCalledWith('My own honest words.')
     // Feedback appears once the async clipboard write resolves.
@@ -176,13 +176,13 @@ describe('GoogleReviewAssistant', () => {
     )
     const textarea = screen.getByRole('textbox', { name: 'Your review text' })
     fireEvent.change(textarea, { target: { value: 'Test' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Again' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
     return vi.waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/select and copy the text manually/i)
     })
   })
 
-  it('copy-and-open is disabled without text, then copies and continues with text', async () => {
+  it('provides exactly the four explicit customer-controlled actions', async () => {
     openSpy.mockReturnValue({} as Window) // the browser opens the new tab
     const onReviewed = vi.fn()
     const onSkip = vi.fn()
@@ -195,24 +195,43 @@ describe('GoogleReviewAssistant', () => {
         reviewUrl="https://g.page/r/example"
       />,
     )
-    const cta = screen.getByRole('button', { name: /Copy & Open Google/i })
-    expect(cta).toBeDisabled()
+    // The primary actions are exactly Copy / Open Google Reviews / Skip for now / Continue.
+    const names = Array.from(document.querySelectorAll<HTMLButtonElement>('footer button')).map(
+      (b) => (b.textContent ?? '').trim(),
+    )
+    expect(names).toEqual(['Copy', 'Open Google Reviews', 'Continue', 'Skip for now'])
+
+    const copy = screen.getByRole('button', { name: 'Copy' })
+    const open = screen.getByRole('button', { name: 'Open Google Reviews' })
+    expect(copy).toBeDisabled()
+    expect(open).toBeDisabled()
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Your review text' }), {
       target: { value: 'Honest words' },
     })
-    fireEvent.click(cta)
+    expect(copy).toBeEnabled()
+    expect(open).toBeEnabled()
 
+    // Copy is explicit and confirmed only after the platform confirms it.
+    fireEvent.click(copy)
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith('Honest words')
+      expect(screen.getByText(/Copied to clipboard/i)).toBeInTheDocument()
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+
+    // Opening Google is a separate explicit action; nothing auto-continues.
+    fireEvent.click(open)
+    await vi.waitFor(() => {
       expect(openSpy).toHaveBeenCalledWith('https://g.page/r/example', '_blank', 'noopener,noreferrer')
       expect(onReviewed).toHaveBeenCalledTimes(1)
+      expect(screen.getByText(/Google is opening in a new tab/i)).toBeInTheDocument()
     })
-    // Copy is confirmed to the customer only after the platform confirms it.
-    await vi.waitFor(() => {
-      expect(screen.getByText(/Copied to your clipboard/i)).toBeInTheDocument()
-    })
-    await vi.waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1), { timeout: 2500 })
+    expect(onSkip).not.toHaveBeenCalled()
+
+    // Continue and Skip for now are the explicit ways onward.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(onSkip).toHaveBeenCalledTimes(1)
   })
 
   it('shows a popup-blocked fallback without losing the flow', async () => {
@@ -231,16 +250,16 @@ describe('GoogleReviewAssistant', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Your review text' }), {
       target: { value: 'Honest words' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /Copy & Open Google/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Google Reviews' }))
 
     await vi.waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/blocked the new tab/i)
     })
-    expect(writeText).toHaveBeenCalledWith('Honest words')
+    expect(writeText).not.toHaveBeenCalled()
     expect(onReviewed).not.toHaveBeenCalled()
     expect(onSkip).not.toHaveBeenCalled()
     // The customer keeps an explicit, unblocked way to open Google.
-    expect(screen.getByRole('link', { name: 'Open Google Review' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open Google Reviews' })).toHaveAttribute(
       'href',
       'https://g.page/r/example',
     )
@@ -261,17 +280,15 @@ describe('GoogleReviewAssistant', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Your review text' }), {
       target: { value: 'Hi' },
     })
-    // The review-link button only appears once there is text to share.
-    await vi.waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Open Google Review' })).toBeInTheDocument()
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Open Google Review' }))
+    // The review action is disabled without a configured link; nothing opens.
+    const open = screen.getByRole('button', { name: 'Open Google Reviews' })
+    expect(open).toBeDisabled()
+    fireEvent.click(open)
     expect(openSpy).not.toHaveBeenCalled()
     expect(onReviewed).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: /Copy & Open Google/i }))
-    expect(openSpy).not.toHaveBeenCalled()
-    await vi.waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1), { timeout: 2500 })
+    fireEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
+    expect(onSkip).toHaveBeenCalledTimes(1)
   })
 
   it('clears a selected prompt when the customer chooses to write their own', () => {

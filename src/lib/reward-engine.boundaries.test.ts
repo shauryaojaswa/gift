@@ -6,7 +6,7 @@ import {
   landingSegmentIndex,
   validateTierConfiguration,
 } from './reward-engine'
-import { displayLabel } from '../components/ui/SpinWheel'
+import { displayLabel } from './wheel-math'
 import type { GiftOption, Reward, RewardResult, RewardTier, StoreConfig } from '../types'
 
 /**
