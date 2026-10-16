@@ -185,11 +185,25 @@ Platform flows are additionally exercised by the approved harnesses (`scripts/pr
    been typed into a chat must be treated as exposed: **rotate the Supabase dashboard
    password** (and confirm the GitHub and MilesWeb passwords are not reused elsewhere).
    This item is recorded as a task only — never the value.
+5. **v1.1.0 backup deviation (honest record)**: the usual pre-deploy `pg_dump` could not
+   run — pooler TCP 5432/6543 egress is blocked from the build machine (consistent
+   timeouts; the 0-byte dump it produced was deleted, not trusted). Fallback taken:
+   a full logical JSON export of every public table via the Supabase Management API
+   (`backups/jwellery-20261016-124338.logical.json`, 95 KB, 14 tables, row counts match
+   the known state). Both v1.1.0 migrations are additive and data-free, so the rollback
+   surface was the SQL itself (documented per migration header), not data. **Take a real
+   `pg_dump` as soon as you are on a network with egress to the pooler** (the weekly
+   keep-last-4 rule then resumes from that dump).
+6. **deploy-verify.ps1 TLS row fixed**: the original row grepped curl for the OpenSSL
+   phrase `SSL certificate verify ok`, which Windows' schannel-backed curl never prints —
+   a false negative. The row now validates the X509 chain through .NET (throws
+   `TrustFailure` on an untrusted chain) and prints cert expiry; also no longer hardcodes
+   a bundle hash (it derives it from `dist/index.html`).
 
-**Open item (does not gate anything):** the URL restructure — root-level shop slugs
-`/{slug}`, per-shop `/{slug}/admin`, and the homepage rework — is implemented and staged
-as **v1.1.0 candidate `7cbe8d6`** (branch `staging`, all gates green: unit 273/273,
-staging-verify 70/70, slug-swap 72/72, prod-smoke pattern 28/28, URL acceptance 72/72 on
-both builds, preflight 11/11 + 12/12). Production is untouched; the release is
-approval-gated and fully specified in `docs/V1.1.0_RELEASE_PROPOSAL.md` (deploy steps +
-rollback included). Tag `v1.1.0` is created only on the owner's explicit yes.
+**Open item: none — v1.1.0 shipped 2026-10-16.** The URL restructure — root-level shop
+slugs `/{slug}`, per-shop `/{slug}/admin`, lossless `/store/:slug` redirect, reserved-slug
+wall (router + DB) and the JRIQ homepage — is **live on `jriq.in`** as tag
+`v1.1.0 -> 7cbe8d6`. Gates pre-deploy: unit 273/273, staging-verify 70/70, slug-swap
+72/72, prod-smoke pattern 28/28, URL acceptance 72/72 on both builds, preflight 11/11 +
+12/12. Post-deploy: deploy-verify 10/10, production smoke 35/35, live legacy-QR redirect
+proof. Record and rollback: `docs/V1.1.0_RELEASE_PROPOSAL.md` §7-8.
