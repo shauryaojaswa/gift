@@ -359,9 +359,10 @@ export class SupabaseDataProvider implements DataProvider {
   async upsertReward(reward: Reward): Promise<Reward> {
     const session = await this.getSession()
     const storeId = await this.adminStoreId(session)
-    // rewards.wheel_label is NOT NULL (1-18 chars); fall back to a truncated
-    // name when the short label is absent so the row is always valid.
-    const wheelLabel = reward.shortLabel?.trim().slice(0, 18) || reward.name.trim().slice(0, 18)
+    // rewards.wheel_label is NOT NULL (1-64 chars since the prize-bundle
+    // widening); fall back to a truncated name when the short label is absent
+    // so the row is always valid.
+    const wheelLabel = reward.shortLabel?.trim().slice(0, 64) || reward.name.trim().slice(0, 64)
     const { error } = await this.client.from('rewards').upsert({
       id: reward.id,
       store_id: storeId,

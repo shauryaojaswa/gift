@@ -44,23 +44,37 @@ function IconGlyph({ kind }: { kind: string }) {
 }
 
 /**
- * Neutral topic prompts (Google-policy compliant): writing starters, never
- * prewritten review text. The customer always writes their own words, and
- * text is copied only when the customer presses a copy button.
+ * Topic chips: neutral areas a customer can write about. Clicking inserts the
+ * topic as an editable starting point in the customer's own text - it never
+ * writes to the clipboard and never posts anything.
+ */
+const TOPICS: string[] = [
+  'Service',
+  'Collection',
+  'Staff',
+  'Quality',
+  'Price',
+  'Shopping Experience',
+  'My Visit',
+]
+
+/**
+ * Ten optional review starters (Google-policy compliant): writing prompts
+ * only, never a fabricated customer experience. Every starter is editable,
+ * replaceable and removable by the customer, and text is copied only when the
+ * customer presses a copy button.
  */
 const SUGGESTIONS: Array<{ text: string; icon: string }> = [
-  { text: 'What stood out about the jewellery selection?', icon: 'gem' },
-  { text: 'How would you describe the staff?', icon: 'user' },
-  { text: 'Which designs caught your eye?', icon: 'sparkle' },
-  { text: 'How did you find the quality?', icon: 'badge' },
-  { text: 'How was the shopping experience?', icon: 'bag' },
-  { text: 'Did anyone help you choose?', icon: 'hands' },
-  { text: 'How did you feel about your visit?', icon: 'heart' },
-  { text: 'How did you find the value for money?', icon: 'tag' },
-  { text: 'Did you find what you were looking for?', icon: 'package' },
-  { text: 'How was your visit from start to finish?', icon: 'smile' },
-  { text: 'What did you think of the range available?', icon: 'gift' },
-  { text: 'What made your visit memorable?', icon: 'sparkle' },
+  { text: 'I visited this shop to look at the jewellery collection.', icon: 'gem' },
+  { text: 'I was looking for a particular type of jewellery.', icon: 'package' },
+  { text: 'I found the collection interesting.', icon: 'sparkle' },
+  { text: 'The staff helped me with my questions.', icon: 'hands' },
+  { text: 'I wanted to know more about the jewellery designs.', icon: 'badge' },
+  { text: 'I compared the prices of different items.', icon: 'tag' },
+  { text: 'I was looking for a gift for someone.', icon: 'gift' },
+  { text: 'I visited to explore the available options.', icon: 'bag' },
+  { text: 'My shopping experience included the following.', icon: 'smile' },
+  { text: 'I would like to share what I experienced during my visit.', icon: 'heart' },
 ]
 
 export function GoogleReviewAssistant({
@@ -126,16 +140,40 @@ export function GoogleReviewAssistant({
 
   const handleSelectSuggestion = useCallback(
     (suggestion: string) => {
-      // Insert the topic prompt as an editable starter. No clipboard write:
-      // copying happens only through the explicit copy buttons below.
+      // Insert the starter as editable text. No clipboard write: copying
+      // happens only through the explicit copy buttons below.
       setText(suggestion)
       setTimeout(() => textareaRef.current?.focus(), 30)
     },
     [],
   )
 
+  const handleSelectTopic = useCallback(
+    (topic: string) => {
+      // Insert the topic as an editable starting point ("Topic: "). Any words
+      // the customer already wrote are kept and the topic is added on a new
+      // line - never overwritten, never copied.
+      setText((current) => {
+        const trimmed = current.trimEnd()
+        const onlyInserted =
+          trimmed === '' ||
+          SUGGESTIONS.some((s) => s.text === trimmed) ||
+          TOPICS.some((t) => trimmed === `${t}: ` || trimmed === t)
+        return onlyInserted ? `${topic}: ` : `${trimmed}\n${topic}: `
+      })
+      setTimeout(() => textareaRef.current?.focus(), 30)
+    },
+    [],
+  )
+
   const handleWriteOwn = useCallback(() => {
-    setText((current) => (SUGGESTIONS.some((s) => s.text === current) ? '' : current))
+    setText((current) => {
+      const trimmed = current.trimEnd()
+      const onlyInserted =
+        SUGGESTIONS.some((s) => s.text === trimmed) ||
+        TOPICS.some((t) => trimmed === `${t}: ` || trimmed === t)
+      return onlyInserted ? '' : current
+    })
     setTimeout(() => textareaRef.current?.focus(), 30)
   }, [])
 
@@ -205,9 +243,24 @@ export function GoogleReviewAssistant({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
-          {/* Suggestions */}
-          <p className="mb-2 text-sm text-muted">
-            Topic ideas to get you started — write your own honest words.
+          {/* Topic chips */}
+          <p className="mb-2 text-sm text-muted">Topics you can write about - tap to start.</p>
+          <div className="flex flex-wrap gap-2">
+            {TOPICS.map((topic) => (
+              <button
+                key={topic}
+                type="button"
+                onClick={() => handleSelectTopic(topic)}
+                className="review-topic tap-target rounded-full border border-border-soft bg-paper px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:border-gold hover:bg-gold/5"
+              >
+                {topic}
+              </button>
+            ))}
+          </div>
+
+          {/* Review starters */}
+          <p className="mb-2 mt-5 text-sm text-muted">
+            Review starters to get you started - edit them into your own honest words.
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {SUGGESTIONS.map(({ text: suggestion, icon }) => {
@@ -343,9 +396,13 @@ export function GoogleReviewAssistant({
           >
             Copy &amp; Open Google Review
           </button>
+          <button type="button" className="btn-ghost tap-target min-h-11" onClick={onSkip}>
+            Skip for now
+          </button>
           <p className="text-xs text-muted">
             Your text is copied for you to paste on Google. Nothing is filled in or posted
-            automatically — choose the rating that matches your experience.
+            automatically - choose the rating that matches your experience. You can also skip this
+            step; your reward is never affected.
           </p>
         </footer>
       </div>

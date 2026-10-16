@@ -84,6 +84,15 @@ export default function App() {
           <Route path="settings" element={<VendorSettings />} />
           <Route path="qr-code" element={<VendorQR />} />
         </Route>
+        {/*
+          Customer aliases: /{slug}/costumer (as requested by the shop) and
+          /{slug}/customer (corrected spelling) render the SAME ShopPage as the
+          canonical /{slug} - one shop record, one reward flow, no redirect so
+          the requested URL is preserved exactly. QR codes keep pointing at the
+          canonical /{slug}.
+        */}
+        <Route path="/:slug/costumer" element={<ShopPage />} />
+        <Route path="/:slug/customer" element={<ShopPage />} />
         <Route path="/:slug" element={<ShopPage />} />
 
         {/* Designed not-found — never loads a different shop */}

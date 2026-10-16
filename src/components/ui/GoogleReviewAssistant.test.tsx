@@ -3,9 +3,12 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { GoogleReviewAssistant } from './GoogleReviewAssistant'
 
 /**
- * Google Review Assistant policy tests (Phase 6 requirements):
- * - topic prompts are neutral questions, never suggested testimonial text
- * - selecting a prompt only inserts editable text; it never touches the clipboard
+ * Google Review Assistant policy tests (v1.3.0 requirements):
+ * - the seven topic chips and ten review starters are exactly the approved set
+ * - starters are writing prompts only - no praise, ratings or fabricated
+ *   experiences, and they never suggest a testimonial
+ * - selecting a prompt or topic only inserts editable text; it never touches
+ *   the clipboard
  * - copying happens only through explicit user-initiated copy buttons
  * - the assistant is optional and never gates the reward (skip path works)
  */
@@ -59,7 +62,7 @@ describe('GoogleReviewAssistant', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('shows only neutral, question-style topic prompts — never suggested testimonials', () => {
+  it('shows exactly the seven approved topic chips and the ten approved review starters', () => {
     render(
       <GoogleReviewAssistant
         open
@@ -68,17 +71,57 @@ describe('GoogleReviewAssistant', () => {
         reviewUrl="https://g.page/r/example"
       />,
     )
-    const prompts = suggestionButtons()
-    expect(prompts.length).toBeGreaterThan(0)
-    for (const button of prompts) {
-      const text = (button.textContent ?? '').trim().toLowerCase()
-      expect(text.endsWith('?'), `prompt must be an open question: ${text}`).toBe(true)
+    const topics = Array.from(document.querySelectorAll<HTMLButtonElement>('.review-topic')).map(
+      (b) => (b.textContent ?? '').trim(),
+    )
+    expect(topics).toEqual([
+      'Service',
+      'Collection',
+      'Staff',
+      'Quality',
+      'Price',
+      'Shopping Experience',
+      'My Visit',
+    ])
+    const prompts = suggestionButtons().map((b) => (b.textContent ?? '').trim())
+    expect(prompts).toEqual([
+      'I visited this shop to look at the jewellery collection.',
+      'I was looking for a particular type of jewellery.',
+      'I found the collection interesting.',
+      'The staff helped me with my questions.',
+      'I wanted to know more about the jewellery designs.',
+      'I compared the prices of different items.',
+      'I was looking for a gift for someone.',
+      'I visited to explore the available options.',
+      'My shopping experience included the following.',
+      'I would like to share what I experienced during my visit.',
+    ])
+    for (const text of prompts) {
       for (const phrase of TESTIMONIAL_PHRASES) {
-        expect(text.includes(phrase), `prompt must not suggest a testimonial: ${text}`).toBe(false)
+        expect(
+          text.toLowerCase().includes(phrase),
+          `starter must not suggest a testimonial: ${text}`,
+        ).toBe(false)
       }
     }
     // The framing invites the customer's own honest words.
-    expect(screen.getByText(/write your own honest words/i)).toBeInTheDocument()
+    expect(screen.getByText(/your own honest words/i)).toBeInTheDocument()
+  })
+
+  it('inserts a topic chip as editable starting text WITHOUT writing to the clipboard', () => {
+    render(
+      <GoogleReviewAssistant
+        open
+        onClose={noop}
+        onSkip={noop}
+        reviewUrl="https://g.page/r/example"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Service' }))
+    const textarea = screen.getByRole('textbox', { name: 'Your review text' }) as HTMLTextAreaElement
+    expect(textarea.value).toBe('Service: ')
+    expect(writeText).not.toHaveBeenCalled()
+    expect(openSpy).not.toHaveBeenCalled()
   })
 
   it('inserts a prompt as editable text on click WITHOUT writing to the clipboard', () => {

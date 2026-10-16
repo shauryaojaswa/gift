@@ -44,7 +44,7 @@ function describeAnnulus(
   return `M ${p1.x} ${p1.y} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x} ${p4.y} Z`
 }
 
-function displayLabel(name: string, segmentCount: number): string[] {
+export function displayLabel(name: string, segmentCount: number): string[] {
   const normalized = name.toUpperCase().trim()
 
   // Spec-mandated concise wheel labels — kept separate from the full reward
@@ -62,6 +62,27 @@ function displayLabel(name: string, segmentCount: number): string[] {
 
   const voucherAmount = normalized.match(/^(₹[\d,]+)\s+VOUCHER$/)
   if (voucherAmount) return [voucherAmount[1], 'VOUCHER']
+
+  // Prize bundles (e.g. "Bag + ₹1,200 Saree Coupon"): the wheel wraps the
+  // COMPLETE bundle name across its lines (13 chars each) so every component -
+  // including the coupon - stays visible; nothing is abbreviated or concealed.
+  // The reward reveal and the vendor collection record show the same complete
+  // name.
+  if (normalized.includes(' + ')) {
+    const bundleLines: string[] = []
+    let bundleLine = ''
+    for (const word of normalized.split(/\s+/)) {
+      const candidate = bundleLine ? `${bundleLine} ${word}` : word
+      if (candidate.length <= 13) {
+        bundleLine = candidate
+      } else {
+        if (bundleLine) bundleLines.push(bundleLine)
+        bundleLine = word
+      }
+    }
+    if (bundleLine) bundleLines.push(bundleLine)
+    return bundleLines
+  }
 
   const maxPerLine = segmentCount > 9 ? 7 : 10
   const words = normalized.split(/\s+/)
@@ -231,7 +252,10 @@ export function SpinWheel({
               const flipped = center > 90 && center < 270
               const rotationDeg = flipped ? center + 180 : center
               const lines = displayLabel(seg.rewardName, segments.length)
-              const labelFontSize = segments.length > 9 ? 10 : 12
+              const labelFontSize = lines.length > 3 ? 10 : segments.length > 9 ? 10 : 12
+              // Vertically centre the whole label block inside the slice band.
+              const firstBaseline =
+                mid.y - ((lines.length - 1) * (labelFontSize + 1)) / 2 + labelFontSize * 0.35
               return (
                 <g
                   key={seg.index}
@@ -247,7 +271,7 @@ export function SpinWheel({
                   <path d={describeAnnulus(0, 0, R_inner, R_outer, start, end)} fill="url(#wheel-gloss)" opacity={0.55} />
                   <text
                     x={mid.x}
-                    y={mid.y + (lines.length > 1 ? labelFontSize * 0.4 : labelFontSize * 0.35)}
+                    y={firstBaseline}
                     transform={`rotate(${rotationDeg} ${mid.x} ${mid.y})`}
                     textAnchor="middle"
                     fontSize={labelFontSize}
