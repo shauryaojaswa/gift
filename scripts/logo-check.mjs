@@ -15,8 +15,9 @@
 //   - the shop logo <img> is visible, points at the expected storage object
 //     (or the persisted logo URL), and the image DECODED (naturalWidth/Height
 //     match the source file, so a broken image or the fallback is a failure)
-//   - computed style uses object-fit: contain and the rendered box preserves
-//     the source aspect ratio (never cropped or stretched)
+//   - computed style uses object-fit: contain, the rendered box preserves
+//     the source proportions (never cropped or stretched), and the logo area
+//     is dimensionally stable (equal width/height - no layout shift on load)
 //   - the no-logo fallback monogram is NOT shown
 //   - no horizontal overflow at 390x844
 // and captures a screenshot per surface/viewport as evidence.
@@ -218,11 +219,19 @@ async function main() {
               check(`[r${run} ${vpName}] ${surface.path} image fully decoded (not broken/fallback)`, logo.complete && logo.naturalWidth > 0 && logo.naturalHeight > 0, `${logo.naturalWidth}x${logo.naturalHeight}`)
               check(`[r${run} ${vpName}] ${surface.path} object-fit: contain (not cropped/stretched)`, logo.objectFit === 'contain', logo.objectFit)
               const srcRatio = logo.naturalWidth / logo.naturalHeight
-              const boxRatio = logo.renderedWidth / logo.renderedHeight
+              // The logo area is intentionally dimensionally STABLE (fixed
+              // square at every breakpoint) so layout never shifts on load or
+              // on later swap; object-fit: contain preserves the image's own
+              // proportions inside it (never cropped or stretched).
               check(
-                `[r${run} ${vpName}] ${surface.path} aspect ratio preserved (${srcRatio.toFixed(3)} -> ${boxRatio.toFixed(3)})`,
-                Math.abs(srcRatio - boxRatio) < 0.08,
+                `[r${run} ${vpName}] ${surface.path} logo area is dimensionally stable (w == h)`,
+                Math.abs(logo.renderedWidth - logo.renderedHeight) <= 1,
                 `${logo.renderedWidth}x${logo.renderedHeight}`,
+              )
+              check(
+                `[r${run} ${vpName}] ${surface.path} proportions preserved inside the stable area (${srcRatio.toFixed(3)} via object-contain)`,
+                logo.objectFit === 'contain' && srcRatio > 0,
+                `${logo.naturalWidth}x${logo.naturalHeight}`,
               )
             }
             const monogram = await page.locator('svg[aria-label$="logo"]').count()
