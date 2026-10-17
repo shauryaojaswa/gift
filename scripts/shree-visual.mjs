@@ -4,9 +4,10 @@
 //   - the three customer URLs (canonical + costumer + customer aliases) render
 //     the same Shree Jewellers configuration
 //   - the validation gate, the persist-first customer flow, the review
-//     assistant (7 chips, 10 starters, exactly Copy / Open Google Reviews /
-//     Continue / Skip for now), the wheel reveal with the COMPLETE bundle
-//     name incl. the coupon, the claim code, the thank-you screen
+//     assistant (10 one-click review cards: tap copies the text AND opens
+//     Google ready to paste; exactly Open Google / Skip for now), the wheel
+//     reveal with the COMPLETE bundle name incl. the coupon, the claim code,
+//     the thank-you screen
 //   - the authenticated shop-owner admin workspace: login wall, dashboard,
 //     customers + collection, settings, QR target, sign out
 //   - the configured Google review destination resolves to Shree Jewellers
@@ -206,30 +207,19 @@ async function main() {
     const dialog = page.getByRole('dialog', { name: 'Share Your Experience' })
     await dialog.waitFor({ timeout: 5000 })
     check('review assistant title is Share Your Experience', true)
-    const chips = await page.locator('.review-topic').allTextContents()
-    check(
-      'exactly the seven approved topic chips',
-      JSON.stringify(chips.map((c) => c.trim())) ===
-        JSON.stringify(['Service', 'Collection', 'Staff', 'Quality', 'Price', 'Shopping Experience', 'My Visit']),
-      JSON.stringify(chips),
-    )
-    check('exactly the ten approved review starters', (await page.locator('.review-suggestion').count()) === 10)
+    check('exactly the ten approved review cards', (await page.locator('.review-suggestion').count()) === 10)
     const footerButtons = await page.locator('footer button').allTextContents()
     check(
-      'assistant primary actions are exactly Copy / Open Google Reviews / Continue / Skip for now',
+      'assistant primary actions are exactly Open Google / Skip for now',
       JSON.stringify(footerButtons.map((b) => b.trim())) ===
-        JSON.stringify(['Copy', 'Open Google Reviews', 'Continue', 'Skip for now']),
+        JSON.stringify(['Open Google', 'Skip for now']),
       JSON.stringify(footerButtons),
     )
     await shot(page, '04-review-assistant-mobile')
 
-    // A starter inserts editable text (the customer writes; nothing is posted).
+    // ONE tap on a review card copies the text AND opens the Google review tab
+    // (the customer-approved prototype interaction - no typing needed).
     await page.locator('.review-suggestion').first().click()
-    const written = await page.getByRole('textbox', { name: 'Your review text' }).inputValue()
-    check('a starter inserts editable review text', written.trim().length > 0, written.slice(0, 48))
-
-    // Open Google Reviews opens the configured destination (no auto-continue).
-    await page.getByRole('button', { name: 'Open Google Reviews' }).click()
     // noopener popups surface as new context pages (not opener "popup" events).
     let popupUrl = ''
     for (let i = 0; i < 24; i += 1) {
@@ -242,12 +232,22 @@ async function main() {
       await new Promise((r) => setTimeout(r, 250))
     }
     check(
-      'Open Google Reviews opens the configured shop review destination',
+      'one tap on a review card opens the shop review destination on Google',
       popupUrl.includes('google.com'),
       popupUrl,
     )
+    // Copy feedback is truthful: confirmed "Copied" or manual-copy help.
+    const copiedShown = await page
+      .getByText(/Copied - paste it into your review/i)
+      .isVisible()
+      .catch(() => false)
+    const manualHelp = await page
+      .getByText(/select and copy the text manually/i)
+      .isVisible()
+      .catch(() => false)
+    check('tap feedback is a truthful copy status (Copied or manual-copy help)', copiedShown || manualHelp)
     await page.getByText(/Google is opening in a new tab/i).waitFor({ timeout: 5000 })
-    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await page.getByRole('button', { name: 'Skip for now', exact: true }).click()
 
     // ---- return screen + wheel + reveal ----
     await page.getByRole('heading', { name: 'WELCOME BACK!' }).waitFor({ timeout: 10000 })
