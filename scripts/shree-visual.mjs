@@ -1,4 +1,4 @@
-// Shree Jewellers (shreejwellers) browser acceptance on STAGING.
+﻿// Shree Jewellers (shreejwellers) browser acceptance on STAGING.
 //
 // Drives the REAL app in Chromium against the staging backend build:
 //   - the three customer URLs (canonical + costumer + customer aliases) render
@@ -22,6 +22,7 @@
 //   $env:SUPABASE_STAGING_URL / _ANON_KEY / _SERVICE_KEY  (optional; enables cleanup)
 //   node scripts/shree-visual.mjs
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,6 +34,12 @@ const OWNER_PASSWORD = process.env.SHREE_OWNER_PASSWORD
 const REVIEW_URL =
   'https://www.google.com/search?hl=en-IN&gl=in&q=PF32%2BCJV+Shree+Jewellers,+Jawaharnagar,+Maharashtra+416115&ludocid=1061963283657064940&lsig=AB86z5WxzN8H7u5nQ49b24LliIAr#lrd=0x3bc11d000be053c1:0xebcd9fadee301ec,3'
 const BUNDLE = 'Bag + ₹1,200 Saree Coupon'
+// A fresh synthetic phone per run: submit_customer_entry rate-limits entries
+// per phone (5/hour) and repeated acceptance runs would trip it.
+const PHONE = `9${String(100000000 + Math.floor(Math.random() * 899999999))}`
+// --admin-only: run just the shop-owner admin journey (seeding one synthetic
+// customer record first) for a targeted retest, before the full acceptance.
+const ADMIN_ONLY = process.argv.includes('--admin-only')
 const BASE = 'http://127.0.0.1:4173'
 const EVIDENCE = join(tmpdir(), 'jriq-shree-visual')
 mkdirSync(EVIDENCE, { recursive: true })
@@ -46,6 +53,7 @@ let pass = 0
 let fail = 0
 const consoleErrors = []
 const failedRequests = []
+const livePages = []
 function check(name, cond, detail = '') {
   if (cond) {
     pass += 1
@@ -101,6 +109,26 @@ async function waitForServer() {
   throw new Error('vite preview did not start')
 }
 
+async function seedSubmission() {
+  const url = process.env.SUPABASE_STAGING_URL
+  const key = process.env.SUPABASE_STAGING_ANON_KEY
+  if (!url || !key) {
+    throw new Error('admin-only mode needs SUPABASE_STAGING_URL/_ANON_KEY to seed a record')
+  }
+  const anon = createClient(url, key, { auth: { persistSession: false } })
+  const { error } = await anon.rpc('submit_customer_entry', {
+    p_store_slug: 'shreejwellers',
+    p_request_id: randomUUID(),
+    p_customer_name: 'Shree QA Visual',
+    p_customer_phone: PHONE,
+    p_purchase_amount: 5000,
+    p_review_cta_shown: true,
+    p_review_cta_clicked: false,
+  })
+  if (error) throw new Error(`seed failed: ${error.message}`)
+  console.log('INFO  seeded one synthetic customer record (admin-only run)')
+}
+
 async function main() {
   const preview = await startPreview()
   await waitForServer()
@@ -114,10 +142,12 @@ async function main() {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } })
       const p = await ctx.newPage()
       watch(p, tag)
+      livePages.push({ tag, page: p })
       return { ctx, page: p }
     }
 
     // ---- the three customer URLs render the same shop ----
+    if (!ADMIN_ONLY) {
     for (const [path, tag] of [
       ['/shreejwellers', 'shop-canonical'],
       ['/shreejwellers/costumer', 'shop-costumer'],
@@ -145,14 +175,18 @@ async function main() {
       await shot(page, `01-${tag}-mobile`)
       await ctx.close()
     }
+    }
 
     // ---- validation gate + customer flow (fresh context) ----
     const { ctx: flowCtx, page } = await makeMobile('flow')
+    if (ADMIN_ONLY) {
+      await seedSubmission()
+    } else {
     await page.goto(`${BASE}/shreejwellers/costumer`, { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: 'START', exact: true }).click()
     await page.getByLabel('Full name').fill('Shree QA Visual')
     await page.getByLabel('Purchase amount in Indian Rupees').fill('4999')
-    await page.getByLabel('10-digit mobile number').fill('9876543210')
+    await page.getByLabel('10-digit mobile number').fill(PHONE)
     await page.getByRole('button', { name: 'CONTINUE', exact: true }).click()
     await page.waitForTimeout(400)
     check(
@@ -237,6 +271,7 @@ async function main() {
     await page.getByRole('heading', { name: 'THANK YOU!' }).waitFor({ timeout: 10000 })
     check('flow ends on the thank-you screen', true)
     await shot(page, '07-thank-you-mobile')
+    }
 
     // ---- shop-owner admin workspace ----
     await page.goto(`${BASE}/shreejwellers/admin`, { waitUntil: 'networkidle' })
@@ -248,27 +283,41 @@ async function main() {
     await page.locator('input[type="email"]').fill(OWNER_EMAIL)
     await page.locator('input[type="password"]').fill(OWNER_PASSWORD)
     await page.getByRole('button', { name: 'Sign in' }).click()
-    await page.getByText('Shree Jewellers').first().waitFor({ timeout: 15000 })
+    // VendorShell renders the shop identity twice: the desktop sidebar badge is
+    // inside <aside> (hidden below lg) and the mobile top-bar badge is inside
+    // <main> (hidden at lg+). Assert on the badge of THIS viewport's region so
+    // the check always targets the visible, accessible copy.
+    const nameBadge = page.locator('main').getByText('Shree Jewellers', { exact: true }).first()
+    await nameBadge.waitFor({ timeout: 30000 })
     check('shop owner sign-in lands on their own workspace', true)
+    check('the authenticated dashboard shows the Shree Jewellers shop identity', await nameBadge.isVisible())
     await shot(page, '09-admin-dashboard-mobile')
 
     await page.goto(`${BASE}/shreejwellers/admin/customers`, { waitUntil: 'networkidle' })
     await page.getByLabel('Search customers').fill('Shree QA Visual')
     await page.waitForTimeout(600)
-    check('customer records are listed for the shop owner', await page.getByText('Shree QA Visual').first().isVisible())
-    await page.getByText('Shree QA Visual').first().click()
-    await page.getByRole('dialog', { name: 'Customer detail' }).waitFor({ timeout: 5000 })
+    const rowBtn = page.locator('button:has-text("Shree QA Visual") >> visible=true').first()
+    await rowBtn.waitFor({ timeout: 15000 })
+    check('customer records are listed for the shop owner', await rowBtn.isVisible())
+    await rowBtn.click()
+    const detail = page.getByRole('dialog', { name: 'Customer detail' })
+    await detail.waitFor({ timeout: 5000 })
     check(
       'vendor collection record names the complete bundle',
-      await page.getByRole('dialog').getByText(BUNDLE).first().isVisible(),
+      await detail.locator('text=Saree Coupon >> visible=true').first().isVisible(),
     )
     await shot(page, '10-admin-customer-detail-mobile')
-    const markBtn = page.getByRole('dialog').getByRole('button', { name: /Mark Collected/i })
-    await markBtn.click()
-    await page.waitForTimeout(800)
-    check('Mark Collected records the collection', await page.getByRole('dialog').getByText(/Collected/i).first().isVisible())
+    await detail.getByRole('button', { name: /Mark (gift )?collected/i }).click()
+    await detail.getByText('Collected', { exact: true }).waitFor({ timeout: 8000 })
+    check('Mark Collected records the collection (badge flips to Collected)', true)
+    check(
+      'double collection is not offered in the UI',
+      (await detail.getByRole('button', { name: /Mark (gift )?collected/i }).count()) === 0,
+    )
     await shot(page, '11-admin-marked-collected-mobile')
-    await page.getByRole('dialog').getByRole('button', { name: 'Close' }).first().click()
+    // The dialog has two "Close" controls: the full-screen backdrop (covered by
+    // the panel) and the header X. Click the header one.
+    await detail.locator('button[aria-label="Close"]:not(.absolute)').click()
 
     await page.goto(`${BASE}/shreejwellers/admin/settings`, { waitUntil: 'networkidle' })
     check(
@@ -289,8 +338,8 @@ async function main() {
     check('QR page renders a QR artwork', qrArt > 0, `elements=${qrArt}`)
     await shot(page, '13-admin-qr-mobile')
 
-    // sign out
-    await page.getByRole('button', { name: 'Sign out' }).click()
+    // sign out (the mobile top-bar control; the sidebar copy is hidden at 390px)
+    await page.locator('button[aria-label="Sign out"]').click()
     await page.waitForTimeout(800)
     check('sign out returns to the login wall', await page.getByText('Sign in to manage your campaign').isVisible())
     await flowCtx.close()
@@ -299,21 +348,29 @@ async function main() {
     const desktop = await browser.newContext({ viewport: { width: 1280, height: 800 } })
     const dp = await desktop.newPage()
     watch(dp, 'desktop')
-    await dp.goto(`${BASE}/shreejwellers`, { waitUntil: 'networkidle' })
-    check('desktop shop page has no horizontal overflow', await noOverflow(dp))
-    await shot(dp, '20-shop-desktop')
-    await dp.goto(`${BASE}/shreejwellers/costumer`, { waitUntil: 'networkidle' })
-    await shot(dp, '21-costumer-desktop')
+    livePages.push({ tag: 'desktop', page: dp })
+    if (!ADMIN_ONLY) {
+      await dp.goto(`${BASE}/shreejwellers`, { waitUntil: 'networkidle' })
+      check('desktop shop page has no horizontal overflow', await noOverflow(dp))
+      await shot(dp, '20-shop-desktop')
+      await dp.goto(`${BASE}/shreejwellers/costumer`, { waitUntil: 'networkidle' })
+      await shot(dp, '21-costumer-desktop')
+    }
     await dp.goto(`${BASE}/shreejwellers/admin`, { waitUntil: 'networkidle' })
     await dp.locator('input[type="email"]').fill(OWNER_EMAIL)
     await dp.locator('input[type="password"]').fill(OWNER_PASSWORD)
     await dp.getByRole('button', { name: 'Sign in' }).click()
-    await dp.getByText('Shree Jewellers').first().waitFor({ timeout: 15000 })
+    // At desktop width the visible badge is the sidebar copy inside <aside>.
+    const dpBadge = dp.locator('aside').getByText('Shree Jewellers', { exact: true }).first()
+    await dpBadge.waitFor({ timeout: 30000 })
+    check('desktop admin workspace loads after sign-in', true)
+    check('desktop dashboard shows the Shree Jewellers shop identity', await dpBadge.isVisible())
     check('desktop admin workspace has no horizontal overflow', await noOverflow(dp))
     await shot(dp, '22-admin-desktop')
     await desktop.close()
 
     // ================= configured Google review destination =================
+    if (!ADMIN_ONLY) {
     const gctx = await browser.newContext({ viewport: { width: 390, height: 844 } })
     const gp = await gctx.newPage()
     let listingOk = false
@@ -330,6 +387,7 @@ async function main() {
     check('configured review destination resolves to Shree Jewellers', listingOk, listingDetail)
     await shot(gp, '30-google-review-destination')
     await gctx.close()
+    }
 
     // ================= cross-cutting =================
     check('no console errors during the session', consoleErrors.length === 0, consoleErrors.slice(0, 5).join(' | '))
@@ -342,11 +400,34 @@ async function main() {
       })
       const { error } = await service.from('submissions').delete().eq('customer_name', 'Shree QA Visual')
       check('synthetic submissions removed', !error, error?.message ?? '')
+      const { data: storeRow } = await service.from('stores').select('id').eq('slug', 'shreejwellers').limit(1)
+      if (storeRow?.[0]?.id) {
+        await service.from('public_submission_rate_limits').delete().eq('store_id', storeRow[0].id)
+      }
     }
 
     console.log(`INFO  screenshots ${EVIDENCE}`)
     console.log(`RESULT ${pass} passed, ${fail} failed (shreejwellers browser acceptance)`)
     process.exit(fail ? 1 : 0)
+  } catch (err) {
+    // Preserve failure evidence: where each browser was, what it showed, and
+    // what the console/network said. Written before the browsers close.
+    console.error(`FAILURE EVIDENCE (screenshots in ${EVIDENCE})`)
+    for (const { tag, page: pg } of livePages) {
+      try {
+        console.error(`--- ${tag}: url=${pg.url()}`)
+        const txt = await pg.locator('body').innerText().catch(() => '')
+        console.error(`--- ${tag}: visible text (first 700 chars) ---\n${txt.slice(0, 700)}`)
+        await pg
+          .screenshot({ path: join(EVIDENCE, `99-failure-${tag}.png`), fullPage: true })
+          .catch(() => {})
+      } catch {
+        /* page may be gone */
+      }
+    }
+    console.error(`--- console errors ---\n${consoleErrors.slice(0, 12).join('\n') || '(none)'}`)
+    console.error(`--- failed requests ---\n${failedRequests.slice(0, 12).join('\n') || '(none)'}`)
+    throw err
   } finally {
     await browser.close().catch(() => {})
     preview?.kill()
