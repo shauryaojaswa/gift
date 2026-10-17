@@ -92,7 +92,9 @@ describe('customer-flow session recovery', () => {
     expect(s.step).toBe('REWARD')
     expect(s.spinStatus).toBe('completed')
     expect(s.hasSpun).toBe(true)
-    expect(s.reviewReturnDetected).toBe(false)
+    // The return-from-Google flag survives a reload so coming back from the
+    // Google tab restores the SAME saved claim and its "WELCOME BACK!" state.
+    expect(s.reviewReturnDetected).toBe(true)
     expect(s.rewardResult?.reward.id).toBe('reward_4')
   })
 

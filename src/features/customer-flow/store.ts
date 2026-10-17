@@ -191,7 +191,10 @@ function recover(saved: CustomerFlowState, slug: string): CustomerFlowState {
   if (!saved.slug) saved.slug = slug
   if (!saved.submissionRequestId) saved.submissionRequestId = crypto.randomUUID()
   saved.claimCode = saved.claimCode ?? null
-  saved.reviewReturnDetected = false
+  // The return-from-Google flag is kept across recoveries so coming back from
+  // Google (even when the browser reloads the tab) restores the SAME saved
+  // claim with its "WELCOME BACK!" state. startSpin() clears it after the spin.
+  saved.reviewReturnDetected = Boolean(saved.reviewReturnDetected)
 
   if (saved.step === 'WELCOME') {
     return {

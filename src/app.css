@@ -91,9 +91,9 @@
       padding-bottom: 0.5rem;
     }
 
-    .customer-flow-spin .customer-flow-header .store-logo-image {
+    .customer-flow-spin .customer-flow-header .store-logo-box {
       width: 112px;
-      max-height: 112px;
+      height: 112px;
     }
 
     .customer-flow-spin .customer-flow-progress {
@@ -185,9 +185,9 @@
     padding-top: 2rem;
   }
 
-  .customer-flow-header .store-logo-image {
+  .customer-flow-header .store-logo-box {
     width: 154px;
-    max-height: 154px;
+    height: 154px;
   }
 
   .customer-flow-progress {
@@ -386,8 +386,9 @@
       padding-bottom: 0.5rem;
     }
 
-    .customer-flow-header .store-logo-image {
+    .customer-flow-header .store-logo-box {
       width: 140px;
+      height: 140px;
     }
   }
 
@@ -405,8 +406,9 @@
       padding-bottom: 0.25rem;
     }
 
-    .customer-flow-header .store-logo-image {
+    .customer-flow-header .store-logo-box {
       width: 100px;
+      height: 100px;
     }
 
     .customer-flow-header > div {

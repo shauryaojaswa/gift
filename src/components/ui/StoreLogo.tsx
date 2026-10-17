@@ -38,13 +38,13 @@ export function StoreLogo({
   const showImage = isRenderableLogo(cleaned) && !failed
 
   return (
-    <div className={cn('flex items-center justify-center', className)}>
+    <div className={cn('store-logo-box flex h-[180px] w-[180px] max-w-[58vw] items-center justify-center', className)}>
       {showImage ? (
         <img
           key={cleaned}
           src={resolveAssetUrl(cleaned)}
           alt={alt ?? name ?? 'Store logo'}
-          className="store-logo-image h-auto w-[180px] max-w-[58vw] object-contain"
+          className="store-logo-image h-full w-full object-contain"
           loading="eager"
           onError={() => setFailedFor(cleaned)}
         />
