@@ -60,7 +60,9 @@ const CONFIG_PRIZES = args.includes('--config-prizes')
 const ADMIN_CREDS = argValue('--admin-creds')
 const AMOUNT = argValue('--amount', '2000')
 const OUT = argValue('--out', join(tmpdir(), 'jriq-client-acceptance'))
-const BASE = 'http://127.0.0.1:4173'
+// Default against the local preview of the release build; --base runs the same
+// checks against a live origin (e.g. https://jriq.in) without starting a server.
+const BASE = argValue('--base') || 'http://127.0.0.1:4173'
 
 if (!SLUG) {
   console.error('Usage: node scripts/client-acceptance.mjs --slug <slug> --scenario journey|inactive|admin ...')
@@ -130,13 +132,15 @@ async function startPreview() {
   )
 }
 
-const preview = await startPreview()
-for (let i = 0; i < 60 && !(await serverUp()); i += 1) {
-  await new Promise((r) => setTimeout(r, 500))
-}
-if (!(await serverUp())) {
-  console.error('vite preview did not start (build dist first)')
-  process.exit(2)
+const preview = args.includes('--base') ? null : await startPreview()
+if (!args.includes('--base')) {
+  for (let i = 0; i < 60 && !(await serverUp()); i += 1) {
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  if (!(await serverUp())) {
+    console.error('vite preview did not start (build dist first)')
+    process.exit(2)
+  }
 }
 
 const browser = await chromium.launch()
