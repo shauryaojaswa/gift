@@ -7,6 +7,7 @@ import {
   normalizeSpinDelta,
   normalizeAngle,
   animateSpin,
+  displayLabel,
 } from '@/lib/wheel-math'
 import type { SpinController } from '@/lib/wheel-math'
 import type { WheelSegment } from '@/types'
@@ -42,55 +43,6 @@ function describeAnnulus(
   const span = endDeg - startDeg
   const largeArc = span > 180 ? 1 : 0
   return `M ${p1.x} ${p1.y} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x} ${p4.y} Z`
-}
-
-function displayLabel(name: string, segmentCount: number): string[] {
-  const normalized = name.toUpperCase().trim()
-
-  // Spec-mandated concise wheel labels — kept separate from the full reward
-  // name that the reveal screen shows. Checked before the generic voucher rule
-  // so abbreviated forms (₹1K, ₹2.5K, ₹5K) win over "₹1,000" style.
-  const conciseLabels: Record<string, string[]> = {
-    'JEWELLERY CLEANING': ['CLEANING'],
-    'PREMIUM GIFT': ['PREMIUM', 'GIFT'],
-    'SILVER GIFT': ['SILVER', 'GIFT'],
-    '₹1,000 VOUCHER': ['₹1K', 'VOUCHER'],
-    '₹2,500 VOUCHER': ['₹2.5K', 'VOUCHER'],
-    '₹5,000 VOUCHER': ['₹5K', 'VOUCHER'],
-  }
-  if (conciseLabels[normalized]) return conciseLabels[normalized]
-
-  const voucherAmount = normalized.match(/^(₹[\d,]+)\s+VOUCHER$/)
-  if (voucherAmount) return [voucherAmount[1], 'VOUCHER']
-
-  const maxPerLine = segmentCount > 9 ? 7 : 10
-  const words = normalized.split(/\s+/)
-  const lines: string[] = []
-  let line = ''
-  let wasTruncated = false
-
-  for (const word of words) {
-    const candidate = line ? `${line} ${word}` : word
-    if (candidate.length <= maxPerLine) {
-      line = candidate
-    } else {
-      if (lines.length === 0) {
-        if (line) lines.push(line)
-        line = word.length > maxPerLine ? word.slice(0, maxPerLine) : word
-        wasTruncated = word.length > maxPerLine
-      } else {
-        wasTruncated = true
-        break
-      }
-    }
-  }
-
-  if (line) {
-    if (lines.length < 2) lines.push(line)
-    else wasTruncated = true
-  }
-  if (wasTruncated && lines.length > 0) lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, maxPerLine - 1)}…`
-  return lines
 }
 
 function prefersReducedMotion(): boolean {
@@ -231,7 +183,10 @@ export function SpinWheel({
               const flipped = center > 90 && center < 270
               const rotationDeg = flipped ? center + 180 : center
               const lines = displayLabel(seg.rewardName, segments.length)
-              const labelFontSize = segments.length > 9 ? 10 : 12
+              const labelFontSize = lines.length > 3 ? 10 : segments.length > 9 ? 10 : 12
+              // Vertically centre the whole label block inside the slice band.
+              const firstBaseline =
+                mid.y - ((lines.length - 1) * (labelFontSize + 1)) / 2 + labelFontSize * 0.35
               return (
                 <g
                   key={seg.index}
@@ -247,7 +202,7 @@ export function SpinWheel({
                   <path d={describeAnnulus(0, 0, R_inner, R_outer, start, end)} fill="url(#wheel-gloss)" opacity={0.55} />
                   <text
                     x={mid.x}
-                    y={mid.y + (lines.length > 1 ? labelFontSize * 0.4 : labelFontSize * 0.35)}
+                    y={firstBaseline}
                     transform={`rotate(${rotationDeg} ${mid.x} ${mid.y})`}
                     textAnchor="middle"
                     fontSize={labelFontSize}
