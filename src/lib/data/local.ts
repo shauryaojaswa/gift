@@ -1,5 +1,6 @@
 import type { Reward, RewardTier, StoreConfig } from '../../types'
 import { ALL_STORES, JOLLY_ENTERPRISES_SLUG } from '../stores'
+import { validateLogoFile } from '../logo-upload'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -317,8 +318,18 @@ export class LocalDataProvider implements DataProvider {
   }
 
   async uploadStoreLogo(file: File): Promise<string> {
-    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
-      throw new Error('Choose an image smaller than 5 MB')
+    const validation = validateLogoFile(file)
+    if (!validation.ok) throw new Error(validation.error)
+    // Verify the bytes actually decode before accepting them.
+    let decoded: { width: number; height: number }
+    try {
+      decoded = await createImageBitmap(file)
+    } catch {
+      throw new Error('That image could not be decoded. Choose a valid JPG, PNG or WebP file.')
+    }
+    const { width, height } = decoded
+    if (!width || !height || !Number.isFinite(width) || !Number.isFinite(height)) {
+      throw new Error('That image could not be decoded. Choose a valid JPG, PNG or WebP file.')
     }
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
@@ -326,6 +337,14 @@ export class LocalDataProvider implements DataProvider {
       reader.onerror = () => reject(new Error('Could not read image'))
       reader.readAsDataURL(file)
     })
+    // Guard against storing something the UI cannot render.
+    const probe = await new Promise<boolean>((resolve) => {
+      const img = new Image()
+      img.onload = () => resolve(img.naturalWidth > 0 && img.naturalHeight > 0)
+      img.onerror = () => resolve(false)
+      img.src = dataUrl
+    })
+    if (!probe) throw new Error('That image could not be decoded. Choose a valid JPG, PNG or WebP file.')
     await this.updateStore({ logoUrl: dataUrl })
     return dataUrl
   }

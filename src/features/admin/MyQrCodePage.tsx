@@ -101,7 +101,7 @@ export function MyQrCodePage() {
             <img
               src={store.logoUrl || '/assets/brand-logo.png'}
               alt=""
-              className="h-16 w-16 rounded-full object-cover"
+              className="h-16 w-16 rounded-full object-contain"
             />
             <div className="text-center">
               <p className="font-display text-lg font-bold text-ink">{store.name}</p>

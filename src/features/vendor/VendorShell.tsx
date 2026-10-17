@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, useParams } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -14,6 +14,8 @@ import { AdminAuthProvider, useAdminAuth } from '@/features/admin/AdminContext'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import { dataProviderKind, PERSISTENCE_UNAVAILABLE_MESSAGE } from '@/providers/DataProviderContext'
 import { Spinner } from '@/components/ui/Spinner'
+import { resolveAssetUrl } from '@/components/ui/StoreLogo'
+import { isRenderableLogo } from '@/lib/logo-upload'
 import Forbidden from '@/features/not-found/Forbidden'
 import NotFound from '@/features/not-found/NotFound'
 
@@ -102,13 +104,13 @@ function VendorShellInner() {
       <div className="flex flex-col gap-6 lg:flex-row">
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-6 flex flex-col gap-4">
-            <StoreBadge name={storeName} />
+            <StoreBadge name={storeName} logoUrl={store?.logoUrl ?? null} />
             <SidebarNav items={items} onSignOut={signOut} />
           </div>
         </aside>
 
         <main className="min-w-0 flex-1">
-          <MobileTopBar storeName={storeName} onSignOut={signOut} />
+          <MobileTopBar storeName={storeName} logoUrl={store?.logoUrl ?? null} onSignOut={signOut} />
           <div className="pt-4 lg:pt-0">
             <Outlet />
           </div>
@@ -120,12 +122,30 @@ function VendorShellInner() {
   )
 }
 
-function StoreBadge({ name }: { name: string }) {
+function StoreBadge({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
+  // Shop logo (object-fit: contain - never cropped or stretched) with the
+  // designed no-logo fallback preserved: shops without a usable logo keep the
+  // generic store mark, and a broken logo URL falls back per URL so one shop's
+  // failure state can never leak into another shop's badge.
+  const [failedFor, setFailedFor] = useState<string | null>(null)
+  const cleaned = (logoUrl ?? '').trim()
+  const showLogo = isRenderableLogo(cleaned) && failedFor !== cleaned
+
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10 text-brand">
-        <Store size={20} aria-hidden="true" />
-      </span>
+      {showLogo ? (
+        <img
+          key={cleaned}
+          src={resolveAssetUrl(cleaned)}
+          alt=""
+          className="h-10 w-10 rounded-lg border border-border-soft bg-white object-contain p-1"
+          onError={() => setFailedFor(cleaned)}
+        />
+      ) : (
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10 text-brand">
+          <Store size={20} aria-hidden="true" />
+        </span>
+      )}
       <div className="min-w-0">
         <p className="font-display text-sm font-bold leading-tight text-ink">{name}</p>
         <p className="text-xs text-muted">Shop Owner</p>
@@ -167,10 +187,10 @@ function SidebarNav({ items, onSignOut }: { items: NavItem[]; onSignOut: () => v
   )
 }
 
-function MobileTopBar({ storeName, onSignOut }: { storeName: string; onSignOut: () => void }) {
+function MobileTopBar({ storeName, logoUrl, onSignOut }: { storeName: string; logoUrl?: string | null; onSignOut: () => void }) {
   return (
     <div className="flex items-center justify-between border-b border-border-soft pb-3 lg:hidden">
-      <StoreBadge name={storeName} />
+      <StoreBadge name={storeName} logoUrl={logoUrl} />
       <button
         type="button"
         onClick={onSignOut}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { isRenderableLogo } from '@/lib/logo-upload'
 import { LogoFallback } from './LogoFallback'
 
 // Resolve a stored asset path against the deployment base so one build works
@@ -13,8 +14,6 @@ export function resolveAssetUrl(logoUrl: string): string {
   const withoutLeadingSlash = logoUrl.replace(/^\.?\//, '')
   return base + withoutLeadingSlash
 }
-
-const PLACEHOLDER = 'logo-placeholder.svg'
 
 /**
  * Shop logo with a designed fallback: missing, placeholder or broken logo
@@ -35,9 +34,8 @@ export function StoreLogo({
 }) {
   const [failedFor, setFailedFor] = useState<string | null>(null)
   const cleaned = (logoUrl ?? '').trim()
-  const isPlaceholder = cleaned === '' || cleaned.endsWith(PLACEHOLDER)
   const failed = failedFor === cleaned
-  const showImage = !isPlaceholder && !failed
+  const showImage = isRenderableLogo(cleaned) && !failed
 
   return (
     <div className={cn('flex items-center justify-center', className)}>

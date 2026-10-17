@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '../database.types'
+import { validateLogoFile } from '../logo-upload'
 import type { GiftOption, Reward, RewardTier, StoreConfig, StoreStatus } from '../../types'
 import type {
   AdminSession,
@@ -439,18 +440,18 @@ export class SupabaseDataProvider implements DataProvider {
   }
 
   async uploadStoreLogo(file: File): Promise<string> {
-    const extensions: Record<string, string> = {
-      'image/jpeg': 'jpg',
-      'image/png': 'png',
-      'image/webp': 'webp',
-    }
-    const extension = extensions[file.type]
-    if (!extension || file.size <= 0 || file.size > 5 * 1024 * 1024) {
-      throw new Error('Choose a JPG, PNG or WebP image smaller than 5 MB')
+    const validation = validateLogoFile(file)
+    if (!validation.ok) throw new Error(validation.error)
+    // Verify the bytes actually decode before spending a storage write on them.
+    try {
+      const decoded = await createImageBitmap(file)
+      if (!decoded.width || !decoded.height) throw new Error('undecodable')
+    } catch {
+      throw new Error('That image could not be decoded. Choose a valid JPG, PNG or WebP file.')
     }
     const session = await this.getSession()
     const storeId = await this.adminStoreId(session)
-    const path = `${storeId}/${crypto.randomUUID()}.${extension}`
+    const path = `${storeId}/${crypto.randomUUID()}.${validation.extension}`
     const { error } = await this.client.storage
       .from('store-logos')
       .upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false })

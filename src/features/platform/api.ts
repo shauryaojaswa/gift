@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/database.types'
+import { validateLogoFile } from '@/lib/logo-upload'
 
 /**
  * Platform-admin API (JRIQ control plane). All writes go through
@@ -134,16 +135,9 @@ export async function createShop(
  * the resulting public URL is passed to create_shop as p_logo_url.
  */
 export async function uploadShopLogo(client: PlatformClient, file: File): Promise<string> {
-  const extensions: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-  }
-  const extension = extensions[file.type]
-  if (!extension || file.size <= 0 || file.size > 5 * 1024 * 1024) {
-    throw new Error('Choose a JPG, PNG or WebP image smaller than 5 MB')
-  }
-  const path = `new-shops/${crypto.randomUUID()}.${extension}`
+  const validation = validateLogoFile(file)
+  if (!validation.ok) throw new Error(validation.error)
+  const path = `new-shops/${crypto.randomUUID()}.${validation.extension}`
   const { error } = await client.storage
     .from('store-logos')
     .upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false })
