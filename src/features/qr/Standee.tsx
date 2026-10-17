@@ -56,7 +56,7 @@ export default function Standee() {
         ) : (
           qrSvg && (
             <div
-              className="bg-paper p-4 rounded-2xl"
+              className="w-full max-w-[280px] bg-paper p-4 rounded-2xl print:max-w-[420px] [&>svg]:h-auto [&>svg]:w-full"
               dangerouslySetInnerHTML={{ __html: qrSvg }}
               aria-label="QR code"
             />
