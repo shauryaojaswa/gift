@@ -45,7 +45,9 @@ export default function Rewards() {
     setBusy(true)
     setRewardErr(null)
     try {
-      const id = rewardForm.id || `reward_${crypto.randomUUID().slice(0, 8)}`
+      // rewards.id is a uuid column (matching the platform RewardsPage editor);
+      // the demo provider accepts any opaque string id.
+      const id = rewardForm.id || crypto.randomUUID()
       await dataProvider.upsertReward({ ...rewardForm, id })
       await reload()
       setRewardForm(null)
@@ -77,7 +79,8 @@ export default function Rewards() {
     setBusy(true)
     setTierErr(null)
     try {
-      const id = tierForm.id || `tier_${crypto.randomUUID().slice(0, 8)}`
+      // reward_tiers.id is a uuid column (matching the platform TiersPage editor)
+      const id = tierForm.id || crypto.randomUUID()
       await dataProvider.upsertTier({ ...tierForm, id })
       await reload()
       setTierForm(null)
