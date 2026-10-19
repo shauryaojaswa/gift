@@ -18,6 +18,7 @@ import { resolveAssetUrl } from '@/components/ui/StoreLogo'
 import { isRenderableLogo } from '@/lib/logo-upload'
 import Forbidden from '@/features/not-found/Forbidden'
 import NotFound from '@/features/not-found/NotFound'
+import { normalizeSlug } from '@/lib/slugs'
 
 type NavIcon = typeof LayoutDashboard
 
@@ -50,7 +51,9 @@ function VendorShellInner() {
   const { store, loading: storeLoading } = useAdminStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const urlSlug = useParams<{ slug?: string }>().slug
+  // Case-insensitive shop address: /BCY/admin is the `bcy` workspace (the
+  // comparison below is against the canonical lowercase slug).
+  const urlSlug = normalizeSlug(useParams<{ slug?: string }>().slug) || null
   const persistent = dataProviderKind() === 'supabase'
 
   useEffect(() => {

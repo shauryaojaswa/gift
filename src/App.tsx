@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 import { Spinner } from './components/ui/Spinner'
 import NotFound from './features/not-found/NotFound'
-import { isRoutableSlug } from './lib/slugs'
+import { isRoutableSlug, normalizeSlug } from './lib/slugs'
 
 const CustomerFlow = lazy(() => import('./features/customer-flow/CustomerFlow'))
 const Privacy = lazy(() => import('./features/privacy/Privacy'))
@@ -33,7 +33,7 @@ const PlatformCatalog = lazy(() => import('./features/platform/CatalogPage'))
  */
 function StoreRedirect() {
   const { slug } = useParams<{ slug: string }>()
-  return <Navigate to={`/${slug ?? ''}`} replace />
+  return <Navigate to={`/${normalizeSlug(slug)}`} replace />
 }
 
 /**
@@ -104,7 +104,10 @@ export default function App() {
 
 /** Root-level shop entry: validates the slug, then renders the customer flow. */
 function ShopPage() {
-  const { slug } = useParams<{ slug: string }>()
+  // Shop URLs are case-insensitive addresses (https://jriq.in/BCY is the shop
+  // `bcy`); the URL stays exactly as typed while the lookup uses the canonical
+  // lowercase form.
+  const slug = normalizeSlug(useParams<{ slug: string }>().slug)
   if (!isRoutableSlug(slug)) return <NotFound />
   return <CustomerFlow slug={slug} />
 }

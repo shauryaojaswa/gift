@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   saveGiftOptions: vi.fn(),
   fetchMaxGiftSelections: vi.fn(),
   updateCatalogGift: vi.fn(),
+  fetchGiftSchemaSupport: vi.fn(),
 }))
 
 // Mock by relative specifier: vi.mock resolves the path itself, and the
@@ -31,7 +32,23 @@ vi.mock('./api', () => ({
   saveGiftOptions: mocks.saveGiftOptions,
   fetchMaxGiftSelections: mocks.fetchMaxGiftSelections,
   updateCatalogGift: mocks.updateCatalogGift,
+  fetchGiftSchemaSupport: mocks.fetchGiftSchemaSupport,
 }))
+
+/** Every optional gift-option extension present (current schema generation). */
+const FULL_SUPPORT = {
+  declaredValues: true,
+  stock: true,
+  pricePolicy: true,
+  availability: true,
+}
+/** Production's deployed schema: none of the optional extensions exist. */
+const LEGACY_SUPPORT = {
+  declaredValues: false,
+  stock: false,
+  pricePolicy: false,
+  availability: false,
+}
 
 const gift = (
   id: string,
@@ -123,6 +140,7 @@ describe('GiftPoolPanel', () => {
     mocks.saveGiftOptions.mockReset().mockResolvedValue(undefined)
     mocks.fetchMaxGiftSelections.mockReset().mockResolvedValue(4)
     mocks.updateCatalogGift.mockReset().mockResolvedValue(undefined)
+    mocks.fetchGiftSchemaSupport.mockReset().mockResolvedValue(FULL_SUPPORT)
   })
 
   it('loads brackets and pre-selects the persisted pool', async () => {
@@ -314,5 +332,75 @@ describe('GiftPoolPanel', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('permission denied'),
     )
+  })
+})
+
+/**
+ * Older schema generation (production today): no declared values, no stock,
+ * no price policy, no per-shop availability columns. The panel must stay fully
+ * usable — brackets load, selections save — while controls whose backing
+ * columns do not exist are not offered at all instead of silently dropping
+ * typed input.
+ */
+describe('GiftPoolPanel on an older schema (no gift-option extensions)', () => {
+  beforeEach(() => {
+    mocks.listTiersWithPools.mockReset().mockResolvedValue([TIER_A, TIER_B])
+    mocks.listCatalog.mockReset().mockResolvedValue(CATALOG)
+    mocks.saveGiftOptions.mockReset().mockResolvedValue(undefined)
+    mocks.fetchMaxGiftSelections.mockReset().mockResolvedValue(4)
+    mocks.updateCatalogGift.mockReset().mockResolvedValue(undefined)
+    mocks.fetchGiftSchemaSupport.mockReset().mockResolvedValue(LEGACY_SUPPORT)
+  })
+
+  it('loads brackets and saves selections without the extended columns', async () => {
+    render(<GiftPoolPanel storeId="store-1" />)
+    await waitFor(() => expect(checkboxFor('Silver Coin').checked).toBe(true))
+
+    fireEvent.click(checkboxFor('Gold Coin'))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[0])
+    await waitFor(() =>
+      expect(mocks.saveGiftOptions).toHaveBeenCalledWith(
+        mocks.client,
+        'tier-a',
+        ['g1', 'g2'],
+        { g1: null, g2: null },
+        { g1: null, g2: null },
+      ),
+    )
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Saved gift options/))
+  })
+
+  it('never offers the quantity field when stock columns do not exist', async () => {
+    render(<GiftPoolPanel storeId="store-1" />)
+    await waitFor(() => expect(checkboxFor('Silver Coin').checked).toBe(true))
+
+    fireEvent.click(checkboxFor('Gold Coin'))
+    expect(screen.queryByLabelText(/Quantity for Silver Coin/)).toBeNull()
+    expect(screen.queryByLabelText(/Quantity for Gold Coin/)).toBeNull()
+  })
+
+  it('shows declared values as fixed (disabled) when there is no price policy', async () => {
+    mocks.listCatalog.mockResolvedValue([
+      ...CATALOG,
+      gift('g7', 'Adjustable Coin', true, { valueMin: null, valueMax: null, voucherValue: 2500 }),
+    ])
+    render(<GiftPoolPanel storeId="store-1" />)
+    await waitFor(() => expect(checkboxFor('Silver Coin').checked).toBe(true))
+
+    fireEvent.click(checkboxFor('Adjustable Coin'))
+    const declared = labelledInputIn('₹1,000 – ₹10,000', /Declared value/, 'Adjustable Coin')
+    expect(declared.disabled).toBe(true)
+    expect(screen.getAllByText(/Value: ₹2,500 \(fixed by platform\)/).length).toBeGreaterThan(0)
+  })
+
+  it('hides the per-shop availability toggle when the column does not exist', async () => {
+    mocks.listCatalog.mockResolvedValue([
+      gift('g8', 'Restricted Gift', true, { excludedStoreIds: ['store-1'] }),
+    ])
+    render(<GiftPoolPanel storeId="store-1" canManageAvailability />)
+    await waitFor(() => expect(screen.getAllByText(/Restricted Gift/).length).toBeGreaterThan(0))
+
+    expect(screen.queryByRole('button', { name: 'Allow for this shop' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Disallow for this shop' })).toBeNull()
   })
 })

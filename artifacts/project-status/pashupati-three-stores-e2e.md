@@ -146,3 +146,159 @@ F1 and F2 are now **fixed live**; the closure matrix on the live bundle:
 - Harness hardening added for the closure runs: headless anti-throttling flags (rAF stalls
   were starving the spin), atomic landing-label read (a 400 ms reveal-unmount race lost
   one read), multi-sample copy-status window.
+
+## Release 2026-10-19 (5-second wheel, verified review links, invoice prompt)
+
+Scope of this release per the deployment brief: five-second wheel animation (supersedes the
+earlier 5–6 s spec), independent verification and per-store saving of the Google review links
+from the supplied URLs, vendor-editable gift fields verified per wheel segment (temporary test
+names, change-one, restore), the customer form's invoice prompt, per-store E2E and this report.
+
+### Google review links — verified per branch in a real browser (§2)
+
+Each supplied URL was opened and the native Google review interface verified (the `#lrd=<cid>`
+fragment opens Google's own **"Write a review dialogue"** modal — confirmed in the browser
+accessibility tree, page title carrying the exact business name). The **exact saved URL** of each
+store was then opened and re-verified (the saved `#lrd=<cid>,3` form opens the same modal as the
+supplied `#lrd=<cid>,3,,,,` form):
+
+| store | business name verified on the opened page | listing CID | URL of record (saved per store) | verdict |
+|---|---|---|---|---|
+| pashupati1 | "Pashupati a unit of BSKK LLP" (Bhelupur / Vijaya Road, Opp. Hotel Diamond) | `0x398e3128434bb691:0x96988d31a11155ac` | `https://www.google.com/search?hl=en-in&gl=in&q=Pashupati+a+unit+of+BSKK+LLP#lrd=0x398e3128434bb691:0x96988d31a11155ac,3` | **VERIFIED** — write-review modal opens for this branch |
+| pashupati2 | "Pashupati a unit of benaras Swarn Kala Kendra llp Lohta" (Lohta, Opp. Lohta Thana) | `0x398e2de6beabada3:0x5e7aa4810675d71f` | `https://www.google.com/search?hl=en-in&gl=in&q=Pashupati+a+unit+of+benaras+Swarn+Kala+Kendra+llp+Lohta#lrd=0x398e2de6beabada3:0x5e7aa4810675d71f,3` | **VERIFIED** — write-review modal opens for this branch |
+| pashupati | (no distinct listing found) | — | **NULL — intentionally unset** | **OPEN ITEM** (below) |
+
+Corrections resolved during verification:
+
+- The brief's inline "candidate 2" URL carries **BSKK's CID** (`0x…:0x96988d31a11155ac`) and the
+  third pasted URL is the **same BSKK listing** again. Per the brief ("never invent a link or
+  reuse another branch's link") neither may be used for Lohta or the third location. The raw
+  pasted kgmid URL (Lohta, CID `0x5e7aa4810675d71f`) is the correct second link and matches what
+  is saved for `pashupati2`.
+- The saved `#lrd=<cid>,3` URL form was confirmed to open the same native write-review modal as
+  the screenshots' `#lrd=<cid>,3,,,,` form — **no URL change was required**; the two configured
+  stores already held their own verified destinations (distinct CIDs, saved separately per store).
+
+**OPEN ITEM — third location (Pashupati, Godowlia).** The brand's own listings and posts show
+three branches: *Opp. Hotel Diamond, IP Vijaya Road, Bhelupur* (= pashupati1), *Lohta, Opp. Lohta
+Thana* (= pashupati2), and *State Bank Building, Opposite Hotel Augusto, Godowlia* (= the third
+location). Google search, Google Maps search and web search surface **no distinct Google Business
+Profile for the Godowlia branch**; the third supplied URL duplicates the BSKK listing. Per the
+brief this is reported rather than invented: `google_review_url` stays `NULL`, the review CTA
+stays disabled on that store's page, the skip path works, and no branch's link is reused. The
+owner should claim/create the Godowlia listing and supply its URL to enable the CTA.
+
+### Deployment (§7–§8)
+
+Build produced from a clean worktree at the v1.3.1 commit **plus the five-second wheel change
+only** (`SPIN_DURATION_MS = 5000`), with the unrelated in-tree workstream changes excluded from
+the build. Configuration verified in the shipped bytes: production Supabase project
+(`awshkiwqkuubkhecszzk`), `VITE_PUBLIC_APP_URL=https://jriq.in` baked into `lib-*.js`, anon key
+only (preflight role classification `anon:1`), no demo-mode fallback.
+
+| gate | result |
+|---|---|
+| preflight (`npm run preflight:root`) | **11/11** (deps, env selection, anon role, lint, unit tests, tsc+build, secret scan, key classification, dist output, base path, SPA fallback) |
+| upload order | assets (46, 6 chunks, all 201) → root static (5, 201) → `index.html` + `.htaccess` last (201) |
+| byte-verify (`node scripts/byte-verify.mjs dist https://jriq.in`) | **52/52 byte-identical**, exit 0 |
+| deploy-verify (bundle ref, app shell, assets, legacy 301 `/store/:slug`→`/:slug`, SPA fallback, TLS chain) | **11/11** |
+
+**Second deploy of the same day (not ours).** After the verification above, the live origin began
+serving bundle `index-Dh4HqAXG.js` — a build produced by the **parallel in-repo workstream**
+(the one editing the shared working tree throughout this session). Classification of the served
+bytes: production Supabase project ✅, `p_invoice_details` ✅, approved jewellery review set ✅,
+wheel constant `{fullSpins:8, durationMs:5e3}` ✅ (byte-identical spin code to the release build;
+re-measured live at 5085–5096 ms), `https://jriq.in` baked ✅ — plus that workstream's
+gift-columns/BCY frontend (`save_store_gift_columns`, `get_store_gift_pool`).
+
+Backend consistency of that state was probed **read-only**: `stores.gift_columns` exists on
+production and `get_store_gift_pool(text)` executes (returns `[]` for an unknown slug), while a
+calibration call to `submit_customer_entry({})` reproduces the same PGRST202 "call shape not
+matched" error that an empty-body probe of `save_store_gift_columns` returns — i.e. the
+gift-columns migration **is applied on production** and the deployed frontend does **not** call a
+missing database function. All three Pashupati stores remain in their verified reward
+configuration (8 approved gifts + 8 purchase brackets, `gift_columns` NULL).
+
+Every result in this report was re-run against the bundle production actually serves (see
+per-store tables above/below). The release brief's "no unrelated changes in the deployed build"
+constraint was satisfied by *our* deploy; the later swap is documented here as observed fact, not
+authored by this workstream.
+
+### Per-store E2E against the live build (§6) — gift fields, five-second wheel, invoice
+
+Method per store (`scripts/pashupati-e2e.mjs`, phases `admin` + `journey --headed`): open the
+owner's gift configuration; add a unique set of temporary test gift names in the configured
+fields; save with no API/database errors; refresh and confirm every gift persists; open the
+customer page and confirm **every wheel segment shows its saved gift name in vendor order**;
+change **one** gift and confirm **only** that segment moves; then restore the exact pre-test
+configuration and verify it byte-identically (including cross-store isolation snapshots). The
+customer journey then runs on the restored (actual) configuration: welcome → details form
+**including the invoice prompt (the form's last prompt)** → review invitation (approved topic
+chips in order, all 10 approved sentences verbatim, tap-to-copy, one-click / Open Google → the
+store's own destination, skip path) → spin → reveal → thank-you, with the wheel measured in a
+**visible (headed) browser** and the persisted submission cross-checked in the database.
+
+| check (§6) | pashupati1 | pashupati2 — Lohta | pashupati — Godowlia |
+|---|---|---|---|
+| one editable gift-name field per configured wheel segment; save; no errors | PASS | PASS | PASS |
+| temporary test gift names persist after admin refresh (and in DB) | PASS | PASS | PASS |
+| wheel segments = saved gift names, in vendor order | PASS | PASS | PASS |
+| change one gift → only that segment changes (DB + wheel) | PASS | PASS | PASS |
+| exact pre-test configuration restored (byte-identical) | PASS | PASS | PASS |
+| wheel animation ≈ **5 s** (visible browser) | **5075 / 5077 ms** | **5096 / 5085 ms** | **5061 / 5160 ms** |
+| customer form incl. invoice prompt → invoice persisted in `submissions.invoice_details` | PASS (filled run 1, blank run 2 stores NULL) | PASS (same) | PASS (same) |
+| review invitation: approved chips + 10 sentences verbatim | PASS | PASS | n/a (CTA disabled by design) |
+| copy a review recommendation = only the review text + UI confirmation | CONFIRMED (see note) | CONFIRMED (see note) | n/a |
+| one-click / Open Google → **this store's** link | PASS (+ interstitial BLOCKED-external) | PASS (+ interstitial BLOCKED-external) | n/a — never another branch's link |
+| skip the review → journey continues | PASS | PASS | PASS |
+| spin stops on engine-assigned reward; reveal name + claim code = backend | PASS (both runs) | PASS (both runs) | PASS (both runs) |
+| submission persisted (amount, reward_label, coupon_code) | PASS | PASS | PASS |
+| cross-store isolation during gift testing | PASS (other two stores byte-unchanged) | PASS | PASS |
+| **totals (admin 13 checks + journey)** | **13/13 + 32 passed / 0 failed / 2 blocked** | **13/13 + 32 / 0 / 2** | **13/13 + 28 / 0 / 0** |
+
+Note on copy: the tap-to-copy behaviour is verified by the app's own "✓ Copied" confirmation
+(`confirmed=true` in every linked-store run) and by `GoogleReviewAssistant.test.tsx` (unit-pinned
+exact text). The harness's OS-clipboard readback is **unreliable in this environment** — the read
+is restricted in the headed window, and one desktop actor persistently writes `https://www.jriq.in/`
+to the shared clipboard (observed even after the harness invalidated the clipboard before the tap).
+These cases are labelled `BLOCKED(external)` — never a fake pass and never a product failure.
+Google's anti-automation interstitial on tab-open is likewise labelled BLOCKED-external with the
+destination proven equal to the store's own URL (from the interstitial `continue=` target).
+
+**Test-data hygiene:** every mutation cycle restored the exact approved configuration (final
+state re-verified against the database: 8 approved names in order on all three stores, zero
+stray test names). QA submissions use synthetic names/phones unique to each run and are kept as
+evidence following the established QA-row pattern; they can be deleted on request.
+
+## Independent verification pass (second workstream, same day)
+
+A second verification pass ran the same harness against the same live bundle
+(`index-Dh4HqAXG.js`), after re-applying the brief's 5-second constant (a concurrent
+`git checkout` had reverted `SPIN_DURATION_MS` to 6000 in the shared tree; the untracked
+timing pin was realigned to the brief's 5 s) and after fixing the owner-panel rename path
+so the wheel label follows the saved gift name.
+
+Totals from this pass (`--phase admin` + `--phase journey --headed`, per store):
+
+| store | admin round trip | journey | wheel measured (visible browser) |
+|---|---|---|---|
+| pashupati1 | 13/13 | 32 passed / 0 failed / 2 blocked(external) | 5079 ms, 5071 ms |
+| pashupati2 | 13/13 | 32 passed / 0 failed / 2 blocked(external) | 5097 ms, 5089 ms |
+| pashupati | 13/13 | 28 passed / 0 failed / 0 blocked | 5063 ms, 5162 ms |
+
+Two concurrent-run incidents were detected and handled honestly (both are test-harness
+coordination facts, not product defects):
+
+1. **Healed leftovers**: `pashupati1` opened with eight leftover `TMP A088 G1..G8` gift
+   names from an interrupted earlier run. The harness's self-heal restored the approved
+   ladder names before any testing, and the final state was verified byte-identical to
+   the pre-test snapshot.
+2. **Live-edit collision**: the first `pashupati` journey run raced another session's
+   gift renames (`TMP 5179 ...`) mid-flight - its wheel/reveal mismatches were caused by
+   that live edit (reward labels captured the temporary names at submit time). The run
+   was discarded and re-executed after the store was restored; the re-run is clean
+   (28/0/0 above).
+
+Cross-store isolation held throughout: every admin round trip proved the other two
+stores' rows byte-unchanged, and the final database read shows all three stores on the
+approved 8 gifts + 8 brackets with `gift_columns` NULL.

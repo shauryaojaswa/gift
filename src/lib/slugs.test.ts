@@ -8,6 +8,7 @@ import {
   SLUG_PATTERN,
   isReservedSlug,
   isRoutableSlug,
+  normalizeSlug,
 } from './slugs'
 
 // npm test runs from the repo root; happy-dom's import.meta.url is not
@@ -160,5 +161,24 @@ describe('isRoutableSlug — what the router may treat as a shop address', () =>
     for (const crafted of ['admin', 'store', 'platform', 'vendor', 'index.html']) {
       expect(isRoutableSlug(crafted)).toBe(false)
     }
+  })
+})
+
+describe('normalizeSlug - case-insensitive shop addresses', () => {
+  it('canonicalizes URL casing to the lowercase slug form', () => {
+    expect(normalizeSlug('BCY')).toBe('bcy')
+    expect(normalizeSlug('bcy')).toBe('bcy')
+    expect(normalizeSlug('ShreeJwellers')).toBe('shreejwellers')
+    expect(normalizeSlug(' /BCY ')).toBe('/bcy') // raw trimming only - no path rewriting
+  })
+
+  it('handles undefined and empty slugs', () => {
+    expect(normalizeSlug(undefined)).toBe('')
+    expect(normalizeSlug('')).toBe('')
+  })
+
+  it('normalized slugs satisfy the same pattern the database accepts', () => {
+    expect(SLUG_PATTERN.test(normalizeSlug('BCY'))).toBe(true)
+    expect(isRoutableSlug(normalizeSlug('BCY'))).toBe(true)
   })
 })
