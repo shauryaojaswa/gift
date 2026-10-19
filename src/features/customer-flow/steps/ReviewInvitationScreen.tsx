@@ -71,6 +71,7 @@ export function ReviewInvitationScreen() {
         onSkip={handleAssistantSkip}
         onReviewed={handleReviewed}
         reviewUrl={reviewLink.url}
+        storeSlug={store.slug}
       />
     </div>
   )

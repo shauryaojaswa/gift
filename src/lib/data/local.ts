@@ -1,6 +1,12 @@
-import type { Reward, RewardTier, StoreConfig } from '../../types'
+import type { GiftColumnsConfig, Reward, RewardTier, StoreConfig } from '../../types'
 import { ALL_STORES, JOLLY_ENTERPRISES_SLUG } from '../stores'
 import { validateLogoFile } from '../logo-upload'
+import {
+  blankGiftColumns,
+  canPublishGifts,
+  normalizeGiftDraft,
+  trimGiftDraft,
+} from '../gift-columns'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -154,6 +160,7 @@ export class LocalDataProvider implements DataProvider {
       reviewCtaShown: input.reviewCtaShown,
       reviewCtaClicked: input.reviewCtaClicked,
       createdAt: new Date().toISOString(),
+      invoiceDetails: input.invoiceDetails?.trim() || null,
     }
     const records = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), [])
     records.unshift(record)
@@ -315,6 +322,69 @@ export class LocalDataProvider implements DataProvider {
     Object.assign(store, patch)
     this.persistStore(store)
     return store
+  }
+
+  /**
+   * Mirror of the backend contract: draft saves persist partial work as-is;
+   * publishing requires all 8 fields and replaces the live wheel atomically.
+   * The demo store's rewards/tier are rebuilt from the published slots so the
+   * demo customer flow awards real field names, never placeholders.
+   */
+  async saveGiftColumns(draft: string[], publish: boolean): Promise<GiftColumnsConfig> {
+    const store = await this.mutateStore()
+    const names = trimGiftDraft(normalizeGiftDraft(draft))
+    const current = store.giftColumns ?? blankGiftColumns()
+    if (!publish) {
+      const next: GiftColumnsConfig = {
+        draft: names,
+        published: current.published,
+        publishedAt: current.publishedAt,
+      }
+      store.giftColumns = next
+      this.persistStore(store)
+      return next
+    }
+    if (!canPublishGifts(names)) {
+      throw new Error('All 8 gifts must be filled before publishing')
+    }
+    const published = names.map((name, index) => ({
+      name,
+      rewardId: current.published?.[index]?.rewardId ?? crypto.randomUUID(),
+    }))
+    const next: GiftColumnsConfig = {
+      draft: names,
+      published,
+      publishedAt: new Date().toISOString(),
+    }
+    store.giftColumns = next
+    store.rewards = published.map((slot) => ({
+      id: slot.rewardId,
+      name: slot.name,
+      description: '',
+      claimCodePrefix: null,
+      validityText: null,
+      active: true,
+    }))
+    const priorTier = store.tiers.find((t) => t.rewardId === null) ?? store.tiers[0]
+    store.tiers = [
+      {
+        id: priorTier?.id ?? crypto.randomUUID(),
+        minAmount: store.minSpinAmount,
+        maxAmount: null,
+        rewardId: null,
+        targetSegment: 0,
+        active: true,
+        giftOptions: published.map((slot) => ({
+          id: slot.rewardId,
+          name: slot.name,
+          wheelLabel: slot.name,
+          description: '',
+          voucherValue: null,
+        })),
+      },
+    ]
+    this.persistStore(store)
+    return next
   }
 
   async uploadStoreLogo(file: File): Promise<string> {

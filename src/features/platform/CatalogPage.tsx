@@ -16,6 +16,9 @@ const EMPTY: CatalogGiftInput = {
   description: null,
   imageUrl: null,
   voucherValue: null,
+  valueMin: null,
+  valueMax: null,
+  excludedStoreIds: [],
   claimCodePrefix: null,
   validityText: null,
   active: true,
@@ -66,6 +69,9 @@ export default function CatalogPage() {
       description: gift.description,
       imageUrl: gift.imageUrl,
       voucherValue: gift.voucherValue,
+      valueMin: gift.valueMin,
+      valueMax: gift.valueMax,
+      excludedStoreIds: gift.excludedStoreIds,
       claimCodePrefix: gift.claimCodePrefix,
       validityText: gift.validityText,
       active: gift.active,
@@ -86,6 +92,21 @@ export default function CatalogPage() {
         imageUrl: form.imageUrl?.trim() || null,
         claimCodePrefix: form.claimCodePrefix?.trim().toUpperCase() || null,
         validityText: form.validityText?.trim() || null,
+      }
+      // Price policy: both bounds or neither; voucher value must sit inside.
+      if ((payload.valueMin === null) !== (payload.valueMax === null)) {
+        throw new Error('Set both price-policy bounds, or leave both empty for a fixed value.')
+      }
+      if (payload.valueMin !== null && payload.valueMax !== null) {
+        if (payload.valueMin < 0 || payload.valueMax < payload.valueMin) {
+          throw new Error('The price-policy minimum must be ₹0 or more and not exceed the maximum.')
+        }
+        if (
+          payload.voucherValue !== null &&
+          (payload.voucherValue < payload.valueMin || payload.voucherValue > payload.valueMax)
+        ) {
+          throw new Error('The voucher value must sit inside the price policy for this gift.')
+        }
       }
       if (editingId) {
         await updateCatalogGift(client, editingId, payload)
@@ -180,7 +201,11 @@ export default function CatalogPage() {
               placeholder="https://…"
             />
           </FormField>
-          <FormField label="Voucher value (₹, optional)" id="gift-voucher-value">
+          <FormField
+            label="Voucher value (₹, optional)"
+            id="gift-voucher-value"
+            hint="The catalogue's declared value. Shops see this as the default."
+          >
             <input
               id="gift-voucher-value"
               type="number"
@@ -188,6 +213,38 @@ export default function CatalogPage() {
               value={form.voucherValue ?? ''}
               onChange={(e) =>
                 setForm({ ...form, voucherValue: e.target.value === '' ? null : Number(e.target.value) })
+              }
+              min={0}
+            />
+          </FormField>
+          <FormField
+            label="Price policy min (₹, optional)"
+            id="gift-value-min"
+            hint="Lowest declared value a shop may set. Both bounds empty = fixed value."
+          >
+            <input
+              id="gift-value-min"
+              type="number"
+              className="field-input"
+              value={form.valueMin ?? ''}
+              onChange={(e) =>
+                setForm({ ...form, valueMin: e.target.value === '' ? null : Number(e.target.value) })
+              }
+              min={0}
+            />
+          </FormField>
+          <FormField
+            label="Price policy max (₹, optional)"
+            id="gift-value-max"
+            hint="Highest declared value a shop may set. Both bounds empty = fixed value."
+          >
+            <input
+              id="gift-value-max"
+              type="number"
+              className="field-input"
+              value={form.valueMax ?? ''}
+              onChange={(e) =>
+                setForm({ ...form, valueMax: e.target.value === '' ? null : Number(e.target.value) })
               }
               min={0}
             />
@@ -252,6 +309,18 @@ export default function CatalogPage() {
                     {gift.wheelLabel}
                   </span>
                   {gift.voucherValue != null && <> · ₹{gift.voucherValue.toLocaleString('en-IN')}</>}
+                  {gift.valueMin !== null && gift.valueMax !== null ? (
+                    <>
+                      {' '}
+                      · shops may declare ₹{gift.valueMin.toLocaleString('en-IN')}–₹
+                      {gift.valueMax.toLocaleString('en-IN')}
+                    </>
+                  ) : (
+                    <> · fixed value</>
+                  )}
+                  {gift.excludedStoreIds.length > 0 && (
+                    <> · not available to {gift.excludedStoreIds.length} shop(s)</>
+                  )}
                   {gift.validityText && <> · {gift.validityText}</>}
                 </p>
               </div>

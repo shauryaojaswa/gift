@@ -146,7 +146,7 @@
   }
 
   .btn-primary {
-    @apply w-full rounded-[8px] py-3.5 text-base font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply w-full rounded-[8px] py-3.5 text-base font-medium transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
     background-color: var(--brand);
     color: var(--on-brand);
   }
@@ -156,7 +156,7 @@
   }
 
   .btn-secondary {
-    @apply w-full rounded-[8px] py-3.5 text-base font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply w-full rounded-[8px] py-3.5 text-base font-medium transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
     border: 1px solid var(--secondary);
     color: var(--house-ink);
     background-color: hsl(var(--secondary-h) var(--secondary-s) 94%);
@@ -167,7 +167,7 @@
   }
 
   .btn-ghost {
-    @apply w-full rounded-[8px] py-3.5 text-base font-medium text-ink transition-colors duration-200;
+    @apply w-full rounded-[8px] py-3.5 text-base font-medium text-ink transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.985];
     border: 1px solid var(--house-border);
     background: transparent;
   }
@@ -368,7 +368,7 @@
 
   .animate-fade-in,
   .step-enter {
-    animation: fade-in 0.35s ease-out both;
+    animation: fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   @media (max-height: 820px) {

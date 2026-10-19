@@ -6,6 +6,7 @@ import { SpinWinScreen, getWheelSize } from './SpinWinScreen'
 import { JOLLY_ENTERPRISES, JOLLY_ENTERPRISES_SLUG } from '../../../lib/stores'
 import { normalizeAngle, segmentCenterDegrees } from '../../../lib/wheel-math'
 import {
+  buildWheelOptions,
   buildWheelSegments,
   landingSegmentIndex,
   type RewardResult,
@@ -17,7 +18,10 @@ import type { GiftOption, RewardTier } from '../../../types'
 /**
  * Spin & Win - tap to reward, v1.2.0 persist-first contract:
  * the reward is already saved when the wheel appears, so spinning is pure
- * animation to the saved slice - no RPC runs at spin time.
+ * animation to the saved slice - no RPC runs at spin time. The wheel
+ * advertises EVERY gift the shop awards (the customer could win any of them);
+ * the purchase amount decided the actual prize and the wheel stops exactly
+ * on the engine-assigned slice.
  */
 
 const provider = new LocalDataProvider()
@@ -153,25 +157,35 @@ afterEach(() => {
 })
 
 describe('Spin & Win - tap to reward', () => {
-  it('renders the wheel from real pool prizes with the saved reward winning', () => {
+  it('renders every catalog gift on the wheel with the saved reward slice winning', () => {
     const { container } = renderScreen()
     const texts = Array.from(container.querySelectorAll('svg[role="img"] text'))
     const labels = texts.map((t) => t.getAttribute('aria-label'))
-    expect(labels).toContain('GOLD COIN')
-    expect(labels).toContain('SILVER COIN')
-    expect(labels).toContain('GIFT HAMPER')
-    expect(labels).toContain('CARE VOUCHER')
-    // The saved assignment overrides its slice with the snapshot name.
+    // The wheel advertises the shop's whole catalog: one block per gift, so
+    // the customer sees they could win anything.
+    expect(labels).toContain('CLEANING')
+    expect(labels).toContain('CARE KIT')
+    expect(labels).toContain('₹500 VOUCHER')
+    expect(labels).toContain('PREMIUM GIFT')
+    expect(labels).toContain('₹1K VOUCHER')
+    expect(labels).toContain('SILVER GIFT')
+    expect(labels).toContain('₹2.5K VOUCHER')
+    expect(labels).toContain('₹5K VOUCHER')
+    // The saved assignment keeps its own slice under the snapshot name.
     expect(labels).toContain('WINNER')
     // Placeholder labels are forbidden.
     expect(labels).not.toContain('GIFT')
     // WCAG 2.5.3: the wheel's accessible name contains its visible labels.
     const svg = container.querySelector('svg[role="img"]')!
     const name = svg.getAttribute('aria-label') ?? ''
-    expect(name).toContain('GOLD COIN')
     expect(name).toContain('WINNER')
-    // Prize data is unchanged by the concise on-slice rendering.
-    const segments = buildWheelSegments(pool, savedReward)
+    expect(name).toContain('PREMIUM GIFT')
+    // Prize data is unchanged by the concise on-slice rendering: the wheel
+    // still stops exactly on the engine-assigned reward.
+    const segments = buildWheelSegments(
+      buildWheelOptions(JOLLY_ENTERPRISES, savedReward),
+      savedReward,
+    )
     expect(segments[landingSegmentIndex(segments, savedReward)].rewardId).toBe('g2')
   })
 
@@ -202,7 +216,10 @@ describe('Spin & Win - tap to reward', () => {
     expect(createSubmission).not.toHaveBeenCalled()
 
     // The final stop aligns exactly with the persisted reward's slice.
-    const segments = buildWheelSegments(pool, savedReward)
+    const segments = buildWheelSegments(
+      buildWheelOptions(JOLLY_ENTERPRISES, savedReward),
+      savedReward,
+    )
     const landing = landingSegmentIndex(segments, savedReward)
     const rotation = useCustomerFlow.getState().currentRotation
     expect(
@@ -231,8 +248,16 @@ describe('Spin & Win - tap to reward', () => {
     })
     renderScreen()
     fireEvent.click(screen.getByRole('button', { name: 'Spin the wheel' }))
+    // Reduced motion shortens the spin but never skips it: the wheel still
+    // rotates before the gift is revealed.
+    await act(async () => {
+      runAnimation()
+    })
     await waitFor(() => expect(useCustomerFlow.getState().step).toBe('REWARD'), { timeout: 2000 })
-    const segments = buildWheelSegments(pool, savedReward)
+    const segments = buildWheelSegments(
+      buildWheelOptions(JOLLY_ENTERPRISES, savedReward),
+      savedReward,
+    )
     const landing = landingSegmentIndex(segments, savedReward)
     expect(
       normalizeAngle(

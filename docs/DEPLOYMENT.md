@@ -203,6 +203,37 @@ SHA-256-compared to its local `dist/` counterpart (50 files at v1.1.1, `index.ht
 included). `.htaccess` cannot be served over HTTP by design; its verification is
 behavioural (the strict 301 rows of `deploy-verify.ps1` / `cutover-watch.mjs`).
 
+### 5.6 Release actuals - v1.3.1 (2026-10-19)
+
+Tag `v1.3.1` - invoice-details extension + the jewellery review-set / 6-second wheel
+fixes. `preflight:root` **11/11** with production env (lint, 372/372 unit tests,
+typecheck, secret scan). Pre-deploy backup
+`%USERPROFILE%\backups\jriq\jwellery-20261019-003847.dump` (590,755 B, `pg_restore
+--list` parse-verified: 919 entries incl. all protected tables). Upload: 46 assets
+(6 chunks) + 5 root files + `index.html` + `.htaccess` LAST, all chunks HTTP 201;
+**byte-verification 52/52 SHA-256-identical**. Live bundle `index-BmAPB-ZG.js`.
+deploy-verify **11/11** incl. the strict 301 rows; production smoke **35/35**, protected
+claims 2/2 intact.
+
+**Database (one transitional shim, additive-only):** production's `submit_customer_entry`
+was extended with ONE optional argument `p_invoice_details text default null` and one
+nullable column `submissions.invoice_details` (length CHECK 1..200), the body otherwise
+byte-identical to the applied `20261015161200` function - reward-engine semantics
+untouched. The 7-arg signature was dropped in the same transaction (exactly one
+PostgREST candidate; legacy 7-key callers keep working through the default - Verified
+live). Shim SQL of record:
+`artifacts/project-status/prod-compat-invoice-details-20261018120100.sql`, recorded in
+`supabase_migrations.schema_migrations` as **`20261018120100`** (never as
+`20261018120000`) so the canonical chain (`20261017150000` -> `20261017150100` ->
+`20261018120000`) still applies and converges production when the Kohinoor release
+ships - **re-apply `20261018120000` after that chain**. History backfilled for the two
+applied-but-unrecorded migrations (`20261016200000`, `20261017120000`); 14 rows total.
+
+**Known residual (platform-only, unchanged by this release):** `set_store_review_policy`,
+`rename_store_slug` and the 4-arg `save_store_gift_options` have no production functions
+yet (they ship with `20261017150100`/`20261017150000`); the platform shop-config panels
+will error if used. Vendor and customer paths are unaffected.
+
 ## 6. Rollback
 
 - **2026-10-16: cutover complete — `jriq.in` (MilesWeb) is PRIMARY; GitHub Pages

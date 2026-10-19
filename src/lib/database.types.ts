@@ -45,11 +45,14 @@ export type Database = {
           claim_code_prefix: string | null
           created_at: string
           description: string | null
+          excluded_store_ids: string[]
           id: string
           image_url: string | null
           name: string
           updated_at: string
           validity_text: string | null
+          value_max: number | null
+          value_min: number | null
           voucher_value: number | null
           wheel_label: string
         }
@@ -58,11 +61,14 @@ export type Database = {
           claim_code_prefix?: string | null
           created_at?: string
           description?: string | null
+          excluded_store_ids?: string[]
           id?: string
           image_url?: string | null
           name: string
           updated_at?: string
           validity_text?: string | null
+          value_max?: number | null
+          value_min?: number | null
           voucher_value?: number | null
           wheel_label: string
         }
@@ -71,11 +77,14 @@ export type Database = {
           claim_code_prefix?: string | null
           created_at?: string
           description?: string | null
+          excluded_store_ids?: string[]
           id?: string
           image_url?: string | null
           name?: string
           updated_at?: string
           validity_text?: string | null
+          value_max?: number | null
+          value_min?: number | null
           voucher_value?: number | null
           wheel_label?: string
         }
@@ -442,6 +451,7 @@ export type Database = {
           active: boolean
           campaign_badge: string | null
           created_at: string
+          gift_columns: Json | null
           google_review_url: string | null
           id: string
           logo_url: string | null
@@ -449,6 +459,7 @@ export type Database = {
           name: string
           primary_color: string | null
           published_at: string | null
+          review_link_owner_editable: boolean
           secondary_color: string | null
           slug: string
           status: string
@@ -459,6 +470,7 @@ export type Database = {
           active?: boolean
           campaign_badge?: string | null
           created_at?: string
+          gift_columns?: Json | null
           google_review_url?: string | null
           id?: string
           logo_url?: string | null
@@ -466,6 +478,7 @@ export type Database = {
           name: string
           primary_color?: string | null
           published_at?: string | null
+          review_link_owner_editable?: boolean
           secondary_color?: string | null
           slug: string
           status?: string
@@ -476,6 +489,7 @@ export type Database = {
           active?: boolean
           campaign_badge?: string | null
           created_at?: string
+          gift_columns?: Json | null
           google_review_url?: string | null
           id?: string
           logo_url?: string | null
@@ -483,6 +497,7 @@ export type Database = {
           name?: string
           primary_color?: string | null
           published_at?: string | null
+          review_link_owner_editable?: boolean
           secondary_color?: string | null
           slug?: string
           status?: string
@@ -504,6 +519,7 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id: string
+          invoice_details: string | null
           purchase_amount: number
           request_id: string | null
           review_cta_clicked: boolean
@@ -530,6 +546,7 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id?: string
+          invoice_details?: string | null
           purchase_amount: number
           request_id?: string | null
           review_cta_clicked?: boolean
@@ -556,6 +573,7 @@ export type Database = {
           customer_name?: string
           customer_phone?: string
           id?: string
+          invoice_details?: string | null
           purchase_amount?: number
           request_id?: string | null
           review_cta_clicked?: boolean
@@ -624,7 +642,10 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          declared_value: number | null
           id: string
+          quantity: number | null
+          quantity_claimed: number
           reward_id: string
           store_id: string
           tier_id: string
@@ -633,7 +654,10 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          declared_value?: number | null
           id?: string
+          quantity?: number | null
+          quantity_claimed?: number
           reward_id: string
           store_id: string
           tier_id: string
@@ -642,7 +666,10 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          declared_value?: number | null
           id?: string
+          quantity?: number | null
+          quantity_claimed?: number
           reward_id?: string
           store_id?: string
           tier_id?: string
@@ -715,11 +742,28 @@ export type Database = {
         Args: { p_submission_id: string }
         Returns: undefined
       }
+      rename_store_slug: {
+        Args: { p_new_slug: string; p_store_id: string }
+        Returns: undefined
+      }
+      save_store_gift_columns: {
+        Args: { p_draft: string[]; p_publish?: boolean; p_store_slug: string }
+        Returns: Json
+      }
       save_store_gift_options: {
-        Args: { p_catalog_gift_ids: string[]; p_tier_id: string }
+        Args: {
+          p_catalog_gift_ids: string[]
+          p_declared_values?: Json
+          p_quantities?: Json
+          p_tier_id: string
+        }
         Returns: undefined
       }
       save_store_tiers: { Args: { p_tiers: Json }; Returns: undefined }
+      set_store_review_policy: {
+        Args: { p_owner_editable: boolean; p_store_id: string }
+        Returns: undefined
+      }
       set_store_status: {
         Args: { p_status: string; p_store_id: string }
         Returns: undefined
@@ -728,6 +772,7 @@ export type Database = {
         Args: {
           p_customer_name: string
           p_customer_phone: string
+          p_invoice_details?: string | null
           p_purchase_amount: number
           p_request_id: string
           p_review_cta_clicked?: boolean

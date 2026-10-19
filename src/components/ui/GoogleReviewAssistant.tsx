@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
+import { reviewSetFor, type ReviewTopic } from '@/lib/review-recommendations'
 
 /** Inline SVG icons (the codebase convention — avoids lucide typing quirks). */
 function IconGlyph({ kind }: { kind: string }) {
@@ -42,25 +43,11 @@ function IconGlyph({ kind }: { kind: string }) {
 }
 
 /**
- * The ten review starters, exactly as approved in the customer's prototype.
- * One tap does everything: the text is copied and the Google review tab opens
- * ready for a paste - built for customers who do not want to type. The text is
- * only ever placed on the clipboard and opened in the customer's own Google
- * tab; nothing is filled in, submitted or posted automatically, and the
- * customer can edit or remove anything before they post.
+ * The review starters come from the shop's own business type (see
+ * '@/lib/review-recommendations'): the approved jewellery sentences for
+ * jewellers, clothing and ethnic-wear sentences for clothing shops.
  */
-const SUGGESTIONS: Array<{ text: string; icon: string }> = [
-  { text: 'I really liked the jewellery designs.', icon: 'sparkle' },
-  { text: 'Good quality and good service.', icon: 'tag' },
-  { text: 'Very smooth shopping experience.', icon: 'bag' },
-  { text: 'The staff helped me choose the right jewellery.', icon: 'user' },
-  { text: 'I was happy with the overall experience.', icon: 'heart' },
-  { text: 'Good value for the quality.', icon: 'tag' },
-  { text: 'I found exactly what I was looking for.', icon: 'package' },
-  { text: 'Nice experience from start to finish.', icon: 'heart' },
-  { text: 'The collection had many beautiful options.', icon: 'gem' },
-  { text: 'My visit was a pleasant experience.', icon: 'sparkle' },
-]
+type Topic = ReviewTopic | 'All'
 
 export function GoogleReviewAssistant({
   open,
@@ -68,14 +55,23 @@ export function GoogleReviewAssistant({
   onSkip,
   onReviewed,
   reviewUrl,
+  storeSlug,
 }: {
   open: boolean
   onClose: () => void
   onSkip: () => void
   onReviewed?: () => void
   reviewUrl: string | null
+  /** Which shop this is - selects its business-type review recommendations. */
+  storeSlug: string
 }) {
   const [selected, setSelected] = useState<string | null>(null)
+  // The shop's own recommendations (jewellery sentences for jewellers,
+  // clothing sentences for clothing shops) - never a shared list.
+  const reviewSet = reviewSetFor(storeSlug)
+  const TOPICS: Topic[] = ['All', ...reviewSet.topics]
+  const SUGGESTIONS = reviewSet.suggestions
+  const [topic, setTopic] = useState<Topic>('All')
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
   const [popupBlocked, setPopupBlocked] = useState(false)
@@ -85,6 +81,7 @@ export function GoogleReviewAssistant({
   useEffect(() => {
     if (open) {
       setSelected(null)
+      setTopic('All')
       setCopied(false)
       setCopyError(null)
       setPopupBlocked(false)
@@ -208,9 +205,33 @@ export function GoogleReviewAssistant({
             matches your experience.
           </p>
 
+          {/* Topic chips: narrow the suggestions to what the customer wants
+              to talk about, then pick a starter below. */}
+          <div role="group" aria-label="Review topic" className="mb-3 flex flex-wrap gap-1.5">
+            {TOPICS.map((t) => {
+              const activeNow = topic === t
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={activeNow}
+                  onClick={() => setTopic(t)}
+                  className={cn(
+                    'tap-target rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                    activeNow
+                      ? 'border-gold bg-gold/15 text-ink'
+                      : 'border-border-soft bg-paper text-muted hover:border-gold hover:text-ink',
+                  )}
+                >
+                  {t}
+                </button>
+              )
+            })}
+          </div>
+
           {/* Review cards: one tap copies the text and opens the Google tab */}
           <div className="grid gap-2 sm:grid-cols-2">
-            {SUGGESTIONS.map(({ text: suggestion, icon }) => {
+            {SUGGESTIONS.filter(({ topics: ts }) => topic === 'All' || ts.includes(topic)).map(({ text: suggestion, icon }) => {
               const selectedNow = selected === suggestion
               return (
                 <button

@@ -3,8 +3,11 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { GoogleReviewAssistant } from './GoogleReviewAssistant'
 
 /**
- * Google Review Assistant tests (customer-approved one-click prototype):
- * - the ten review cards are exactly the approved texts
+ * Google Review Assistant tests (store-specific, customer-approved):
+ * - shreejwellers (jewellery) shows EXACTLY the ten review starters approved
+ *   in the customer's prototype, verbatim, on the original jewellery topics
+ * - shreemanali (clothing) shows the clothing and ethnic-wear starters
+ * - the two shops never share or leak each other's recommendations
  * - ONE tap on a card copies that text AND opens the shop's Google review tab
  *   ready for a paste - no typing required
  * - "Copied" appears only on a confirmed clipboard write; on failure the text
@@ -15,7 +18,7 @@ import { GoogleReviewAssistant } from './GoogleReviewAssistant'
  */
 
 function suggestionButtons(): HTMLButtonElement[] {
-  return Array.from(document.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'))
+  return Array.from(document.querySelectorAll<HTMLButtonElement>('button.review-suggestion[aria-pressed]'))
 }
 
 const noop = () => {}
@@ -44,18 +47,20 @@ describe('GoogleReviewAssistant', () => {
         onClose={noop}
         onSkip={noop}
         reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
       />,
     )
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('shows exactly the ten approved review starters and the honest policy copy', () => {
+  it('shreejwellers shows exactly the ten approved jewellery starters, verbatim', () => {
     render(
       <GoogleReviewAssistant
         open
         onClose={noop}
         onSkip={noop}
         reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
       />,
     )
     const prompts = suggestionButtons().map((b) => (b.textContent ?? '').trim())
@@ -71,10 +76,86 @@ describe('GoogleReviewAssistant', () => {
       'The collection had many beautiful options.',
       'My visit was a pleasant experience.',
     ])
+    // The clothing shop's recommendations never appear here.
+    expect(screen.queryByText('Loved the ethnic wear collection — so many beautiful options.')).toBeNull()
+    expect(screen.queryByText('The fabric and stitching quality of my outfit is excellent.')).toBeNull()
     // No rating is ever prescribed and no review is ever claimed posted.
     expect(screen.queryByText(/five star|5-star|leave a \d/i)).not.toBeInTheDocument()
     expect(screen.getByText(/never affected by a review/i)).toBeInTheDocument()
     expect(screen.getByText(/nothing is filled in or posted automatically/i)).toBeInTheDocument()
+  })
+
+  it('shreemanali shows exactly the clothing starters and never the jewellery ones', () => {
+    render(
+      <GoogleReviewAssistant
+        open
+        onClose={noop}
+        onSkip={noop}
+        reviewUrl="https://g.page/r/example"
+        storeSlug="shreemanali"
+      />,
+    )
+    const prompts = suggestionButtons().map((b) => (b.textContent ?? '').trim())
+    expect(prompts).toEqual([
+      'The service was warm and helpful throughout my visit.',
+      'Loved the ethnic wear collection — so many beautiful options.',
+      'They have a lovely range of sarees, kurtas and festive wear.',
+      'The staff helped me pick the right outfit and the perfect size.',
+      'The fabric and stitching quality of my outfit is excellent.',
+      'The fitting of the ready-made garments was just right.',
+      'The prices are fair for the quality you get.',
+      'Shopping here was smooth and easy from start to finish.',
+      'I found exactly what I needed for the occasion.',
+      'My visit to the store was a really pleasant experience.',
+    ])
+    // The jewellery shop's recommendations never appear here.
+    expect(screen.queryByText('I really liked the jewellery designs.')).toBeNull()
+    expect(screen.queryByText('The staff helped me choose the right jewellery.')).toBeNull()
+    expect(screen.queryByText('The collection had many beautiful options.')).toBeNull()
+  })
+
+  it('topic chips narrow the jewellery starters on the original topics', () => {
+    render(
+      <GoogleReviewAssistant
+        open
+        onClose={noop}
+        onSkip={noop}
+        reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Quality' }))
+    expect(suggestionButtons().map((b) => (b.textContent ?? '').trim())).toEqual([
+      'Good quality and good service.',
+      'Good value for the quality.',
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Price' }))
+    expect(suggestionButtons().map((b) => (b.textContent ?? '').trim())).toEqual([
+      'Good value for the quality.',
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'All' }))
+    expect(suggestionButtons()).toHaveLength(10)
+  })
+
+  it('topic chips narrow the clothing starters to the chosen topic', () => {
+    render(
+      <GoogleReviewAssistant
+        open
+        onClose={noop}
+        onSkip={noop}
+        reviewUrl="https://g.page/r/example"
+        storeSlug="shreemanali"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Quality' }))
+    expect(suggestionButtons().map((b) => (b.textContent ?? '').trim())).toEqual([
+      'The fabric and stitching quality of my outfit is excellent.',
+      'The fitting of the ready-made garments was just right.',
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'My Visit' }))
+    expect(suggestionButtons()).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'All' }))
+    expect(suggestionButtons()).toHaveLength(10)
   })
 
   it('one tap on a card copies the text AND opens the Google review tab', async () => {
@@ -89,6 +170,7 @@ describe('GoogleReviewAssistant', () => {
         onSkip={noop}
         onReviewed={onReviewed}
         reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
       />,
     )
     const [first] = suggestionButtons()
@@ -117,6 +199,7 @@ describe('GoogleReviewAssistant', () => {
         onClose={noop}
         onSkip={noop}
         reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
       />,
     )
     const [first] = suggestionButtons()
@@ -143,6 +226,7 @@ describe('GoogleReviewAssistant', () => {
         onSkip={onSkip}
         onReviewed={onReviewed}
         reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
       />,
     )
     fireEvent.click(suggestionButtons()[0])
@@ -166,6 +250,7 @@ describe('GoogleReviewAssistant', () => {
         onSkip={onSkip}
         onReviewed={onReviewed}
         reviewUrl={null}
+        storeSlug="shreejwellers"
       />,
     )
     fireEvent.click(suggestionButtons()[0])
@@ -191,6 +276,7 @@ describe('GoogleReviewAssistant', () => {
         onSkip={noop}
         onReviewed={onReviewed}
         reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
       />,
     )
     // Simply rendering the modal opens nothing.
@@ -217,6 +303,7 @@ describe('GoogleReviewAssistant', () => {
         onClose={noop}
         onSkip={noop}
         reviewUrl="https://g.page/r/example"
+        storeSlug="shreejwellers"
       />,
     )
     const cards = suggestionButtons()

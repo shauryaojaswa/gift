@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '../database.types'
 import { validateLogoFile } from '../logo-upload'
-import type { GiftOption, Reward, RewardTier, StoreConfig, StoreStatus } from '../../types'
+import { parseGiftColumns, trimGiftDraft, canPublishGifts, blankGiftColumns } from '../gift-columns'
+import type { GiftColumnsConfig, GiftOption, Reward, RewardTier, StoreConfig, StoreStatus } from '../../types'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -122,7 +123,9 @@ function rowToStore(row: Database['public']['Tables']['stores']['Row']): StoreCo
     googleReviewUrl: row.google_review_url ?? null,
     campaignBadge: row.campaign_badge ?? null,
     minSpinAmount: row.min_spin_amount ?? 10000,
+    reviewLinkOwnerEditable: row.review_link_owner_editable ?? true,
     status: toStoreStatus(row.status),
+    giftColumns: parseGiftColumns(row.gift_columns),
     rewards: [],
     tiers: [],
   }
@@ -215,6 +218,7 @@ export class SupabaseDataProvider implements DataProvider {
       p_purchase_amount: input.purchaseAmount,
       p_review_cta_shown: input.reviewCtaShown,
       p_review_cta_clicked: input.reviewCtaClicked,
+      p_invoice_details: input.invoiceDetails?.trim() || null,
     })
     const assignment = data?.[0]
     if (error || !assignment) throw new Error(error?.message ?? 'Failed to assign a reward')
@@ -316,6 +320,7 @@ export class SupabaseDataProvider implements DataProvider {
       reviewCtaShown: r.review_cta_shown,
       reviewCtaClicked: r.review_cta_clicked,
       createdAt: r.created_at,
+      invoiceDetails: r.invoice_details,
     }))
     const total = count ?? items.length
     return {
@@ -459,6 +464,33 @@ export class SupabaseDataProvider implements DataProvider {
     const { data } = this.client.storage.from('store-logos').getPublicUrl(path)
     await this.updateStore({ logoUrl: data.publicUrl })
     return data.publicUrl
+  }
+
+  /**
+   * Save the eight gift fields through the backend RPC. Draft saves persist the
+   * draft only; publishing requires all 8 fields filled and swaps the live
+   * wheel in one atomic server-side step (see save_store_gift_columns).
+   */
+  async saveGiftColumns(draft: string[], publish: boolean): Promise<GiftColumnsConfig> {
+    const names = trimGiftDraft(draft)
+    if (publish && !canPublishGifts(names)) {
+      throw new Error('All 8 gifts must be filled before publishing')
+    }
+    const session = await this.getSession()
+    const storeId = await this.adminStoreId(session)
+    const { data: store, error: storeError } = await this.client
+      .from('stores')
+      .select('slug')
+      .eq('id', storeId)
+      .maybeSingle()
+    if (storeError || !store) throw new Error(storeError?.message ?? 'Store not found')
+    const { data, error } = await this.client.rpc('save_store_gift_columns', {
+      p_store_slug: store.slug,
+      p_draft: names,
+      p_publish: publish,
+    })
+    if (error) throw new Error(error.message)
+    return parseGiftColumns(data) ?? blankGiftColumns()
   }
 
   private async fetchStoreById(storeId: string): Promise<StoreConfig> {

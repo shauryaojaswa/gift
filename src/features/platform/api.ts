@@ -17,6 +17,12 @@ export interface ShopRow {
   active: boolean
   minSpinAmount: number
   logoUrl: string | null
+  subtitle: string | null
+  primaryColor: string | null
+  secondaryColor: string | null
+  campaignBadge: string | null
+  googleReviewUrl: string | null
+  reviewLinkOwnerEditable: boolean
   ownerEmail: string | null
   ownerStatus: 'pending' | 'linked' | 'revoked' | null
   createdAt: string
@@ -29,6 +35,12 @@ export interface CatalogGift {
   description: string | null
   imageUrl: string | null
   voucherValue: number | null
+  /** Platform price policy: lowest declared value a shop may set (null = fixed). */
+  valueMin: number | null
+  /** Platform price policy: highest declared value a shop may set (null = fixed). */
+  valueMax: number | null
+  /** Shops that may NOT select this gift (empty = available to every shop). */
+  excludedStoreIds: string[]
   claimCodePrefix: string | null
   validityText: string | null
   active: boolean
@@ -42,7 +54,14 @@ export interface TierWithPool {
   active: boolean
   rewardId: string | null
   rewardName: string | null
-  pool: Array<{ rewardId: string; catalogGiftId: string | null; giftName: string }>
+  pool: Array<{
+    rewardId: string
+    catalogGiftId: string | null
+    giftName: string
+    declaredValue: number | null
+    quantity: number | null
+    quantityClaimed: number
+  }>
 }
 
 type OwnerStatus = 'pending' | 'linked' | 'revoked'
@@ -91,6 +110,12 @@ export async function listShops(client: PlatformClient): Promise<ShopRow[]> {
       active: row.active,
       minSpinAmount: row.min_spin_amount ?? 10000,
       logoUrl: row.logo_url,
+      subtitle: row.subtitle,
+      primaryColor: row.primary_color,
+      secondaryColor: row.secondary_color,
+      campaignBadge: row.campaign_badge,
+      googleReviewUrl: row.google_review_url,
+      reviewLinkOwnerEditable: row.review_link_owner_editable ?? true,
       ownerEmail: invitation?.email ?? membership?.email ?? null,
       ownerStatus: toOwnerStatus(invitation?.status) ?? (membership ? 'linked' : null),
       createdAt: row.created_at,
@@ -176,6 +201,9 @@ export async function listCatalog(client: PlatformClient, includeInactive = true
     description: row.description,
     imageUrl: row.image_url,
     voucherValue: row.voucher_value,
+    valueMin: row.value_min,
+    valueMax: row.value_max,
+    excludedStoreIds: row.excluded_store_ids ?? [],
     claimCodePrefix: row.claim_code_prefix,
     validityText: row.validity_text,
     active: row.active,
@@ -196,6 +224,9 @@ export async function createCatalogGift(
       description: input.description,
       image_url: input.imageUrl,
       voucher_value: input.voucherValue,
+      value_min: input.valueMin,
+      value_max: input.valueMax,
+      excluded_store_ids: input.excludedStoreIds,
       claim_code_prefix: input.claimCodePrefix,
       validity_text: input.validityText,
       active: input.active,
@@ -217,6 +248,9 @@ export async function updateCatalogGift(
   if (input.description !== undefined) patch.description = input.description
   if (input.imageUrl !== undefined) patch.image_url = input.imageUrl
   if (input.voucherValue !== undefined) patch.voucher_value = input.voucherValue
+  if (input.valueMin !== undefined) patch.value_min = input.valueMin
+  if (input.valueMax !== undefined) patch.value_max = input.valueMax
+  if (input.excludedStoreIds !== undefined) patch.excluded_store_ids = input.excludedStoreIds
   if (input.claimCodePrefix !== undefined) patch.claim_code_prefix = input.claimCodePrefix
   if (input.validityText !== undefined) patch.validity_text = input.validityText
   if (input.active !== undefined) patch.active = input.active
@@ -230,7 +264,9 @@ export async function listTiersWithPools(
 ): Promise<TierWithPool[]> {
   const { data: tiers, error } = await client
     .from('reward_tiers')
-    .select('*, rewards(name), tier_gift_options(reward_id, rewards(name, catalog_gift_id))')
+    .select(
+      '*, rewards(name), tier_gift_options(reward_id, declared_value, quantity, quantity_claimed, active, rewards(name, catalog_gift_id))',
+    )
     .eq('store_id', storeId)
     .order('min_amount')
   if (error) throw new Error(error.message)
@@ -238,6 +274,10 @@ export async function listTiersWithPools(
     const reward = row.rewards as { name: string } | null
     const options = (row.tier_gift_options ?? []) as Array<{
       reward_id: string
+      declared_value: number | null
+      quantity: number | null
+      quantity_claimed: number
+      active: boolean
       rewards: { name: string; catalog_gift_id: string | null } | null
     }>
     return {
@@ -248,23 +288,146 @@ export async function listTiersWithPools(
       active: row.active,
       rewardId: row.reward_id,
       rewardName: reward?.name ?? null,
-      pool: options.map((o) => ({
-        rewardId: o.reward_id,
-        catalogGiftId: o.rewards?.catalog_gift_id ?? null,
-        giftName: o.rewards?.name ?? 'Gift',
-      })),
+      // Only the bracket's live selection; retired rows keep their claim
+      // history server-side but are not part of the editable pool.
+      pool: options
+        .filter((o) => o.active)
+        .map((o) => ({
+          rewardId: o.reward_id,
+          catalogGiftId: o.rewards?.catalog_gift_id ?? null,
+          giftName: o.rewards?.name ?? 'Gift',
+          declaredValue: o.declared_value,
+          quantity: o.quantity,
+          quantityClaimed: o.quantity_claimed,
+        })),
     }
   })
 }
 
+/**
+ * Save one bracket's gift pool. `declaredValues` and `quantities` are keyed by
+ * catalog gift id (omitted = catalogue default value / unlimited). Server-side
+ * enforcement (count, price policy, availability, quantity bounds) lives in
+ * `save_store_gift_options`; this call surfaces its errors verbatim.
+ */
 export async function saveGiftOptions(
   client: PlatformClient,
   tierId: string,
   catalogGiftIds: string[],
+  declaredValues?: Record<string, number | null>,
+  quantities?: Record<string, number | null>,
 ): Promise<void> {
   const { error } = await client.rpc('save_store_gift_options', {
     p_tier_id: tierId,
     p_catalog_gift_ids: catalogGiftIds,
+    p_declared_values: declaredValues ?? null,
+    p_quantities: quantities ?? null,
   })
   if (error) throw new Error(error.message)
+}
+
+/** The platform-controlled maximum gift options per purchase bracket. */
+export async function fetchMaxGiftSelections(client: PlatformClient): Promise<number> {
+  const { data, error } = await client
+    .from('platform_policies')
+    .select('value')
+    .eq('key', 'max_gift_selections_per_bracket')
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  const parsed = Number((data?.value as unknown) ?? 4)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 4
+}
+
+/** Per-shop Google review link save (https enforced server-side + validated here). */
+export async function saveStoreReviewLink(
+  client: PlatformClient,
+  storeId: string,
+  url: string | null,
+): Promise<void> {
+  const trimmed = url?.trim() || null
+  if (trimmed && !/^https:\/\/\S+$/i.test(trimmed)) {
+    throw new Error('The Google review link must be an https:// URL.')
+  }
+  const { error } = await client
+    .from('stores')
+    .update({ google_review_url: trimmed })
+    .eq('id', storeId)
+  if (error) throw new Error(error.message)
+}
+
+/** Platform-controlled: may the shop owner edit the review link? */
+export async function setStoreReviewPolicy(
+  client: PlatformClient,
+  storeId: string,
+  ownerEditable: boolean,
+): Promise<void> {
+  const { error } = await client.rpc('set_store_review_policy', {
+    p_store_id: storeId,
+    p_owner_editable: ownerEditable,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Rename the shop slug (changes the customer URL; QR codes regenerate). */
+export async function renameStoreSlug(
+  client: PlatformClient,
+  storeId: string,
+  slug: string,
+): Promise<void> {
+  const { error } = await client.rpc('rename_store_slug', {
+    p_store_id: storeId,
+    p_new_slug: slug,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export interface ShopBrandingPatch {
+  name?: string
+  subtitle?: string | null
+  primaryColor?: string | null
+  secondaryColor?: string | null
+  campaignBadge?: string | null
+  minSpinAmount?: number
+}
+
+export async function updateShopBranding(
+  client: PlatformClient,
+  storeId: string,
+  patch: ShopBrandingPatch,
+): Promise<void> {
+  const row: Database['public']['Tables']['stores']['Update'] = {}
+  if (patch.name !== undefined) row.name = patch.name
+  if (patch.subtitle !== undefined) row.subtitle = patch.subtitle
+  if (patch.primaryColor !== undefined) row.primary_color = patch.primaryColor
+  if (patch.secondaryColor !== undefined) row.secondary_color = patch.secondaryColor
+  if (patch.campaignBadge !== undefined) row.campaign_badge = patch.campaignBadge
+  if (patch.minSpinAmount !== undefined) row.min_spin_amount = patch.minSpinAmount
+  const { error } = await client.from('stores').update(row).eq('id', storeId)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Replace an existing shop's logo: uploads to the same tenant-scoped storage
+ * path the in-app uploader uses (store-logos/{storeId}/{uuid}.{ext}), then
+ * persists stores.logo_url. The previous object is retained in storage.
+ */
+export async function updateShopLogo(
+  client: PlatformClient,
+  storeId: string,
+  file: File,
+): Promise<string> {
+  const validation = validateLogoFile(file)
+  if (!validation.ok) throw new Error(validation.error)
+  const path = `${storeId}/${crypto.randomUUID()}.${validation.extension}`
+  const { error } = await client.storage
+    .from('store-logos')
+    .upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false })
+  if (error) throw new Error(error.message)
+  const url = client.storage.from('store-logos').getPublicUrl(path).data.publicUrl
+  const { error: updateError } = await client
+    .from('stores')
+    .update({ logo_url: url })
+    .eq('id', storeId)
+  if (updateError) throw new Error(updateError.message)
+  return url
 }

@@ -1,4 +1,4 @@
-import type { Reward, RewardTier, StoreConfig } from '../../types'
+import type { GiftColumnsConfig, Reward, RewardTier, StoreConfig } from '../../types'
 
 export interface SubmissionRecord {
   id: string
@@ -25,6 +25,8 @@ export interface SubmissionRecord {
   reviewCtaShown: boolean
   reviewCtaClicked: boolean
   createdAt: string
+  /** Optional invoice/bill details provided by the customer; null/absent when not provided. */
+  invoiceDetails?: string | null
 }
 
 export interface AdminStats {
@@ -65,6 +67,8 @@ export interface CreateSubmissionInput {
   purchaseAmount: number
   reviewCtaShown: boolean
   reviewCtaClicked: boolean
+  /** Optional invoice/bill details; omit or null when the customer provides none. */
+  invoiceDetails?: string | null
 }
 
 export interface RewardAssignment {
@@ -101,6 +105,12 @@ export interface DataProvider {
   saveTierConfiguration(tiers: RewardTier[]): Promise<void>
   updateStore(patch: StorePatch): Promise<StoreConfig>
   uploadStoreLogo(file: File): Promise<string>
+  /**
+   * Save the eight gift fields. `publish: false` stores the draft only (partial
+   * saves allowed); `publish: true` requires all 8 fields filled and replaces
+   * the live wheel atomically. Returns the persisted config.
+   */
+  saveGiftColumns(draft: string[], publish: boolean): Promise<GiftColumnsConfig>
 }
 
 export type DataProviderKind = 'local' | 'supabase'
