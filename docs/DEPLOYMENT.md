@@ -270,6 +270,18 @@ exact restore, cross-store snapshots unchanged), customer journeys
 **visible (headed) browser** at 5079/5071, 5097/5089, 5063/5162 ms - approximately five
 seconds on every store, stopping on the engine-assigned reward.
 
+**GitHub Pages fallback refreshed (A4):** snapshot `50faecc` ("chore(pages): refresh
+GitHub Pages snapshot to v1.4.0 source; keep canonical campaign URL pin") - the
+snapshot's staged file set verified zero-drift against the release commit (28 files),
+Actions run `39235042144` concluded **success**, and the Pages-served bundle
+`index-pxx-FAfP.js` carries the release markers across its 44-chunk set (invoice prompt
+placeholder, approved jewellery sentence, baked `https://jriq.in` canonical pin - the
+Actions build env is correct, no demo-mode fallback). Fallback behavioral pass **6/6**:
+homepage, legacy `/store/{slug}` SPA-restore, `/gift/pashupati1` store page, invoice
+prompt on the details form, form fields + amount chips, `/gift/standee/pashupati1`.
+Tooling fix in the same step: `scripts/wait-pages-v131.mjs` now scans the whole served
+chunk set instead of only the entry bundle (markers live in lazily-imported chunks).
+
 ## 6. Rollback
 
 - **2026-10-16: cutover complete — `jriq.in` (MilesWeb) is PRIMARY; GitHub Pages
