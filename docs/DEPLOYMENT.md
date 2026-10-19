@@ -246,7 +246,7 @@ stores whose `gift_columns` stays NULL and whose bracket-ladder reward config is
 preserved verbatim). Migration applied **staging-first** (`wpytaorgiqkfnifsuhax`), then
 production (`awshkiwqkuubkhecszzk`); both function lineages retain `p_invoice_details`.
 
-Gates on this build: `npm run preflight:root` **11/11** (lint, **424/424 unit tests**,
+Gates on this build: `npm run preflight:root` **11/11** (lint, **426/426 unit tests**,
 typecheck + production build, secret scan, anon-key classification), env verified in the
 shipped bytes (production Supabase project, `VITE_PUBLIC_APP_URL=https://jriq.in`, anon
 key only, no demo-mode fallback). Live bundle **`index-Dh4HqAXG.js`** (customer flow
