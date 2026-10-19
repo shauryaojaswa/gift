@@ -56,6 +56,11 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
       setSaving(false)
       return
     }
+    if (googleReviewUrl.trim() && !/^https:\/\//i.test(googleReviewUrl.trim())) {
+      setFormError('The Google review link must be an https:// URL.')
+      setSaving(false)
+      return
+    }
     const amount = Number(minSpinAmount)
     if (!Number.isFinite(amount) || amount < 0) {
       setFormError('Minimum qualifying purchase must be a number of ₹0 or more.')
@@ -70,7 +75,10 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
         logoUrl: logoUrl.trim(),
         primaryColor,
         secondaryColor,
-        googleReviewUrl: googleReviewUrl.trim() || null,
+        // Platform-managed link: the owner's save never touches it.
+        ...(store.reviewLinkOwnerEditable === false
+          ? {}
+          : { googleReviewUrl: googleReviewUrl.trim() || null }),
         campaignBadge: campaignBadge.trim(),
         minSpinAmount: Math.round(amount),
       })
@@ -194,11 +202,19 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
             </div>
           </div>
 
-          <FormField label="Google Review URL" hint="Your store's Google review link. Customers may skip this.">
+          <FormField
+            label="Google Review URL"
+            hint={
+              store.reviewLinkOwnerEditable === false
+                ? 'Managed by the platform administrator for this shop.'
+                : "Your store's Google review link. Customers may skip this."
+            }
+          >
             <input
               className="field-input py-2"
               type="url"
               value={googleReviewUrl}
+              disabled={store.reviewLinkOwnerEditable === false}
               onChange={(e) => setGoogleReviewUrl(e.target.value)}
               placeholder="https://search.google.com/local/writereview?placeid=…"
             />

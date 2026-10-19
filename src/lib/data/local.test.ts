@@ -65,4 +65,21 @@ describe('LocalDataProvider customer entries', () => {
     await expect(provider.createSubmission(createInput({ purchaseAmount: 9999 })))
       .rejects.toThrow('Purchase does not qualify for an active reward')
   })
+
+  it('persists optional invoice details with the entry and stores none when absent', async () => {
+    const provider = new LocalDataProvider()
+    await provider.createSubmission(createInput({ invoiceDetails: 'INV-2026-00123' }))
+    await provider.createSubmission(createInput({ requestId: 'fd919395-124c-4b18-89ec-5d91a1f4108f' }))
+
+    // A fresh provider instance reads back from storage: nothing is kept in
+    // transient browser state only.
+    const reopened = new LocalDataProvider()
+    const list = await reopened.listSubmissions({ page: 1, pageSize: 20, search: '' })
+    expect(list.total).toBe(2)
+    const withInvoice = list.items.find((r) => r.id === requestId)
+    const withoutInvoice = list.items.find((r) => r.id === 'fd919395-124c-4b18-89ec-5d91a1f4108f')
+    expect(withInvoice?.invoiceDetails).toBe('INV-2026-00123')
+    expect(withoutInvoice?.invoiceDetails ?? null).toBeNull()
+    expect(withoutInvoice?.collectionStatus).toBe('awaiting')
+  })
 })

@@ -50,6 +50,17 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+/**
+ * Spin timing - pinned by tests. The spin animation runs for exactly 6 seconds
+ * before the gift is revealed (plus the 400ms reveal settle). Customers who ask
+ * their system for reduced motion still get the spin, just shorter and gentler.
+ */
+export const SPIN_DURATION_MS = 6000
+export const SPIN_FULL_SPINS = 8
+export const SPIN_REDUCED_MOTION_DURATION_MS = 3000
+export const SPIN_REDUCED_MOTION_FULL_SPINS = 4
+export const SPIN_REVEAL_SETTLE_MS = 400
+
 export function SpinWheel({
   segments,
   targetSegment,
@@ -93,23 +104,18 @@ export function SpinWheel({
 
     const startAngle = rotationRef.current
     setLandedSegment(null)
+    // The spin is the heart of Spin & Win: the wheel always visibly rotates
+    // for a few seconds before the gift is revealed. Customers who ask their
+    // system for reduced motion still get the spin, just shorter and gentler
+    // instead of an instant snap.
     const { finalRotation, durationMs, fullSpins } = computeTargetRotation(
       targetSegment,
       segments.length,
-      { fullSpins: 6, durationMs: 6000 },
+      prefersReducedMotion()
+        ? { fullSpins: SPIN_REDUCED_MOTION_FULL_SPINS, durationMs: SPIN_REDUCED_MOTION_DURATION_MS }
+        : { fullSpins: SPIN_FULL_SPINS, durationMs: SPIN_DURATION_MS },
     )
     const targetAngle = startAngle + normalizeSpinDelta(startAngle, finalRotation, fullSpins)
-
-    if (prefersReducedMotion()) {
-      setRotation(normalizeAngle(targetAngle))
-      completedRef.current = true
-      setLandedSegment(targetSegment)
-      resultTimerRef.current = setTimeout(() => {
-        onSpinComplete(targetAngle)
-        resultTimerRef.current = null
-      }, 400)
-      return
-    }
 
     controllerRef.current?.cancel()
     controllerRef.current = animateSpin(
@@ -125,7 +131,7 @@ export function SpinWheel({
         resultTimerRef.current = setTimeout(() => {
           onSpinComplete(targetAngle)
           resultTimerRef.current = null
-        }, 400)
+        }, SPIN_REVEAL_SETTLE_MS)
       },
     )
 

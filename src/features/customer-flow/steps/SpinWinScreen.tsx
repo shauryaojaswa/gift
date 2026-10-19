@@ -5,12 +5,12 @@ import { SpinWheel } from '@/components/ui/SpinWheel'
 import { PrimaryButton } from '@/components/ui/PrimaryButton'
 import { buildShopTheme, hslToString } from '@/lib/theme'
 import {
+  buildWheelOptions,
   buildWheelSegments,
-  getAwardableOptions,
   landingSegmentIndex,
 } from '@/lib/reward-engine'
 import { formatINR } from '@/lib/currency'
-import type { GiftOption, WheelSegment } from '@/types'
+import type { WheelSegment } from '@/types'
 
 export function getWheelSize(): number {
   if (typeof window === 'undefined') return 360
@@ -49,26 +49,13 @@ export function SpinWinScreen() {
     [store.primaryColor, store.secondaryColor],
   )
 
-  // The wheel shows the bracket's real awardable gifts. If the shop's pool
-  // changed after the award (or the bracket was removed), the saved reward
-  // itself is the only honest slice to show.
+  // The wheel advertises EVERY gift this shop awards - the customer can see
+  // they could win any of them - and the purchase amount decides the actual
+  // prize. Whatever was saved at details-submit wins: the wheel stops exactly
+  // on the engine-assigned slice and its label is the saved snapshot.
   const { segments, landing } = useMemo(() => {
     if (!rewardResult) return { segments: [] as WheelSegment[], landing: -1 }
-    const liveTier = store.tiers.find((t) => t.id === rewardResult.tier.id) ?? rewardResult.tier
-    const pool = getAwardableOptions(liveTier, store)
-    const options: GiftOption[] =
-      pool.length > 0
-        ? pool
-        : [
-            {
-              id: rewardResult.reward.id,
-              name: rewardResult.reward.name,
-              wheelLabel:
-                rewardResult.reward.shortLabel || rewardResult.reward.name,
-              description: rewardResult.reward.description,
-              voucherValue: rewardResult.reward.voucherValue ?? null,
-            },
-          ]
+    const options = buildWheelOptions(store, rewardResult)
     const segs = buildWheelSegments(options, rewardResult, theme.wheelPalette)
     return { segments: segs, landing: landingSegmentIndex(segs, rewardResult) }
   }, [store, rewardResult, theme.wheelPalette])

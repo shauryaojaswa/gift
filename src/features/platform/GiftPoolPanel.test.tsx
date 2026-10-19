@@ -4,11 +4,13 @@ import { GiftPoolPanel } from './GiftPoolPanel'
 import type { CatalogGift, TierWithPool } from './api'
 
 /**
- * Shop gift selection (4 gifts max per bracket) against the real component.
- * Server-side enforcement lives in save_store_gift_options and is tested in
- * scripts/staging-verify.mjs; these tests pin the UI contract: pre-selection of
- * persisted pools, the selection limit, save/reload persistence, and display
- * rules for inactive catalogue gifts.
+ * Shop gift selection (max per bracket from platform_policies) against the
+ * real component. Server-side enforcement lives in save_store_gift_options
+ * (count, price policy, availability, quantity bounds) and is tested against
+ * the real database in scripts/backend-e2e.mjs; these tests pin the UI
+ * contract: pre-selection of persisted pools, the selection limit, save/reload
+ * persistence with declared values and quantities, the price-policy display,
+ * per-shop availability, and display rules for inactive catalogue gifts.
  */
 
 const mocks = vi.hoisted(() => ({
@@ -16,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   listTiersWithPools: vi.fn(),
   listCatalog: vi.fn(),
   saveGiftOptions: vi.fn(),
+  fetchMaxGiftSelections: vi.fn(),
+  updateCatalogGift: vi.fn(),
 }))
 
 // Mock by relative specifier: vi.mock resolves the path itself, and the
@@ -25,18 +29,29 @@ vi.mock('./api', () => ({
   listTiersWithPools: mocks.listTiersWithPools,
   listCatalog: mocks.listCatalog,
   saveGiftOptions: mocks.saveGiftOptions,
+  fetchMaxGiftSelections: mocks.fetchMaxGiftSelections,
+  updateCatalogGift: mocks.updateCatalogGift,
 }))
 
-const gift = (id: string, name: string, active = true): CatalogGift => ({
+const gift = (
+  id: string,
+  name: string,
+  active = true,
+  extra: Partial<CatalogGift> = {},
+): CatalogGift => ({
   id,
   name,
   wheelLabel: name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8),
   description: null,
   imageUrl: null,
   voucherValue: null,
+  valueMin: null,
+  valueMax: null,
+  excludedStoreIds: [],
   claimCodePrefix: 'GIFT',
   validityText: null,
   active,
+  ...extra,
 })
 
 const tier = (id: string, min: number, max: number | null, pool: TierWithPool['pool']): TierWithPool => ({
@@ -60,7 +75,14 @@ const CATALOG = [
 ]
 
 const TIER_A = tier('tier-a', 1000, 10000, [
-  { rewardId: 'r1', catalogGiftId: 'g1', giftName: 'Silver Coin' },
+  {
+    rewardId: 'r1',
+    catalogGiftId: 'g1',
+    giftName: 'Silver Coin',
+    declaredValue: null,
+    quantity: null,
+    quantityClaimed: 0,
+  },
 ])
 const TIER_B = tier('tier-b', 10000, null, [])
 
@@ -83,11 +105,24 @@ function checkboxIn(bracketHeading: string, name: string): HTMLInputElement {
   return label!.querySelector('input[type="checkbox"]')!
 }
 
+/** The visible input labelled for a gift inside one bracket card. */
+function labelledInputIn(bracketHeading: string, labelPattern: RegExp, name: string): HTMLInputElement {
+  const card = screen.getByText(bracketHeading).closest('.rounded-xl')!
+  const input = Array.from(card.querySelectorAll('input')).find((el) => {
+    const label = el.getAttribute('aria-label') ?? ''
+    return label.includes(name) && labelPattern.test(label)
+  })
+  expect(input, `input ${labelPattern} for ${name} in ${bracketHeading} must exist`).toBeTruthy()
+  return input as HTMLInputElement
+}
+
 describe('GiftPoolPanel', () => {
   beforeEach(() => {
     mocks.listTiersWithPools.mockReset().mockResolvedValue([TIER_A, TIER_B])
     mocks.listCatalog.mockReset().mockResolvedValue(CATALOG)
     mocks.saveGiftOptions.mockReset().mockResolvedValue(undefined)
+    mocks.fetchMaxGiftSelections.mockReset().mockResolvedValue(4)
+    mocks.updateCatalogGift.mockReset().mockResolvedValue(undefined)
   })
 
   it('loads brackets and pre-selects the persisted pool', async () => {
@@ -98,6 +133,18 @@ describe('GiftPoolPanel', () => {
     expect(checkboxFor('Gold Coin').checked).toBe(false)
     // Persisted selection count is shown
     expect(screen.getByText(/1 of 4 gifts selected/)).toBeInTheDocument()
+  })
+
+  it('takes the selection limit from platform policy, not a hardcode', async () => {
+    mocks.fetchMaxGiftSelections.mockResolvedValue(2)
+    render(<GiftPoolPanel storeId="store-1" />)
+    await waitFor(() => expect(checkboxFor('Silver Coin').checked).toBe(true))
+
+    expect(screen.getByText(/up to 2 catalogue gifts/)).toBeInTheDocument()
+    fireEvent.click(checkboxFor('Gold Coin'))
+    fireEvent.click(checkboxFor('Cleaning Kit')) // 3rd -> over the policy limit
+    expect(checkboxFor('Cleaning Kit').checked).toBe(false)
+    expect(screen.getByRole('status')).toHaveTextContent(/at most 2 gifts/i)
   })
 
   it('allows selecting up to four gifts in a bracket', async () => {
@@ -147,14 +194,77 @@ describe('GiftPoolPanel', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[0])
 
     await waitFor(() =>
-      expect(mocks.saveGiftOptions).toHaveBeenCalledWith(mocks.client, 'tier-a', [
-        'g1',
-        'g2',
-      ]),
+      expect(mocks.saveGiftOptions).toHaveBeenCalledWith(
+        mocks.client,
+        'tier-a',
+        ['g1', 'g2'],
+        { g1: null, g2: null },
+        { g1: null, g2: null },
+      ),
     )
     // save() reloads and then confirms
     await waitFor(() => expect(mocks.listTiersWithPools).toHaveBeenCalledTimes(2))
     expect(screen.getByRole('status')).toHaveTextContent(/Saved gift options/)
+  })
+
+  it('sends declared values and quantities typed for a selected gift', async () => {
+    mocks.listCatalog.mockResolvedValue([
+      ...CATALOG,
+      gift('g7', 'Adjustable Coin', true, { valueMin: 1500, valueMax: 5000, voucherValue: 2500 }),
+    ])
+    render(<GiftPoolPanel storeId="store-1" />)
+    await waitFor(() => expect(checkboxFor('Silver Coin').checked).toBe(true))
+
+    fireEvent.click(checkboxFor('Adjustable Coin'))
+    // price policy is displayed for the gift type
+    expect(screen.getAllByText(/Value policy: ₹1,500 – ₹5,000/).length).toBeGreaterThan(0)
+
+    fireEvent.change(
+      labelledInputIn('₹1,000 – ₹10,000', /Declared value/, 'Adjustable Coin'),
+      { target: { value: '2200' } },
+    )
+    fireEvent.change(
+      labelledInputIn('₹1,000 – ₹10,000', /Quantity/, 'Adjustable Coin'),
+      { target: { value: '25' } },
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[0])
+
+    await waitFor(() =>
+      expect(mocks.saveGiftOptions).toHaveBeenCalledWith(
+        mocks.client,
+        'tier-a',
+        ['g1', 'g7'],
+        { g1: null, g7: 2200 },
+        { g1: null, g7: 25 },
+      ),
+    )
+  })
+
+  it('disables gifts that are not available to this shop', async () => {
+    mocks.listCatalog.mockResolvedValue([
+      gift('g1', 'Silver Coin'),
+      gift('g8', 'Restricted Gift', true, { excludedStoreIds: ['store-1'] }),
+    ])
+    render(<GiftPoolPanel storeId="store-1" />)
+    await waitFor(() => expect(checkboxFor('Silver Coin').checked).toBe(true))
+
+    expect(screen.getAllByText(/not available for this shop/)).toHaveLength(2)
+    expect(checkboxFor('Restricted Gift').disabled).toBe(true)
+  })
+
+  it('lets the platform toggle availability for the shop', async () => {
+    mocks.listCatalog.mockResolvedValue([
+      gift('g8', 'Restricted Gift', true, { excludedStoreIds: ['store-1'] }),
+    ])
+    render(<GiftPoolPanel storeId="store-1" canManageAvailability />)
+    await waitFor(() => expect(screen.getAllByText(/Restricted Gift/).length).toBeGreaterThan(0))
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Allow for this shop' })[0])
+    await waitFor(() =>
+      expect(mocks.updateCatalogGift).toHaveBeenCalledWith(mocks.client, 'g8', {
+        excludedStoreIds: [],
+      }),
+    )
   })
 
   it('keeps selections per bracket independent', async () => {
@@ -167,7 +277,13 @@ describe('GiftPoolPanel', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[1])
     await waitFor(() =>
-      expect(mocks.saveGiftOptions).toHaveBeenCalledWith(mocks.client, 'tier-b', ['g2']),
+      expect(mocks.saveGiftOptions).toHaveBeenCalledWith(
+        mocks.client,
+        'tier-b',
+        ['g2'],
+        { g2: null },
+        { g2: null },
+      ),
     )
   })
 

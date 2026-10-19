@@ -101,6 +101,7 @@ export function RewardScreen() {
         onClose={() => setAssistantOpen(false)}
         onSkip={() => setAssistantOpen(false)}
         reviewUrl={reviewUrl}
+        storeSlug={store.slug}
       />
     </div>
   )

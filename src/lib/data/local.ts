@@ -1,5 +1,12 @@
-import type { Reward, RewardTier, StoreConfig } from '../../types'
+import type { GiftColumnsConfig, Reward, RewardTier, StoreConfig } from '../../types'
 import { ALL_STORES, JOLLY_ENTERPRISES_SLUG } from '../stores'
+import { validateLogoFile } from '../logo-upload'
+import {
+  blankGiftColumns,
+  canPublishGifts,
+  normalizeGiftDraft,
+  trimGiftDraft,
+} from '../gift-columns'
 import type {
   AdminSession,
   CreateSubmissionInput,
@@ -153,6 +160,7 @@ export class LocalDataProvider implements DataProvider {
       reviewCtaShown: input.reviewCtaShown,
       reviewCtaClicked: input.reviewCtaClicked,
       createdAt: new Date().toISOString(),
+      invoiceDetails: input.invoiceDetails?.trim() || null,
     }
     const records = readJSON<SubmissionRecord[]>(SUBMISSIONS_KEY(store.id), [])
     records.unshift(record)
@@ -316,9 +324,82 @@ export class LocalDataProvider implements DataProvider {
     return store
   }
 
+  /**
+   * Mirror of the backend contract: draft saves persist partial work as-is;
+   * publishing requires all 8 fields and replaces the live wheel atomically.
+   * The demo store's rewards/tier are rebuilt from the published slots so the
+   * demo customer flow awards real field names, never placeholders.
+   */
+  async saveGiftColumns(draft: string[], publish: boolean): Promise<GiftColumnsConfig> {
+    const store = await this.mutateStore()
+    const names = trimGiftDraft(normalizeGiftDraft(draft))
+    const current = store.giftColumns ?? blankGiftColumns()
+    if (!publish) {
+      const next: GiftColumnsConfig = {
+        draft: names,
+        published: current.published,
+        publishedAt: current.publishedAt,
+      }
+      store.giftColumns = next
+      this.persistStore(store)
+      return next
+    }
+    if (!canPublishGifts(names)) {
+      throw new Error('All 8 gifts must be filled before publishing')
+    }
+    const published = names.map((name, index) => ({
+      name,
+      rewardId: current.published?.[index]?.rewardId ?? crypto.randomUUID(),
+    }))
+    const next: GiftColumnsConfig = {
+      draft: names,
+      published,
+      publishedAt: new Date().toISOString(),
+    }
+    store.giftColumns = next
+    store.rewards = published.map((slot) => ({
+      id: slot.rewardId,
+      name: slot.name,
+      description: '',
+      claimCodePrefix: null,
+      validityText: null,
+      active: true,
+    }))
+    const priorTier = store.tiers.find((t) => t.rewardId === null) ?? store.tiers[0]
+    store.tiers = [
+      {
+        id: priorTier?.id ?? crypto.randomUUID(),
+        minAmount: store.minSpinAmount,
+        maxAmount: null,
+        rewardId: null,
+        targetSegment: 0,
+        active: true,
+        giftOptions: published.map((slot) => ({
+          id: slot.rewardId,
+          name: slot.name,
+          wheelLabel: slot.name,
+          description: '',
+          voucherValue: null,
+        })),
+      },
+    ]
+    this.persistStore(store)
+    return next
+  }
+
   async uploadStoreLogo(file: File): Promise<string> {
-    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
-      throw new Error('Choose an image smaller than 5 MB')
+    const validation = validateLogoFile(file)
+    if (!validation.ok) throw new Error(validation.error)
+    // Verify the bytes actually decode before accepting them.
+    let decoded: { width: number; height: number }
+    try {
+      decoded = await createImageBitmap(file)
+    } catch {
+      throw new Error('That image could not be decoded. Choose a valid JPG, PNG or WebP file.')
+    }
+    const { width, height } = decoded
+    if (!width || !height || !Number.isFinite(width) || !Number.isFinite(height)) {
+      throw new Error('That image could not be decoded. Choose a valid JPG, PNG or WebP file.')
     }
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
@@ -326,6 +407,14 @@ export class LocalDataProvider implements DataProvider {
       reader.onerror = () => reject(new Error('Could not read image'))
       reader.readAsDataURL(file)
     })
+    // Guard against storing something the UI cannot render.
+    const probe = await new Promise<boolean>((resolve) => {
+      const img = new Image()
+      img.onload = () => resolve(img.naturalWidth > 0 && img.naturalHeight > 0)
+      img.onerror = () => resolve(false)
+      img.src = dataUrl
+    })
+    if (!probe) throw new Error('That image could not be decoded. Choose a valid JPG, PNG or WebP file.')
     await this.updateStore({ logoUrl: dataUrl })
     return dataUrl
   }

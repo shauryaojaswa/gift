@@ -12,6 +12,7 @@ export interface CustomerFlowState {
   fullName: string
   purchaseAmount: number | null
   phoneNumber: string
+  invoiceDetails: string
   consent: ConsentState
   reviewCtaShown: boolean
   reviewCtaClicked: boolean
@@ -33,6 +34,7 @@ export interface CustomerFlowActions {
   setFullName: (value: string) => void
   setPurchaseAmount: (value: number | null) => void
   setPhoneNumber: (value: string) => void
+  setInvoiceDetails: (value: string) => void
   setConsent: (consent: ConsentState) => void
   setReviewCtaShown: (shown: boolean) => void
   setReviewCtaClicked: (clicked: boolean) => void
@@ -56,6 +58,7 @@ const initial: CustomerFlowState = {
   fullName: '',
   purchaseAmount: null,
   phoneNumber: '',
+  invoiceDetails: '',
   consent: { dataConsent: false, marketingConsent: false },
   reviewCtaShown: false,
   reviewCtaClicked: false,
@@ -141,6 +144,7 @@ export const useCustomerFlow = create<CustomerFlowStore>()(
       setFullName: (value) => set((s) => persist(s, { fullName: value })),
       setPurchaseAmount: (value) => set((s) => persist(s, { purchaseAmount: value })),
       setPhoneNumber: (value) => set((s) => persist(s, { phoneNumber: value })),
+      setInvoiceDetails: (value) => set((s) => persist(s, { invoiceDetails: value })),
       setConsent: (consent) => set((s) => persist(s, { consent })),
       setReviewCtaShown: (shown) => set((s) => persist(s, { reviewCtaShown: shown })),
       setReviewCtaClicked: (clicked) => set((s) => persist(s, { reviewCtaClicked: clicked })),
@@ -191,7 +195,11 @@ function recover(saved: CustomerFlowState, slug: string): CustomerFlowState {
   if (!saved.slug) saved.slug = slug
   if (!saved.submissionRequestId) saved.submissionRequestId = crypto.randomUUID()
   saved.claimCode = saved.claimCode ?? null
-  saved.reviewReturnDetected = false
+  saved.invoiceDetails = saved.invoiceDetails ?? ''
+  // The return-from-Google flag is kept across recoveries so coming back from
+  // Google (even when the browser reloads the tab) restores the SAME saved
+  // claim with its "WELCOME BACK!" state. startSpin() clears it after the spin.
+  saved.reviewReturnDetected = Boolean(saved.reviewReturnDetected)
 
   if (saved.step === 'WELCOME') {
     return {

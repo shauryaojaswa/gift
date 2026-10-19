@@ -1,0 +1,17 @@
+import fs from 'node:fs'
+const s = fs.readFileSync('src/components/ui/SpinWheel.tsx', 'utf8')
+const out = []
+out.push('rimColorProp=' + s.includes('rimColor?: string'))
+out.push('ringFillProp=' + s.includes('ringFill?: string'))
+out.push('accentProp=' + s.includes('accentColor?: string'))
+out.push('visibleLabels=' + s.includes('Spin wheel showing'))
+out.push('oldAriaGone=' + !s.includes('Win wheel with'))
+out.push('ringCircle=' + s.includes('fill={ringFill} stroke={rimColor}'))
+out.push('segStrokeOpacity=' + s.includes('strokeOpacity={0.55}'))
+out.push('segStrokeThemed=' + s.includes('stroke={rimColor}'))
+out.push('noOldSepColor=' + !s.includes('hsl(39 34% 59%/0.55)'))
+out.push('pointerThemed=' + s.includes('fill={accentColor} stroke={rimColor}'))
+out.push('textAria=' + s.includes("aria-label={lines.join(' ')}"))
+out.push('btnAria=' + s.includes("isSpinning ? 'Spinning...' : 'Spin the wheel'"))
+fs.writeFileSync('logs/verify-wheel.txt', out.join('\n'), 'ascii')
+console.log('checked')

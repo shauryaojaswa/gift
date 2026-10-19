@@ -19,11 +19,13 @@ export function DetailsScreen() {
     fullName,
     purchaseAmount,
     phoneNumber,
+    invoiceDetails,
     submissionId,
     submissionRequestId,
     setFullName,
     setPurchaseAmount,
     setPhoneNumber,
+    setInvoiceDetails,
     setRewardResult,
     setSubmissionId,
     setClaimCode,
@@ -32,11 +34,13 @@ export function DetailsScreen() {
     fullName: s.fullName,
     purchaseAmount: s.purchaseAmount,
     phoneNumber: s.phoneNumber,
+    invoiceDetails: s.invoiceDetails,
     submissionId: s.submissionId,
     submissionRequestId: s.submissionRequestId,
     setFullName: s.setFullName,
     setPurchaseAmount: s.setPurchaseAmount,
     setPhoneNumber: s.setPhoneNumber,
+    setInvoiceDetails: s.setInvoiceDetails,
     setRewardResult: s.setRewardResult,
     setSubmissionId: s.setSubmissionId,
     setClaimCode: s.setClaimCode,
@@ -123,6 +127,7 @@ export function DetailsScreen() {
         purchaseAmount,
         reviewCtaShown: false,
         reviewCtaClicked: false,
+        invoiceDetails: invoiceDetails.trim() || null,
       })
       setSubmissionId(assignment.id)
       setClaimCode(assignment.claimCode)
@@ -252,6 +257,24 @@ export function DetailsScreen() {
           aria-label="10-digit mobile number"
           disabled={claimed || submitting}
         />
+      </FormField>
+
+      <FormField label="INVOICE DETAILS (OPTIONAL)" id="invoice-details">
+        <input
+          id="invoice-details"
+          type="text"
+          className="field-input px-3 py-3 text-base"
+          placeholder="Invoice or bill number"
+          value={invoiceDetails}
+          onChange={(e) => setInvoiceDetails(e.target.value)}
+          autoComplete="off"
+          maxLength={200}
+          aria-label="Invoice details (optional)"
+          disabled={claimed || submitting}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          Optional — you can continue and receive your reward without it.
+        </p>
       </FormField>
 
       {submitError && (

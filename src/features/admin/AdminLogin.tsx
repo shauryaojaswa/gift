@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAdminAuth } from './AdminContext'
+import { useAdminAuth, AdminAuthProvider } from './AdminContext'
 import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/Card'
 import { FormField } from '@/components/ui/FormField'
 
-export default function AdminLogin() {
+function AdminLoginInner() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login } = useAdminAuth()
@@ -73,5 +73,13 @@ export default function AdminLogin() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function AdminLogin() {
+  return (
+    <AdminAuthProvider>
+      <AdminLoginInner />
+    </AdminAuthProvider>
   )
 }

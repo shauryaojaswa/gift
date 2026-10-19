@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getSupabaseClient } from '@/lib/data'
-import {
-  downloadDataUrl,
-  downloadSvgFile,
-  generateQrPng,
-  generateQrSvg,
-  getCampaignUrl,
-} from '@/lib/qr'
+import { getCampaignUrl } from '@/lib/qr'
 import { isReservedSlug, SLUG_PATTERN } from '@/lib/slugs'
 import {
   createShop,
@@ -18,6 +12,8 @@ import {
   type ShopRow,
 } from './api'
 import { GiftPoolPanel } from './GiftPoolPanel'
+import { QrDeliverable } from './QrDeliverable'
+import { ShopConfigPanel } from './ShopConfigPanel'
 import { Spinner } from '@/components/ui/Spinner'
 import { FormField } from '@/components/ui/FormField'
 
@@ -43,6 +39,7 @@ export default function ShopsPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [configFor, setConfigFor] = useState<string | null>(null)
   const [qrFor, setQrFor] = useState<string | null>(null)
   const [query, setQuery] = useState('')
 
@@ -250,14 +247,16 @@ export default function ShopsPage() {
                   )}
                 </div>
               </FormField>
-              <FormField label="Owner email">
+              <FormField
+                label="Owner email"
+                hint="Optional — leave blank to add the owner later. The shop stays in setup-pending until an owner account is linked."
+              >
                 <input
                   type="email"
                   className="field-input"
                   value={ownerEmail}
                   onChange={(e) => setOwnerEmail(e.target.value)}
                   placeholder="owner@shop.com"
-                  required
                 />
               </FormField>
               <div className="flex items-end">
@@ -345,6 +344,13 @@ export default function ShopsPage() {
                 >
                   {expanded === shop.id ? 'Hide gift options' : 'Gift options'}
                 </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-border-soft px-3 py-1.5 text-xs font-medium text-ink hover:bg-brand/5"
+                  onClick={() => setConfigFor(configFor === shop.id ? null : shop.id)}
+                >
+                  {configFor === shop.id ? 'Hide configuration' : 'Configure'}
+                </button>
               </div>
 
               {qrFor === shop.id && (
@@ -366,7 +372,18 @@ export default function ShopsPage() {
 
               {expanded === shop.id && (
                 <div className="border-t border-border-soft p-4">
-                  <GiftPoolPanel storeId={shop.id} />
+                  <GiftPoolPanel storeId={shop.id} canManageAvailability />
+                </div>
+              )}
+
+              {configFor === shop.id && (
+                <div className="border-t border-border-soft">
+                  <ShopConfigPanel
+                    shop={shop}
+                    onChanged={reload}
+                    onNotice={setNotice}
+                    onError={setError}
+                  />
                 </div>
               )}
             </article>
@@ -451,71 +468,6 @@ function NewShopResult({
         <button type="button" className="btn-secondary px-4 py-2 text-sm" onClick={onCreateAnother}>
           Create another shop
         </button>
-      </div>
-    </div>
-  )
-}
-
-/** Customer URL + print-ready QR artefacts (PNG ≥1000px and SVG). */
-function QrDeliverable({ slug }: { slug: string }) {
-  const url = getCampaignUrl(slug)
-  const [png, setPng] = useState<string | null>(null)
-  const [svg, setSvg] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    Promise.all([generateQrPng(url), generateQrSvg(url)])
-      .then(([pngUrl, svgText]) => {
-        if (!cancelled) {
-          setPng(pngUrl)
-          setSvg(svgText)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPng(null)
-          setSvg(null)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [url])
-
-  return (
-    <div className="flex flex-wrap items-center gap-4">
-      {png ? (
-        <img
-          src={png}
-          alt={`QR code for ${url}`}
-          className="h-32 w-32 rounded-lg border border-border-soft"
-        />
-      ) : (
-        <div className="flex h-32 w-32 items-center justify-center rounded-lg border border-border-soft">
-          <Spinner />
-        </div>
-      )}
-      <div className="min-w-0">
-        <p className="text-xs uppercase tracking-wide text-muted">Customer page</p>
-        <p className="break-all font-mono text-sm text-ink">{url}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={!png}
-            onClick={() => png && downloadDataUrl(`${slug}-campaign-qr.png`, png)}
-            className="btn-primary px-3 py-1.5 text-xs"
-          >
-            Download QR code
-          </button>
-          <button
-            type="button"
-            disabled={!svg}
-            onClick={() => svg && downloadSvgFile(`${slug}-campaign-qr.svg`, svg)}
-            className="btn-secondary px-3 py-1.5 text-xs"
-          >
-            Download print SVG
-          </button>
-        </div>
       </div>
     </div>
   )

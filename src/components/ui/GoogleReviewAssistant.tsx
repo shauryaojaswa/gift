@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
+import { reviewSetFor, type ReviewTopic } from '@/lib/review-recommendations'
 
 /** Inline SVG icons (the codebase convention — avoids lucide typing quirks). */
 function IconGlyph({ kind }: { kind: string }) {
@@ -36,46 +37,17 @@ function IconGlyph({ kind }: { kind: string }) {
       return (<svg {...common}><path d="M21 8l-9-5-9 5v8l9 5 9-5z" /><path d="M3 8l9 5 9-5" /><path d="M12 13v8" /></svg>)
     case 'smile':
       return (<svg {...common}><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" /><path d="M9 9.5h.01M15 9.5h.01" /></svg>)
-    case 'gift':
-      return (<svg {...common}><path d="M20 12v9H4v-9" /><path d="M2 7h20v5H2z" /><path d="M12 7v14" /><path d="M12 7S10.5 3 8.5 3a2.5 2.5 0 0 0 0 5zM12 7s1.5-4 3.5-4a2.5 2.5 0 0 1 0 5z" /></svg>)
     default:
       return (<svg {...common}><circle cx="12" cy="12" r="9" /></svg>)
   }
 }
 
 /**
- * Topic chips: neutral areas a customer can write about. Clicking inserts the
- * topic as an editable starting point in the customer's own text - it never
- * writes to the clipboard and never posts anything.
+ * The review starters come from the shop's own business type (see
+ * '@/lib/review-recommendations'): the approved jewellery sentences for
+ * jewellers, clothing and ethnic-wear sentences for clothing shops.
  */
-const TOPICS: string[] = [
-  'Service',
-  'Collection',
-  'Staff',
-  'Quality',
-  'Price',
-  'Shopping Experience',
-  'My Visit',
-]
-
-/**
- * Ten optional review starters (Google-policy compliant): writing prompts
- * only, never a fabricated customer experience. Every starter is editable,
- * replaceable and removable by the customer, and text is copied only when the
- * customer presses a copy button.
- */
-const SUGGESTIONS: Array<{ text: string; icon: string }> = [
-  { text: 'I visited this shop to look at the jewellery collection.', icon: 'gem' },
-  { text: 'I was looking for a particular type of jewellery.', icon: 'package' },
-  { text: 'I found the collection interesting.', icon: 'sparkle' },
-  { text: 'The staff helped me with my questions.', icon: 'hands' },
-  { text: 'I wanted to know more about the jewellery designs.', icon: 'badge' },
-  { text: 'I compared the prices of different items.', icon: 'tag' },
-  { text: 'I was looking for a gift for someone.', icon: 'gift' },
-  { text: 'I visited to explore the available options.', icon: 'bag' },
-  { text: 'My shopping experience included the following.', icon: 'smile' },
-  { text: 'I would like to share what I experienced during my visit.', icon: 'heart' },
-]
+type Topic = ReviewTopic | 'All'
 
 export function GoogleReviewAssistant({
   open,
@@ -83,24 +55,33 @@ export function GoogleReviewAssistant({
   onSkip,
   onReviewed,
   reviewUrl,
+  storeSlug,
 }: {
   open: boolean
   onClose: () => void
   onSkip: () => void
   onReviewed?: () => void
   reviewUrl: string | null
+  /** Which shop this is - selects its business-type review recommendations. */
+  storeSlug: string
 }) {
-  const [text, setText] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+  // The shop's own recommendations (jewellery sentences for jewellers,
+  // clothing sentences for clothing shops) - never a shared list.
+  const reviewSet = reviewSetFor(storeSlug)
+  const TOPICS: Topic[] = ['All', ...reviewSet.topics]
+  const SUGGESTIONS = reviewSet.suggestions
+  const [topic, setTopic] = useState<Topic>('All')
   const [copied, setCopied] = useState(false)
   const [copyError, setCopyError] = useState<string | null>(null)
   const [popupBlocked, setPopupBlocked] = useState(false)
   const [opened, setOpened] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (open) {
-      setText('')
+      setSelected(null)
+      setTopic('All')
       setCopied(false)
       setCopyError(null)
       setPopupBlocked(false)
@@ -124,6 +105,7 @@ export function GoogleReviewAssistant({
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
+  /** Copy is confirmed only when the platform confirms it. */
   const copyText = useCallback(async (value: string): Promise<boolean> => {
     if (!value) return false
     setCopyError(null)
@@ -138,73 +120,45 @@ export function GoogleReviewAssistant({
     }
   }, [])
 
-  const handleSelectSuggestion = useCallback(
-    (suggestion: string) => {
-      // Insert the starter as editable text. No clipboard write: copying
-      // happens only through the explicit copy buttons below.
-      setText(suggestion)
-      setTimeout(() => textareaRef.current?.focus(), 30)
-    },
-    [],
-  )
-
-  const handleSelectTopic = useCallback(
-    (topic: string) => {
-      // Insert the topic as an editable starting point ("Topic: "). Any words
-      // the customer already wrote are kept and the topic is added on a new
-      // line - never overwritten, never copied.
-      setText((current) => {
-        const trimmed = current.trimEnd()
-        const onlyInserted =
-          trimmed === '' ||
-          SUGGESTIONS.some((s) => s.text === trimmed) ||
-          TOPICS.some((t) => trimmed === `${t}: ` || trimmed === t)
-        return onlyInserted ? `${topic}: ` : `${trimmed}\n${topic}: `
-      })
-      setTimeout(() => textareaRef.current?.focus(), 30)
-    },
-    [],
-  )
-
-  const handleWriteOwn = useCallback(() => {
-    setText((current) => {
-      const trimmed = current.trimEnd()
-      const onlyInserted =
-        SUGGESTIONS.some((s) => s.text === trimmed) ||
-        TOPICS.some((t) => trimmed === `${t}: ` || trimmed === t)
-      return onlyInserted ? '' : current
-    })
-    setTimeout(() => textareaRef.current?.focus(), 30)
-  }, [])
-
-  // Copy is confirmed only when the platform confirms it. Nothing is ever
-  // claimed to be filled in or posted automatically, and the customer stays in
-  // control of every action: copy, open Google, continue or skip.
-  const handleCopy = useCallback(async () => {
-    if (!text.trim()) return
-    await copyText(text)
-  }, [copyText, text])
-
-  const handleOpenGoogle = useCallback(() => {
-    if (reviewUrl) {
-      // Browsers implementing "noopener" return null from window.open even
-      // when the tab opened, so blocked-vs-open is detected with a short-lived
-      // probe window first. The real call keeps "noopener,noreferrer".
-      const probe = window.open('', '_blank')
-      if (!probe) {
-        setPopupBlocked(true)
-        return
-      }
-      probe.close()
-      window.open(reviewUrl, '_blank', 'noopener,noreferrer')
-      onReviewed?.()
-      setOpened(true)
+  /**
+   * Open the shop's Google review page in a new tab. Browsers implementing
+   * "noopener" return null from window.open even when the tab opened, so
+   * blocked-vs-open is detected with a short-lived probe window first. The
+   * real call keeps "noopener,noreferrer". Google is never opened without the
+   * customer's own tap.
+   */
+  const openGoogle = useCallback((): boolean => {
+    if (!reviewUrl) return false
+    const probe = window.open('', '_blank')
+    if (!probe) {
+      setPopupBlocked(true)
+      return false
     }
+    probe.close()
+    window.open(reviewUrl, '_blank', 'noopener,noreferrer')
+    onReviewed?.()
+    setOpened(true)
+    return true
   }, [reviewUrl, onReviewed])
 
-  if (!open) return null
+  /**
+   * The one-click experience: a tap on a review card copies that text and
+   * opens the Google review tab ready for a paste. The text is kept in view
+   * either way, so a failed copy still leaves the customer a manual path.
+   */
+  const handlePick = useCallback(
+    (suggestion: string) => {
+      setSelected(suggestion)
+      setCopied(false)
+      setPopupBlocked(false)
+      setOpened(false)
+      void copyText(suggestion)
+      openGoogle()
+    },
+    [copyText, openGoogle],
+  )
 
-  const hasText = text.trim().length > 0
+  if (!open) return null
 
   return (
     <div
@@ -242,38 +196,53 @@ export function GoogleReviewAssistant({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
-          {/* Topic chips */}
-          <p className="mb-2 text-sm text-muted">Topics you can write about - tap to start.</p>
-          <div className="flex flex-wrap gap-2">
-            {TOPICS.map((topic) => (
-              <button
-                key={topic}
-                type="button"
-                onClick={() => handleSelectTopic(topic)}
-                className="review-topic tap-target rounded-full border border-border-soft bg-paper px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:border-gold hover:bg-gold/5"
-              >
-                {topic}
-              </button>
-            ))}
+          <p className="mb-3 text-sm text-muted">
+            Tap a review - it is copied for you to paste on Google. You can edit it there before you
+            post.
+          </p>
+          <p className="mb-3 text-sm text-muted">
+            Nothing is filled in or posted automatically - paste, edit and choose the rating that
+            matches your experience.
+          </p>
+
+          {/* Topic chips: narrow the suggestions to what the customer wants
+              to talk about, then pick a starter below. */}
+          <div role="group" aria-label="Review topic" className="mb-3 flex flex-wrap gap-1.5">
+            {TOPICS.map((t) => {
+              const activeNow = topic === t
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={activeNow}
+                  onClick={() => setTopic(t)}
+                  className={cn(
+                    'tap-target rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                    activeNow
+                      ? 'border-gold bg-gold/15 text-ink'
+                      : 'border-border-soft bg-paper text-muted hover:border-gold hover:text-ink',
+                  )}
+                >
+                  {t}
+                </button>
+              )
+            })}
           </div>
 
-          {/* Review starters */}
-          <p className="mb-2 mt-5 text-sm text-muted">
-            Review starters to get you started - edit them into your own honest words.
-          </p>
+          {/* Review cards: one tap copies the text and opens the Google tab */}
           <div className="grid gap-2 sm:grid-cols-2">
-            {SUGGESTIONS.map(({ text: suggestion, icon }) => {
-              const selected = text === suggestion
+            {SUGGESTIONS.filter(({ topics: ts }) => topic === 'All' || ts.includes(topic)).map(({ text: suggestion, icon }) => {
+              const selectedNow = selected === suggestion
               return (
                 <button
                   key={suggestion}
                   type="button"
-                  aria-pressed={selected}
-                  onClick={() => handleSelectSuggestion(suggestion)}
+                  aria-pressed={selectedNow}
+                  onClick={() => handlePick(suggestion)}
                   className={cn(
                     'review-suggestion tap-target flex min-h-[54px] items-center gap-3 border px-3 py-2.5 text-left text-sm leading-5 text-ink transition-colors',
-                    selected
-                      ? 'border-brand bg-brand/5 shadow-[inset_0_0_0_1px_var(--house-burgundy)]'
+                    selectedNow
+                      ? 'border-gold bg-gold/10 shadow-[inset_0_0_0_1px_var(--house-gold)]'
                       : 'border-border-soft bg-paper hover:border-gold hover:bg-gold/5',
                   )}
                 >
@@ -284,75 +253,43 @@ export function GoogleReviewAssistant({
             })}
           </div>
 
-          {/* Own words */}
-          <p className="mb-1 mt-5 text-sm font-medium text-ink">Want to add your own words?</p>
-          <label htmlFor="review-text" className="sr-only">
-            Your review text
-          </label>
-          <textarea
-            id="review-text"
-            ref={textareaRef}
-            className="field-input min-h-24 resize-y p-3 text-base leading-6"
-            placeholder="Write in your own words..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <p className="mt-1 text-right text-xs text-muted" aria-live="polite">
-            {text.length} characters
-          </p>
-          <button
-            type="button"
-            onClick={handleWriteOwn}
-            className="tap-target mt-2 inline-flex min-h-11 items-center gap-2 rounded-[8px] px-3 text-sm font-medium text-brand hover:bg-brand/5"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M13 21h8" />
-              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
-            </svg>
-            ✍ Write Your Own Review
-          </button>
-
-          {/* Manual-copy fallback once there is text */}
-          {hasText && (
-            <div className="review-message mt-2 p-3">
-              <p className="text-sm font-medium">Copy what you have written, then paste it into Google.</p>
-              <label htmlFor="review-fallback-text" className="sr-only">
-                Review text to copy
-              </label>
-              <textarea
-                id="review-fallback-text"
-                className="field-input mt-2 min-h-20 resize-y p-3 text-base leading-6"
-                readOnly
-                value={text}
-              />
+          {/* Feedback after a tap: copy status (confirmed only), manual-copy
+              help, and the honest "nothing is posted" line. */}
+          {(selected || opened) && (
+            <div className="review-message mt-4 p-3">
+              {opened && (
+                <p role="status" className="text-sm font-medium text-green-700">
+                  ✓ Google is opening in a new tab. Nothing is filled in or posted automatically.
+                </p>
+              )}
               {copied && (
-                <p role="status" className="mt-2 text-sm font-medium text-green-700">
-                  Copied to clipboard
+                <p role="status" className="text-sm font-medium text-green-700">
+                  ✓ Copied - paste it into your review on Google.
                 </p>
               )}
               {copyError && (
-                <p role="alert" className="mt-2 text-sm text-red-600">
-                  {copyError}
-                </p>
+                <>
+                  <p role="alert" className="text-sm text-red-600">
+                    {copyError}
+                  </p>
+                  <label htmlFor="review-manual-text" className="sr-only">
+                    Review text to copy
+                  </label>
+                  <textarea
+                    id="review-manual-text"
+                    className="field-input mt-2 min-h-20 resize-y p-3 text-base leading-6"
+                    readOnly
+                    value={selected ?? ''}
+                  />
+                </>
               )}
             </div>
           )}
 
-          <p className="mt-3 text-sm text-muted">Choose the rating that matches your experience.</p>
-        </div>
-
-        {/* Footer */}
-        <footer className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t border-border-soft bg-paper px-5 py-4 sm:px-6">
-          {opened && (
-            <p role="status" className="text-sm font-medium text-green-700">
-              ✓ Google is opening in a new tab. Paste your text there;
-              nothing is filled in or posted automatically.
-            </p>
-          )}
           {popupBlocked && (
-            <div role="alert" className="rounded-lg border border-border-soft bg-cream p-3 text-sm">
-              <p className="font-medium text-ink">Your browser blocked the new tab.</p>
-              <p className="mt-1 text-muted">
+            <div role="alert" className="review-message mt-4 p-3">
+              <p className="text-sm font-medium text-ink">Your browser blocked the new tab.</p>
+              <p className="mt-1 text-sm text-muted">
                 Use the link below to open Google and paste your text into your review.
               </p>
               {reviewUrl && (
@@ -368,36 +305,26 @@ export function GoogleReviewAssistant({
               )}
             </div>
           )}
+        </div>
+
+        {/* Footer */}
+        <footer className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t border-border-soft bg-paper px-5 py-4 sm:px-6">
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
               className="btn-primary tap-target min-h-12"
-              disabled={!hasText}
-              onClick={() => void handleCopy()}
+              disabled={!reviewUrl}
+              onClick={openGoogle}
             >
-              Copy
+              Open Google
             </button>
-            <button
-              type="button"
-              className="btn-secondary tap-target min-h-12"
-              disabled={!hasText || !reviewUrl}
-              onClick={handleOpenGoogle}
-            >
-              Open Google Reviews
-            </button>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button type="button" className="btn-ghost tap-target min-h-11" onClick={onSkip}>
-              Continue
-            </button>
-            <button type="button" className="btn-ghost tap-target min-h-11" onClick={onSkip}>
+            <button type="button" className="btn-ghost tap-target min-h-12" onClick={onSkip}>
               Skip for now
             </button>
           </div>
           <p className="text-xs text-muted">
-            Your text is copied for you to paste on Google. Nothing is filled in or posted
-            automatically - choose the rating that matches your experience. You can also skip this
-            step; your reward is never affected.
+            This is optional. You can skip this step; your reward is based only on your purchase
+            amount and is never affected by a review.
           </p>
         </footer>
       </div>

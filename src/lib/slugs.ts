@@ -54,6 +54,15 @@ export function isReservedSlug(slug: string): boolean {
   return RESERVED_SLUGS.has(slug)
 }
 
+/**
+ * Canonical slug form for lookups. Shop URLs are case-insensitive addresses
+ * (https://jriq.in/BCY is the shop `bcy`), so every route consumer resolves the
+ * lowercase form while the URL itself stays exactly as typed.
+ */
+export function normalizeSlug(slug: string | undefined): string {
+  return (slug ?? '').trim().toLowerCase()
+}
+
 /** A slug the router may treat as a shop address. */
 export function isRoutableSlug(slug: string | undefined): slug is string {
   return !!slug && SLUG_PATTERN.test(slug) && !isReservedSlug(slug)

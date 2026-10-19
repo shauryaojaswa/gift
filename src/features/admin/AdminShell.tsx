@@ -66,7 +66,7 @@ function AdminShellInner() {
             <img
               src={store?.logoUrl || '/assets/brand-logo.png'}
               alt=""
-              className="h-9 w-9 rounded-full object-cover"
+              className="h-9 w-9 rounded-full object-contain"
             />
             <h1 className="font-display text-lg font-bold text-ink">
               {store?.name || 'Store Dashboard'}

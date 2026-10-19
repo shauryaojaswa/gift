@@ -57,7 +57,7 @@ export function ReviewInvitationScreen() {
         </button>
       )}
 
-      <button type="button" className="btn-ghost mt-1 text-sm" onClick={handleContinue}>
+      <button type="button" className="btn-secondary tap-target mt-1 min-h-11 w-full text-sm" onClick={handleContinue}>
         CONTINUE TO SPIN
       </button>
 
@@ -71,6 +71,7 @@ export function ReviewInvitationScreen() {
         onSkip={handleAssistantSkip}
         onReviewed={handleReviewed}
         reviewUrl={reviewLink.url}
+        storeSlug={store.slug}
       />
     </div>
   )

@@ -161,6 +161,75 @@ export function buildWheelSegments(
   return segments
 }
 
+/**
+ * Every gift this shop can award, in purchase-bracket order: the full prize
+ * pool the customer wheel advertises. A customer may win any gift on the
+ * wheel - their purchase amount decides which one the engine assigns - so
+ * each slice carries a different real gift and nothing placeholder.
+ */
+export function buildCatalogOptions(config: StoreConfig): GiftOption[] {
+  const options: GiftOption[] = []
+  const seen = new Set<string>()
+  const add = (option: GiftOption) => {
+    if (seen.has(option.id)) return
+    seen.add(option.id)
+    options.push(option)
+  }
+  const asOption = (reward: Reward): GiftOption => ({
+    id: reward.id,
+    name: reward.name,
+    wheelLabel: reward.shortLabel || conciseLabel(reward.name),
+    description: reward.description,
+    voucherValue: reward.voucherValue ?? null,
+  })
+  const tiers = [...config.tiers].filter((tier) => tier.active).sort((a, b) => a.minAmount - b.minAmount)
+  for (const tier of tiers) {
+    for (const option of tier.giftOptions ?? []) add({ ...option })
+    if (tier.rewardId) {
+      const reward = config.rewards.find((r) => r.id === tier.rewardId && r.active)
+      if (reward) add(asOption(reward))
+    }
+  }
+  for (const reward of config.rewards) {
+    if (reward.active) add(asOption(reward))
+  }
+  return options
+}
+
+/**
+ * The wheel's gift list for a saved claim: the shop's whole catalog, plus the
+ * saved reward itself when live config changed after the award (the persisted
+ * claim is authoritative and must keep its own slice - never a stolen one).
+ *
+ * Gift-columns shops (eight owner-editable fields) use a strict mapping: the
+ * wheel IS the eight published fields in order, so segment i always shows
+ * field i. Blank fields are never published and therefore never render.
+ */
+export function buildWheelOptions(config: StoreConfig, assigned?: RewardResult | null): GiftOption[] {
+  const published = config.giftColumns?.published ?? null
+  const options: GiftOption[] = published
+    ? published
+        .filter((slot) => slot.name.trim() !== '')
+        .map((slot) => ({
+          id: slot.rewardId,
+          name: slot.name,
+          wheelLabel: conciseLabel(slot.name),
+          description: '',
+          voucherValue: null,
+        }))
+    : buildCatalogOptions(config)
+  if (assigned && !options.some((option) => option.id === assigned.reward.id)) {
+    options.push({
+      id: assigned.reward.id,
+      name: assigned.reward.name,
+      wheelLabel: assigned.reward.shortLabel || conciseLabel(assigned.reward.name),
+      description: assigned.reward.description,
+      voucherValue: assigned.reward.voucherValue ?? null,
+    })
+  }
+  return options
+}
+
 /** The slice the wheel must stop on: the one carrying the saved reward. */
 export function landingSegmentIndex(
   segments: WheelSegment[],

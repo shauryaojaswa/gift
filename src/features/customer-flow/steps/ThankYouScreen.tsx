@@ -111,6 +111,7 @@ export function ThankYouScreen() {
         onClose={() => setAssistantOpen(false)}
         onSkip={() => setAssistantOpen(false)}
         reviewUrl={reviewUrl}
+        storeSlug={store.slug}
       />
 
       <p className="font-body text-xs text-muted">

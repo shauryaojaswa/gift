@@ -20,6 +20,7 @@ const CSV_COLUMNS = [
   { header: 'Submitted', value: (r: SubmissionRecord) => r.createdAt },
   { header: 'Collected At', value: (r: SubmissionRecord) => r.collectedAt ?? '' },
   { header: 'Collected By', value: (r: SubmissionRecord) => r.collectedBy ?? '' },
+  { header: 'Invoice Details', value: (r: SubmissionRecord) => r.invoiceDetails ?? '' },
 ]
 
 function bracketLabel(r: SubmissionRecord): string {
@@ -330,6 +331,7 @@ function CustomerDrawer({
     ['Customer', record.customerName],
     ['Phone', record.customerPhone],
     ['Purchase amount', formatINR(record.purchaseAmount)],
+    ['Invoice details', record.invoiceDetails?.trim() || 'Not provided'],
     ['Bracket', bracketLabel(record)],
     ['Reward', record.rewardLabel],
     ['Claim code', record.couponCode ?? '—'],
