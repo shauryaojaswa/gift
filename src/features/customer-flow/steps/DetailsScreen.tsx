@@ -102,6 +102,13 @@ export function DetailsScreen() {
     }
     if (purchaseAmount === null) return
 
+    // A shop whose eight gift fields were never published has no prizes at all
+    // yet: show the designed "not configured" state instead of inventing one.
+    if (store.giftColumns && !store.giftColumns.published) {
+      setUnavailable(true)
+      return
+    }
+
     // A bracket with no awardable gift pool must never mint a claim: show the
     // designed "not configured" state instead of inventing a prize.
     const tier = getPurchaseTier(purchaseAmount, store)

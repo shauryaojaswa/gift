@@ -5,11 +5,14 @@ import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { GoogleReviewQrCode } from '@/components/ui/GoogleReviewQrCode'
 import { generateQrSvg, getCampaignUrl } from '@/lib/qr'
+import { normalizeSlug } from '@/lib/slugs'
 import type { StoreConfig } from '@/types'
 
 export default function Standee() {
   // Strict: the URL is the only slug source. Never fall back to another shop.
-  const { slug = '' } = useParams<{ slug: string }>()
+  // Case-insensitive address ( /standee/BCY = shop `bcy` ); the QR payload uses
+  // the canonical lowercase slug.
+  const slug = normalizeSlug(useParams<{ slug: string }>().slug)
   const dataProvider = useDataProvider()
   const [store, setStore] = useState<StoreConfig | null>(null)
   const [storeError, setStoreError] = useState<string | null>(null)

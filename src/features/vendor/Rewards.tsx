@@ -2,6 +2,7 @@
 import { Trash2, Package } from 'lucide-react'
 import { useAdminStore } from '@/features/admin/useAdminStore'
 import { GiftPoolPanel } from '@/features/platform/GiftPoolPanel'
+import { GiftColumnsPanel } from '@/features/vendor/GiftColumnsPanel'
 import { Spinner } from '@/components/ui/Spinner'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { FormField } from '@/components/ui/FormField'
@@ -48,7 +49,14 @@ export default function Rewards() {
       // rewards.id is a uuid column (matching the platform RewardsPage editor);
       // the demo provider accepts any opaque string id.
       const id = rewardForm.id || crypto.randomUUID()
-      await dataProvider.upsertReward({ ...rewardForm, id })
+      // The owner panel exposes ONE gift-name field per wheel segment, so the
+      // wheel label must follow the name it is saved under (upsertReward falls
+      // back to the name when shortLabel is absent). A deliberately distinct
+      // short label - set outside this panel - is preserved as-is.
+      const prior = rewards.find((r) => r.id === id)
+      const shortLabel =
+        prior?.shortLabel && prior.shortLabel !== prior.name ? prior.shortLabel : undefined
+      await dataProvider.upsertReward({ ...rewardForm, id, shortLabel })
       await reload()
       setRewardForm(null)
       flash('Reward saved. New customer sessions will use it.')
@@ -117,8 +125,9 @@ export default function Rewards() {
       <header>
         <h1 className="font-display text-2xl font-bold text-ink">Campaign</h1>
         <p className="mt-1 text-sm text-muted">
-          Manage the rewards customers win and the purchase ranges that unlock them. Changes apply to
-          new customer sessions; past winners keep the reward they were originally awarded.
+          {store.giftColumns
+            ? 'Manage the eight gifts customers can win. They map one-to-one onto the wheel segments; changes apply to new customer sessions, and past winners keep the reward they were originally awarded.'
+            : 'Manage the rewards customers win and the purchase ranges that unlock them. Changes apply to new customer sessions; past winners keep the reward they were originally awarded.'}
         </p>
       </header>
       {toast && (
@@ -127,6 +136,12 @@ export default function Rewards() {
         </p>
       )}
 
+      {/* Gift-columns shops: the eight editable fields are the single source of
+          truth, so the rewards/tier/pool editors stay hidden for them. */}
+      {store.giftColumns ? (
+        <GiftColumnsPanel store={store} dataProvider={dataProvider} reload={reload} />
+      ) : (
+      <>
       {/* Rewards */}
       <section aria-labelledby="rewards-heading">
         <div className="mb-3 flex items-center justify-between">
@@ -415,6 +430,8 @@ export default function Rewards() {
             </button>
           </div>
         </Card>
+      )}
+      </>
       )}
     </div>
   )

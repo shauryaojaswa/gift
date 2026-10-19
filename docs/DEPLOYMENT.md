@@ -230,9 +230,45 @@ ships - **re-apply `20261018120000` after that chain**. History backfilled for t
 applied-but-unrecorded migrations (`20261016200000`, `20261017120000`); 14 rows total.
 
 **Known residual (platform-only, unchanged by this release):** `set_store_review_policy`,
-`rename_store_slug` and the 4-arg `save_store_gift_options` have no production functions
-yet (they ship with `20261017150100`/`20261017150000`); the platform shop-config panels
-will error if used. Vendor and customer paths are unaffected.
+`rename_store_slug` and the 4-arg `save_store_gift_options`
+have no production functions yet (they ship with `20261017150100`/`20261017150000`);
+the platform shop-config panels will error if used. Vendor and customer paths are
+unaffected.
+
+### 5.7 Release actuals - v1.4.0 follow-up (2026-10-19, same day)
+
+Tag `v1.4.0` - per-store vendor gift editing (one editable gift-name field per wheel
+segment, wheel label follows the saved name), **5-second wheel** (`SPIN_DURATION_MS =
+5000`, supersedes the 5-6 s wording), and the store gift-columns groundwork
+(`supabase/migrations/20261019120000_store_gift_columns.sql` - additive
+`stores.gift_columns jsonb` + `save_store_gift_columns`, inert for the three Pashupati
+stores whose `gift_columns` stays NULL and whose bracket-ladder reward config is
+preserved verbatim). Migration applied **staging-first** (`wpytaorgiqkfnifsuhax`), then
+production (`awshkiwqkuubkhecszzk`); both function lineages retain `p_invoice_details`.
+
+Gates on this build: `npm run preflight:root` **11/11** (lint, **424/424 unit tests**,
+typecheck + production build, secret scan, anon-key classification), env verified in the
+shipped bytes (production Supabase project, `VITE_PUBLIC_APP_URL=https://jriq.in`, anon
+key only, no demo-mode fallback). Live bundle **`index-Dh4HqAXG.js`** (customer flow
+chunk `CustomerFlow-OS8Q8OxL.js` carries the 5e3/3e3 spin constants):
+`node scripts/byte-verify.mjs dist https://jriq.in` **52/52 byte-identical, exit 0**;
+`deploy-verify.ps1` **11/11** (incl. strict 301); `prod-smoke.mjs` **35/35**, protected
+claims 2/2 intact.
+
+Deployment coordination fact (documented, not hidden): during this release window two
+workstreams shared the working tree and the origin. Our first byte-verification caught a
+concurrent upload mid-flight (14 chunks momentarily absent behind the SPA fallback); it
+was **not** re-uploaded (rule: never collide with an in-flight batch) and completed on its
+own. The batch production ultimately serves is the shared-tree build above - re-verified
+byte-identical from this workstream after every change.
+
+Per-store E2E on the live bundle (details in
+`artifacts/project-status/pashupati-three-stores-e2e.md`): admin gift round trip
+**13/13 x 3 stores** (temp names -> save -> persist -> wheel mapping -> change one ->
+exact restore, cross-store snapshots unchanged), customer journeys
+**pashupati1 32/0/2, pashupati2 32/0/2, pashupati 28/0/0**, wheel animation measured in a
+**visible (headed) browser** at 5079/5071, 5097/5089, 5063/5162 ms - approximately five
+seconds on every store, stopping on the engine-assigned reward.
 
 ## 6. Rollback
 

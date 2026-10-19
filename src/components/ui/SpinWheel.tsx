@@ -55,7 +55,7 @@ function prefersReducedMotion(): boolean {
  * before the gift is revealed (plus the 400ms reveal settle). Customers who ask
  * their system for reduced motion still get the spin, just shorter and gentler.
  */
-export const SPIN_DURATION_MS = 6000
+export const SPIN_DURATION_MS = 5000
 export const SPIN_FULL_SPINS = 8
 export const SPIN_REDUCED_MOTION_DURATION_MS = 3000
 export const SPIN_REDUCED_MOTION_FULL_SPINS = 4

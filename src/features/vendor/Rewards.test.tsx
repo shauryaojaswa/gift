@@ -113,4 +113,64 @@ describe('vendor Rewards editor', () => {
     await waitFor(() => expect(provider.upsertReward).toHaveBeenCalledTimes(1))
     expect(vi.mocked(provider.upsertReward).mock.calls[0][0].id).toBe(rewardId)
   })
+
+  // The owner panel exposes ONE gift-name field per wheel segment, so renaming
+  // a gift must move its wheel segment label too. The wheel renders
+  // `shortLabel || name`; if the save carried the stale short label over, the
+  // customer wheel would keep showing the old gift name after the rename.
+  it('renaming a gift makes the wheel label follow the name', async () => {
+    const rewardId = crypto.randomUUID()
+    const provider = mockStore({
+      rewards: [
+        {
+          id: rewardId,
+          name: 'Old Gift',
+          shortLabel: 'Old Gift', // created via this panel: label === name
+          description: '',
+          claimCodePrefix: 'EXI',
+          validityText: '',
+          active: true,
+        },
+      ],
+    })
+
+    const { container, getByRole } = render(<Rewards />)
+    fireEvent.click(getByRole('button', { name: 'Edit' }))
+    fireEvent.change(container.querySelectorAll('input')[0], { target: { value: 'Renamed Gift' } })
+    fireEvent.click(getByRole('button', { name: 'Save reward' }))
+
+    await waitFor(() => expect(provider.upsertReward).toHaveBeenCalledTimes(1))
+    const saved = vi.mocked(provider.upsertReward).mock.calls[0][0]
+    expect(saved.name).toBe('Renamed Gift')
+    // shortLabel is dropped so upsertReward derives the wheel label from the
+    // new name - the renamed gift appears on its own wheel segment.
+    expect(saved.shortLabel).toBeUndefined()
+  })
+
+  it('preserves a deliberately distinct short label when the gift is renamed', async () => {
+    const rewardId = crypto.randomUUID()
+    const provider = mockStore({
+      rewards: [
+        {
+          id: rewardId,
+          name: 'Old Gift',
+          shortLabel: 'OLD', // deliberately different from the name
+          description: '',
+          claimCodePrefix: 'EXI',
+          validityText: '',
+          active: true,
+        },
+      ],
+    })
+
+    const { container, getByRole } = render(<Rewards />)
+    fireEvent.click(getByRole('button', { name: 'Edit' }))
+    fireEvent.change(container.querySelectorAll('input')[0], { target: { value: 'Renamed Gift' } })
+    fireEvent.click(getByRole('button', { name: 'Save reward' }))
+
+    await waitFor(() => expect(provider.upsertReward).toHaveBeenCalledTimes(1))
+    const saved = vi.mocked(provider.upsertReward).mock.calls[0][0]
+    expect(saved.name).toBe('Renamed Gift')
+    expect(saved.shortLabel).toBe('OLD')
+  })
 })

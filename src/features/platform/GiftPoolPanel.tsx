@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabaseClient } from '@/lib/data'
 import {
+  fetchGiftSchemaSupport,
   fetchMaxGiftSelections,
   listCatalog,
   listTiersWithPools,
   saveGiftOptions,
   updateCatalogGift,
   type CatalogGift,
+  type GiftSchemaSupport,
   type TierWithPool,
 } from './api'
 import { Spinner } from '@/components/ui/Spinner'
@@ -33,6 +35,7 @@ export function GiftPoolPanel({
   const client = getSupabaseClient()
   const [tiers, setTiers] = useState<TierWithPool[] | null>(null)
   const [catalog, setCatalog] = useState<CatalogGift[]>([])
+  const [support, setSupport] = useState<GiftSchemaSupport | null>(null)
   const [maxSelections, setMaxSelections] = useState<number>(4)
   const [selected, setSelected] = useState<Record<string, string[]>>({})
   const [values, setValues] = useState<Record<string, Record<string, string>>>({})
@@ -44,14 +47,16 @@ export function GiftPoolPanel({
   const reload = useCallback(async () => {
     if (!client) return
     try {
-      const [tierRows, gifts, maxSel] = await Promise.all([
+      const [tierRows, gifts, maxSel, schema] = await Promise.all([
         listTiersWithPools(client, storeId),
         listCatalog(client, true),
         fetchMaxGiftSelections(client),
+        fetchGiftSchemaSupport(client),
       ])
       setTiers(tierRows)
       setCatalog(gifts)
       setMaxSelections(maxSel)
+      setSupport(schema)
       const initial: Record<string, string[]> = {}
       const initialValues: Record<string, Record<string, string>> = {}
       const initialQuantities: Record<string, Record<string, string>> = {}
@@ -278,25 +283,27 @@ export function GiftPoolPanel({
                                 onChange={(e) => setField(values, setValues, tier.id, gift.id, e.target.value)}
                               />
                             </label>
-                            <label className="flex flex-col gap-0.5">
-                              <span className="text-[10px] uppercase tracking-wide text-muted">
-                                Quantity (optional)
-                              </span>
-                              <input
-                                type="number"
-                                className="field-input w-24 py-1 text-xs"
-                                min={1}
-                                max={100000}
-                                value={rawQty}
-                                placeholder="unlimited"
-                                aria-label={`Quantity for ${gift.name} in ${formatRange(tier)}`}
-                                onChange={(e) => setField(quantities, setQuantities, tier.id, gift.id, e.target.value)}
-                              />
-                            </label>
+                            {support?.stock && (
+                              <label className="flex flex-col gap-0.5">
+                                <span className="text-[10px] uppercase tracking-wide text-muted">
+                                  Quantity (optional)
+                                </span>
+                                <input
+                                  type="number"
+                                  className="field-input w-24 py-1 text-xs"
+                                  min={1}
+                                  max={100000}
+                                  value={rawQty}
+                                  placeholder="unlimited"
+                                  aria-label={`Quantity for ${gift.name} in ${formatRange(tier)}`}
+                                  onChange={(e) => setField(quantities, setQuantities, tier.id, gift.id, e.target.value)}
+                                />
+                              </label>
+                            )}
                           </div>
                         )}
 
-                        {canManageAvailability && (
+                        {canManageAvailability && support?.availability && (
                           <button
                             type="button"
                             className="mt-2 rounded border border-border-soft px-2 py-0.5 text-[10px] font-medium text-muted hover:bg-brand/5"

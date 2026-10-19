@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { getSupabaseClient } from '@/lib/data'
 import {
   createCatalogGift,
+  fetchGiftSchemaSupport,
   listCatalog,
   updateCatalogGift,
   type CatalogGift,
   type CatalogGiftInput,
+  type GiftSchemaSupport,
 } from './api'
 import { Spinner } from '@/components/ui/Spinner'
 import { FormField } from '@/components/ui/FormField'
@@ -27,6 +29,7 @@ const EMPTY: CatalogGiftInput = {
 export default function CatalogPage() {
   const client = getSupabaseClient()
   const [gifts, setGifts] = useState<CatalogGift[] | null>(null)
+  const [support, setSupport] = useState<GiftSchemaSupport | null>(null)
   const [form, setForm] = useState<CatalogGiftInput>(EMPTY)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -36,7 +39,12 @@ export default function CatalogPage() {
   const reload = useCallback(async () => {
     if (!client) return
     try {
-      setGifts(await listCatalog(client, true))
+      const [giftRows, schema] = await Promise.all([
+        listCatalog(client, true),
+        fetchGiftSchemaSupport(client),
+      ])
+      setGifts(giftRows)
+      setSupport(schema)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load the catalogue.')
     }
@@ -94,6 +102,12 @@ export default function CatalogPage() {
         validityText: form.validityText?.trim() || null,
       }
       // Price policy: both bounds or neither; voucher value must sit inside.
+      // On a schema without price-policy columns the fields are not shown and
+      // no bound is ever sent.
+      if (!support?.pricePolicy) {
+        payload.valueMin = null
+        payload.valueMax = null
+      }
       if ((payload.valueMin === null) !== (payload.valueMax === null)) {
         throw new Error('Set both price-policy bounds, or leave both empty for a fixed value.')
       }
@@ -217,38 +231,42 @@ export default function CatalogPage() {
               min={0}
             />
           </FormField>
-          <FormField
-            label="Price policy min (₹, optional)"
-            id="gift-value-min"
-            hint="Lowest declared value a shop may set. Both bounds empty = fixed value."
-          >
-            <input
-              id="gift-value-min"
-              type="number"
-              className="field-input"
-              value={form.valueMin ?? ''}
-              onChange={(e) =>
-                setForm({ ...form, valueMin: e.target.value === '' ? null : Number(e.target.value) })
-              }
-              min={0}
-            />
-          </FormField>
-          <FormField
-            label="Price policy max (₹, optional)"
-            id="gift-value-max"
-            hint="Highest declared value a shop may set. Both bounds empty = fixed value."
-          >
-            <input
-              id="gift-value-max"
-              type="number"
-              className="field-input"
-              value={form.valueMax ?? ''}
-              onChange={(e) =>
-                setForm({ ...form, valueMax: e.target.value === '' ? null : Number(e.target.value) })
-              }
-              min={0}
-            />
-          </FormField>
+          {support?.pricePolicy && (
+            <>
+              <FormField
+                label="Price policy min (₹, optional)"
+                id="gift-value-min"
+                hint="Lowest declared value a shop may set. Both bounds empty = fixed value."
+              >
+                <input
+                  id="gift-value-min"
+                  type="number"
+                  className="field-input"
+                  value={form.valueMin ?? ''}
+                  onChange={(e) =>
+                    setForm({ ...form, valueMin: e.target.value === '' ? null : Number(e.target.value) })
+                  }
+                  min={0}
+                />
+              </FormField>
+              <FormField
+                label="Price policy max (₹, optional)"
+                id="gift-value-max"
+                hint="Highest declared value a shop may set. Both bounds empty = fixed value."
+              >
+                <input
+                  id="gift-value-max"
+                  type="number"
+                  className="field-input"
+                  value={form.valueMax ?? ''}
+                  onChange={(e) =>
+                    setForm({ ...form, valueMax: e.target.value === '' ? null : Number(e.target.value) })
+                  }
+                  min={0}
+                />
+              </FormField>
+            </>
+          )}
           <FormField label="Claim code prefix (optional)" id="gift-claim-prefix">
             <input
               id="gift-claim-prefix"
