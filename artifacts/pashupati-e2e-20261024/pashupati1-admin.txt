@@ -1,0 +1,761 @@
+Pashupati (A Unit of Benaras Swarn Kala Kendra LLP)
+
+VIJAYA ROAD · Shop Owner
+
+Overview
+Customers
+Rewards & Tiers
+My QR Code
+Store Settings
+Sign out
+Campaign
+
+Manage the rewards customers win and the purchase ranges that unlock them. Changes apply to new customer sessions; past winners keep the reward they were originally awarded.
+
+Rewards
+Add reward
+
+100% Off Making Charges
+
+100% off on the making charges of your jewellery. The offer applies to making charges only — not to the entire purchase value.
+
+Active
+Edit
+
+Omega Blower
+
+An Omega kitchen blower.
+
+Active
+Edit
+
+Iron
+
+An electric steam iron for your home.
+
+Active
+Edit
+
+Induction
+
+An induction cooktop for your kitchen.
+
+Active
+Edit
+
+Kettle
+
+An electric kettle for your kitchen.
+
+Active
+Edit
+
+₹999 Gift Voucher
+
+A gift voucher worth ₹999 towards your next purchase.
+
+Active
+Edit
+
+Cup Set
+
+An elegant cup set for your kitchen.
+
+Active
+Edit
+
+Mixer
+
+A mixer-grinder for your kitchen.
+
+Active
+Edit
+
+Varmora Tiffin
+
+A premium Varmora insulated tiffin set.
+
+Active
+Edit
+
+Mug
+
+A ceramic mug, yours to keep on every visit.
+
+Active
+Edit
+Purchase tiers
+Add tier
+
+₹0 – ₹25,000
+
+Mug
+
+Active
+Edit
+
+₹25,000 – ₹50,000
+
+Cup Set
+
+Active
+Edit
+
+₹50,000 – ₹1,00,000
+
+Varmora Tiffin
+
+Active
+Edit
+
+₹1,00,000 – ₹2,00,000
+
+₹999 Gift Voucher
+
+Active
+Edit
+
+₹2,00,000 – ₹3,00,000
+
+Kettle
+
+Active
+Edit
+
+₹3,00,000 – ₹4,00,000
+
+Iron
+
+Active
+Edit
+
+₹4,00,000 – ₹5,00,000
+
+Omega Blower
+
+Active
+Edit
+
+₹5,00,000 – ₹6,00,000
+
+Mixer
+
+Active
+Edit
+
+₹6,00,000 – ₹7,00,000
+
+Induction
+
+Active
+Edit
+
+₹1,00,00,000+
+
+100% Off Making Charges
+
+Active
+Edit
+Gift options per purchase bracket
+
+Select up to 4 catalogue gifts per bracket. Customers receive one of the selected gifts with equal probability. Prices stay within the platform policy set for each gift type.
+
+₹0 – ₹25,000
+
+Legacy single gift: Mug
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹25,000 – ₹50,000
+
+Legacy single gift: Cup Set
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹50,000 – ₹1,00,000
+
+Legacy single gift: Varmora Tiffin
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹1,00,000 – ₹2,00,000
+
+Legacy single gift: ₹999 Gift Voucher
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹2,00,000 – ₹3,00,000
+
+Legacy single gift: Kettle
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹3,00,000 – ₹4,00,000
+
+Legacy single gift: Iron
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹4,00,000 – ₹5,00,000
+
+Legacy single gift: Omega Blower
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹5,00,000 – ₹6,00,000
+
+Legacy single gift: Mixer
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹6,00,000 – ₹7,00,000
+
+Legacy single gift: Induction
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+₹1,00,00,000 and above
+
+Legacy single gift: 100% Off Making Charges
+
+Save
+Approved Voucher
+VOUCHER
+
+Value policy: ₹500 – ₹2,000
+
+Bag + ₹1,200 Saree Coupon
+BAG + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Big Bluetooth Speaker
+BIG BLUETOOTH SPEAKER
+
+Value: not set
+
+Bluetooth Headband
+BLUETOOTH HEADBAND
+
+Value: not set
+
+Bluetooth Headband + ₹1,200 Saree Coupon
+BLUETOOTH HEADBAND + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Dinner Set
+DINNER SET
+
+Value: not set
+
+Jewellery Cleaning Kit
+CLEANING KIT
+
+Value policy: ₹300 – ₹1,000
+
+Mixer Grinder
+MIXER GRINDER
+
+Value: not set
+
+Saree + ₹1,200 Saree Coupon
+SAREE + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)
+
+Silver Coin
+SILVER COIN
+
+Value policy: ₹1,500 – ₹5,000
+
+Small Bluetooth Speaker + ₹1,200 Saree Coupon
+SMALL BLUETOOTH SPEAKER + ₹1,200 SAREE COUPON
+
+Value: ₹1,200 (fixed by platform)

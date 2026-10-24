@@ -25,6 +25,13 @@ Kohinoor chain (applied to production 2026-10-24, see
 | 2b | `20261017150000_gift_price_policy_and_stock.sql` | Platform price policy (`gift_catalog.value_min/value_max/excluded_store_ids`), per-bracket declared values + quantities, 4-arg `save_store_gift_options` (2-arg shape kept callable), pool-tolerant draw |
 | 2c | `20261017150100_shop_config_management.sql` | Shop-config RPCs: `create_shop` (tiers jsonb), `rename_store_slug`, `set_store_review_policy`, review-link guard |
 
+Pashupati ten-tier support (applied to production 2026-10-24, see
+`artifacts/project-status/pashupati-ladders-20261024.md`):
+
+| Order | File | Purpose |
+|---|---|---|
+| P1 | `20261024110000_pashupati_ten_tier_ladder.sql` | Constraint relaxations for the approved 10-tier ladder: `reward_tiers.min_amount >= 0` (was `> 0`) and `target_segment <= 9` (was `<= 7`); additive, no data change |
+
 ## Reconciliation record (2026-10-14)
 
 `0001_add_gift_collection_tracking.sql` was removed (superseded by migration 2):
