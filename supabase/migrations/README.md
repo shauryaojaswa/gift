@@ -17,6 +17,14 @@ Later additive migrations (same apply discipline - filename order, idempotent):
 | 6 | `20261019150100_store_spin_duration.sql` | Per-store wheel animation duration `stores.spin_duration_ms` (NULL = shared 5000ms default; BCY = 6000ms) |
 | 7 | `20261019170000_store_location_label.sql` | Branch label for the shop-owner admin `stores.location_label` (NULL = no label; admin-facing only, the customer strapline stays in `stores.subtitle`) |
 
+Kohinoor chain (applied to production 2026-10-24, see
+`artifacts/project-status/kohinoor-golive-20261024.md`):
+
+| Order | File | Purpose |
+|---|---|---|
+| 2b | `20261017150000_gift_price_policy_and_stock.sql` | Platform price policy (`gift_catalog.value_min/value_max/excluded_store_ids`), per-bracket declared values + quantities, 4-arg `save_store_gift_options` (2-arg shape kept callable), pool-tolerant draw |
+| 2c | `20261017150100_shop_config_management.sql` | Shop-config RPCs: `create_shop` (tiers jsonb), `rename_store_slug`, `set_store_review_policy`, review-link guard |
+
 ## Reconciliation record (2026-10-14)
 
 `0001_add_gift_collection_tracking.sql` was removed (superseded by migration 2):
