@@ -1,0 +1,5 @@
+Customer,Phone,Purchase Amount (INR),Bracket,Reward,Claim Code,Status,Submitted,Collected At,Collected By
+QA Parallel 1 MVCHDMKQ,9893390044,5000,"₹5,000 and above",QA Gift pashupati2 B,GIFT-474492E3,Collected,2026-10-17T14:17:45.880173+00:00,2026-10-17T14:21:54.74981+00:00,3cc89bb6-d6de-43b0-b8d3-f81cbfa544ec
+QA Parallel 10 MVCHDMKQ,9580429503,2000,"₹1,000 – ₹4,998",QA Gift pashupati2 A,GIFT-6038F828,Collected,2026-10-17T14:17:45.868356+00:00,2026-10-17T14:21:56.088715+00:00,3cc89bb6-d6de-43b0-b8d3-f81cbfa544ec
+QA Parallel 4 MVCHDMKQ,9563490108,2000,"₹1,000 – ₹4,998",QA Gift pashupati2 A,GIFT-60E7943D,Awaiting,2026-10-17T14:17:45.551327+00:00,,
+QA Parallel 7 MVCHDMKQ,9133415180,5000,"₹5,000 and above",QA Gift pashupati2 B,GIFT-F8314D68,Awaiting,2026-10-17T14:17:45.549193+00:00,,

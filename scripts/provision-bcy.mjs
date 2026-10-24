@@ -45,6 +45,10 @@ const SHOP = {
     'https://www.google.com/search?sxsrf=APpeQns6nSoD0N5HkMX_zLWNfsP1YA85KQ:1792314433084&kgmid=/g/11h4tb0x4t&q=BCY+Jewellers+Private+Limited&shem=dlvs1,epsd1,esd2e,ltae,rimspwouoe,sdpie&shndl=30&kgs=4855f2d85f9f2d2b&utm_source=dlvs1,epsd1,esd2e,ltae,rimspwouoe,sdpie,sh/x/loc/uni/m1/1#lrd=0x390949e0bf7a4d3b:0x4dda758096e46567,3',
   // Delivered state: 8 blank fields, never published.
   giftColumns: { draft: ['', '', '', '', '', '', '', ''], published: null, publishedAt: null },
+  // BCY release spec: the spin animation completes in ~6 seconds. Per-store
+  // override of the shared 5000ms default (stores.spin_duration_ms); other
+  // shops keep their own released animation untouched.
+  spinDurationMs: 6000,
 }
 const NEIGHBOURS = ['jolly-enterprises', 'shreejwellers', 'shreemanali', 'kohinoor', 'pashupati', 'pashupati1', 'pashupati2']
 
@@ -126,11 +130,12 @@ async function main() {
       .update({
         google_review_url: SHOP.reviewUrl,
         gift_columns: SHOP.giftColumns,
+        spin_duration_ms: SHOP.spinDurationMs,
         status: 'active',
         active: true,
       })
       .eq('slug', SHOP.slug)
-      .select('id, slug, name, google_review_url, gift_columns, status, active, min_spin_amount')
+      .select('id, slug, name, google_review_url, gift_columns, spin_duration_ms, status, active, min_spin_amount')
       .maybeSingle()
     if (updErr) throw new Error(`stores update: ${updErr.message}`)
 
@@ -146,6 +151,11 @@ async function main() {
         updated.gift_columns.draft.length === 8 &&
         updated.gift_columns.draft.every((v) => v === ''),
       JSON.stringify(updated?.gift_columns ?? null),
+    )
+    check(
+      'wheel animation set to the BCY 6-second spec',
+      updated?.spin_duration_ms === SHOP.spinDurationMs,
+      String(updated?.spin_duration_ms),
     )
 
     // ---- 3. no prizes anywhere (5A delivery state) ----

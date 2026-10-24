@@ -1,5 +1,13 @@
 # Current status — Jewellery QR Spin & Win (JRIQ)
 
+> **Newer audit (2026-10-19):** a full live production audit, security validation and
+> performance release was executed against `https://jriq.in` — see
+> `artifacts/project-status/live-production-audit-2026-10-19.md` (executive summary,
+> E2E report, performance comparison, security report, change/release report, roadmap)
+> and `artifacts/qa/QA-REPORT.md` §L plus `artifacts/qa/route-matrix.md`. The release
+> audited there (`index-Ca_27p6s.js`) is the one currently live. This document remains
+> the baseline it was written from (2026-10-18).
+
 Audit date: 2026-10-18 · Method: read-only inspection of the repository + real-browser
 verification of every known hosted origin. No application code, infrastructure, or data was
 modified. Reports live only in `artifacts/project-status/`.

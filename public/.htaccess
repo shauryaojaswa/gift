@@ -5,6 +5,12 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  # NOTE (audit SEC-01): plaintext HTTP still serves the application. The
+  # HTTP -> HTTPS redirect deliberately does NOT live here: this origin sits
+  # behind a TLS-terminating edge, so a RewriteCond %{HTTPS} test would see
+  # every https request as plaintext and produce a redirect loop. The
+  # redirect must be configured at the edge (Caddy/BitNinja), which
+  # terminates TLS; HSTS is sent below so browsers upgrade on their own.
   RewriteRule ^index\.html$ - [L]
   # v1.1.x: permanent HTTP redirect for legacy customer URLs /store/<slug> -> /<slug>.
   # This is the ONLY way to answer a real 301 for arbitrary shop paths on this host;
@@ -16,4 +22,30 @@
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
+</IfModule>
+
+# Response headers (Apache / LiteSpeed shared hosting).
+# Without these the origin answered without Cache-Control (so hashed assets
+# were revalidated on every visit) and without any of the standard security
+# headers. The SPA fallback above means every unknown path serves index.html,
+# so the HTML rules below also cover deep links.
+<IfModule mod_headers.c>
+  # Content-hashed assets never change under the same name: cache them for a
+  # year and let the browser skip the revalidation round trip. Every .js/.css
+  # file this build publishes is content-hashed ("<name>-<hash>.<ext>"), so
+  # the rule can simply cover the extensions.
+  <FilesMatch "\.(js|css|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # The entry document must never be cached stale, or a release would keep
+  # serving the previous bundle.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+  Header always set Strict-Transport-Security "max-age=31536000"
 </IfModule>

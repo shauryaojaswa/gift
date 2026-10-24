@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClientLike } from '../supabase'
 import type { Database, Json } from '../database.types'
 import { validateLogoFile } from '../logo-upload'
 import { parseGiftColumns, trimGiftDraft, canPublishGifts, blankGiftColumns } from '../gift-columns'
@@ -15,7 +15,7 @@ import type {
   RewardAssignment,
 } from './types'
 
-type Client = SupabaseClient<Database>
+type Client = SupabaseClientLike
 
 // ---------------------------------------------------------------------------
 // Typed accessors for submit_customer_entry's jsonb result columns. The RPC
@@ -117,12 +117,14 @@ function rowToStore(row: Database['public']['Tables']['stores']['Row']): StoreCo
     slug: row.slug,
     name: row.name,
     subtitle: row.subtitle ?? 'CUSTOMER EXPERIENCE',
+    locationLabel: row.location_label ?? null,
     logoUrl: row.logo_url || '/logo-placeholder.svg',
     primaryColor: row.primary_color ?? 'hsl(355 85% 45%)',
     secondaryColor: row.secondary_color ?? 'hsl(200 90% 55%)',
     googleReviewUrl: row.google_review_url ?? null,
     campaignBadge: row.campaign_badge ?? null,
     minSpinAmount: row.min_spin_amount ?? 10000,
+    spinDurationMs: row.spin_duration_ms ?? undefined,
     reviewLinkOwnerEditable: row.review_link_owner_editable ?? true,
     status: toStoreStatus(row.status),
     giftColumns: parseGiftColumns(row.gift_columns),
@@ -248,7 +250,19 @@ export class SupabaseDataProvider implements DataProvider {
     }
   }
 
-  async signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  async signInAdmin(login: string, password: string): Promise<{ ok: boolean; error?: string }> {
+    // Supabase Auth (the ONLY credential store) signs in with an e-mail
+    // address. A login ID - e.g. the shop name "BCY Jewellers Private Limited"
+    // - is resolved to the account e-mail by the backend
+    // (resolve_admin_login); no mapping or credential is held in the client.
+    let email = login.trim()
+    if (!email.includes('@')) {
+      const { data, error } = await this.client.rpc('resolve_admin_login', { p_login_id: email })
+      if (error) return { ok: false, error: 'Unable to sign in with those credentials' }
+      const resolved = typeof data === 'string' ? data.trim() : ''
+      if (!resolved) return { ok: false, error: 'Invalid login ID or password' }
+      email = resolved
+    }
     const { error } = await this.client.auth.signInWithPassword({ email, password })
     if (error) return { ok: false, error: error.message }
     return { ok: true }

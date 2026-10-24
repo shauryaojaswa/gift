@@ -1,0 +1,522 @@
+{
+  "slug": "pashupati",
+  "base": "https://jriq.in",
+  "when": "2026-10-20T05:48:58.421Z",
+  "pass": 64,
+  "fail": 0,
+  "blocked": 0,
+  "results": [
+    {
+      "id": "AE-001",
+      "area": "1 sign-in",
+      "name": "signed in with the configured Admin ID and reached the branch workspace",
+      "status": "PASS",
+      "detail": "https://jriq.in/pashupati/admin/dashboard",
+      "severity": "info"
+    },
+    {
+      "id": "AE-002",
+      "area": "2 identity",
+      "name": "admin badge shows this branch's own shop name",
+      "status": "PASS",
+      "detail": "badge=\"Pashupati GODOWLIA · Shop Owner Overview Customers Rewards & Tiers My QR Code Store Settin\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-003",
+      "area": "2 identity",
+      "name": "admin badge shows the branch label",
+      "status": "PASS",
+      "detail": "expected \"Godowlia\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-004",
+      "area": "2 identity",
+      "name": "the branch logo loads and belongs to this store",
+      "status": "PASS",
+      "detail": "512x512 d-9965-bb8606054d6c/logo-512-1792448863001.png",
+      "severity": "info"
+    },
+    {
+      "id": "AE-005",
+      "area": "2 identity",
+      "name": "the logo payload is served at a sane size",
+      "status": "PASS",
+      "detail": "55 kB",
+      "severity": "info"
+    },
+    {
+      "id": "AE-006",
+      "area": "3 navigation",
+      "name": "section \"Overview\" renders and is the active route",
+      "status": "PASS",
+      "detail": "h1=\"Overview\" active=\"Overview\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-007",
+      "area": "3 navigation",
+      "name": "section \"Overview\" loads without unexpected console errors or failed requests",
+      "status": "PASS",
+      "detail": "",
+      "severity": "info"
+    },
+    {
+      "id": "AE-008",
+      "area": "3 navigation",
+      "name": "section \"Customers\" renders and is the active route",
+      "status": "PASS",
+      "detail": "h1=\"Customers\" active=\"Customers\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-009",
+      "area": "3 navigation",
+      "name": "section \"Customers\" loads without unexpected console errors or failed requests",
+      "status": "PASS",
+      "detail": "",
+      "severity": "info"
+    },
+    {
+      "id": "AE-010",
+      "area": "3 navigation",
+      "name": "section \"Rewards & Tiers\" renders and is the active route",
+      "status": "PASS",
+      "detail": "h1=\"Campaign\" active=\"Rewards & Tiers\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-011",
+      "area": "3 navigation",
+      "name": "section \"Rewards & Tiers\" loads without unexpected console errors or failed requests",
+      "status": "PASS",
+      "detail": "",
+      "severity": "info"
+    },
+    {
+      "id": "AE-012",
+      "area": "3 navigation",
+      "name": "section \"My QR Code\" renders and is the active route",
+      "status": "PASS",
+      "detail": "h1=\"QR Code & Branding\" active=\"My QR Code\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-013",
+      "area": "3 navigation",
+      "name": "section \"My QR Code\" loads without unexpected console errors or failed requests",
+      "status": "PASS",
+      "detail": "",
+      "severity": "info"
+    },
+    {
+      "id": "AE-014",
+      "area": "3 navigation",
+      "name": "section \"Store Settings\" renders and is the active route",
+      "status": "PASS",
+      "detail": "h1=\"Store Branding\" active=\"Store Settings\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-015",
+      "area": "3 navigation",
+      "name": "section \"Store Settings\" loads without unexpected console errors or failed requests",
+      "status": "PASS",
+      "detail": "",
+      "severity": "info"
+    },
+    {
+      "id": "AE-016",
+      "area": "4 dashboard",
+      "name": "the customer counter matches the distinct customers in the database",
+      "status": "PASS",
+      "detail": "shown=31 db=31 distinct customers of 43 rows",
+      "severity": "info"
+    },
+    {
+      "id": "AE-017",
+      "area": "4 dashboard",
+      "name": "the counter does not show pashupati1's customer total",
+      "status": "PASS",
+      "detail": "",
+      "severity": "info"
+    },
+    {
+      "id": "AE-018",
+      "area": "4 dashboard",
+      "name": "the counter does not show pashupati2's customer total",
+      "status": "PASS",
+      "detail": "",
+      "severity": "info"
+    },
+    {
+      "id": "AE-019",
+      "area": "6 empty state",
+      "name": "a search with no match shows an empty result and no error",
+      "status": "PASS",
+      "detail": "Pashupati GODOWLIA · Shop Owner Overview Customers Rewards & Tiers My QR Code Store Settin",
+      "severity": "info"
+    },
+    {
+      "id": "AE-020",
+      "area": "6 states",
+      "name": "collection-status filters are available (all / awaiting / collected)",
+      "status": "PASS",
+      "detail": "All | Awaiting | Collected",
+      "severity": "info"
+    },
+    {
+      "id": "AE-021",
+      "area": "4 rewards",
+      "name": "the admin lists exactly the configured gifts",
+      "status": "PASS",
+      "detail": "ui=8 db=8",
+      "severity": "info"
+    },
+    {
+      "id": "AE-022",
+      "area": "4 rewards",
+      "name": "the wheel order (tier target_segment) maps 1:1 to the gifts shown in the admin",
+      "status": "PASS",
+      "detail": "wheel order: Jewellery Cleaning | Premium Jewellery  | ₹500 Future Purcha | PREMIUM GIFT | ₹1,000 Making-Char | Premium Silver Gif | ₹2,500 Making-Char | ₹5,000 Store Vouch",
+      "severity": "info"
+    },
+    {
+      "id": "AE-023",
+      "area": "4 rewards",
+      "name": "purchase tiers are configured (one per bracket)",
+      "status": "PASS",
+      "detail": "8 tiers",
+      "severity": "info"
+    },
+    {
+      "id": "AE-024",
+      "area": "4 rewards",
+      "name": "the tier brackets are visible in the admin",
+      "status": "PASS",
+      "detail": "Pashupati GODOWLIA · Shop Owner Overview Customers Rewards & Tiers My ",
+      "severity": "info"
+    },
+    {
+      "id": "AE-025",
+      "area": "4 settings",
+      "name": "the branding section shows this store's display name",
+      "status": "PASS",
+      "detail": "Pashupati",
+      "severity": "info"
+    },
+    {
+      "id": "AE-026",
+      "area": "4 settings",
+      "name": "the Google Review URL field shows the saved value",
+      "status": "PASS",
+      "detail": "field=\"\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-027",
+      "area": "4 settings",
+      "name": "the public slug is shown and stable",
+      "status": "PASS",
+      "detail": "pashupati",
+      "severity": "info"
+    },
+    {
+      "id": "AE-028",
+      "area": "6 invalid input",
+      "name": "an invalid review URL is rejected with a message",
+      "status": "PASS",
+      "detail": "Pashupati GODOWLIA · Shop Owner Overview Customers Rewards & Tiers My QR Code Store Settin",
+      "severity": "info"
+    },
+    {
+      "id": "AE-029",
+      "area": "6 invalid input",
+      "name": "the rejected value was not persisted",
+      "status": "PASS",
+      "detail": "unchanged",
+      "severity": "info"
+    },
+    {
+      "id": "AE-030",
+      "area": "4 settings",
+      "name": "a branding edit persists to the database",
+      "status": "PASS",
+      "detail": "badge=\"QA-BADGE-pashupati\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-031",
+      "area": "4 settings",
+      "name": "a unique test review URL saves",
+      "status": "PASS",
+      "detail": "https://www.google.com/search?q=QA-REVIEW-URL-TEST-pashupati",
+      "severity": "info"
+    },
+    {
+      "id": "AE-032",
+      "area": "5 persistence",
+      "name": "the saved values are shown again after a refresh",
+      "status": "PASS",
+      "detail": "badge=\"QA-BADGE-pashupati\" review=\"https://www.google.com/search?q=QA-REVIE\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-033",
+      "area": "10 customer-to-admin",
+      "name": "the disposable customer entry is stored in THIS branch only",
+      "status": "PASS",
+      "detail": "47308336-8c52-4d0c-807f-fdbb0187b170",
+      "severity": "info"
+    },
+    {
+      "id": "AE-034",
+      "area": "10 customer-to-admin",
+      "name": "the stored reward and claim code match what the customer saw",
+      "status": "PASS",
+      "detail": "ui=CLEAN-47308336 db=CLEAN-47308336",
+      "severity": "info"
+    },
+    {
+      "id": "AE-035",
+      "area": "10 customer-to-admin",
+      "name": "the reward the customer saw is the reward the backend stored",
+      "status": "PASS",
+      "detail": "ui=\"JEWELLERY CLEANING & POLISHING Congratul\" db=\"Jewellery Cleaning & Polishing\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-036",
+      "area": "10 customer-to-admin",
+      "name": "the purchase amount and invoice details persisted",
+      "status": "PASS",
+      "detail": "amount=15000 invoice=null",
+      "severity": "info"
+    },
+    {
+      "id": "AE-037",
+      "area": "10 customer-to-admin",
+      "name": "the QA record does not appear in pashupati1",
+      "status": "PASS",
+      "detail": "0 row(s)",
+      "severity": "info"
+    },
+    {
+      "id": "AE-038",
+      "area": "10 customer-to-admin",
+      "name": "the QA record does not appear in pashupati2",
+      "status": "PASS",
+      "detail": "0 row(s)",
+      "severity": "info"
+    },
+    {
+      "id": "AE-039",
+      "area": "4 customers",
+      "name": "the new record is listed in this branch's customer panel",
+      "status": "PASS",
+      "detail": "Pashupati GODOWLIA · Shop Owner Overview Customers Rewards & Tiers My QR Code Store Settin",
+      "severity": "info"
+    },
+    {
+      "id": "AE-040",
+      "area": "4 customers",
+      "name": "the row shows the reward and the claim code",
+      "status": "PASS",
+      "detail": "claim code",
+      "severity": "info"
+    },
+    {
+      "id": "AE-041",
+      "area": "4 customers",
+      "name": "the record drawer shows the customer, amount, reward, claim code and invoice",
+      "status": "PASS",
+      "detail": "QA pashupati AdminE2E 273837 Awaiting Customer QA pashupati AdminE2E 273837 Phone 9273837829 Purchase amount ₹",
+      "severity": "info"
+    },
+    {
+      "id": "AE-042",
+      "area": "4 collection tracking",
+      "name": "marking a claim collected persists the status",
+      "status": "PASS",
+      "detail": "collected",
+      "severity": "info"
+    },
+    {
+      "id": "AE-043",
+      "area": "4 collection tracking",
+      "name": "the acting account is recorded as the collector",
+      "status": "PASS",
+      "detail": "collected_by set=true",
+      "severity": "info"
+    },
+    {
+      "id": "AE-044",
+      "area": "5 persistence",
+      "name": "the collected status is still shown after a refresh",
+      "status": "PASS",
+      "detail": "status visible",
+      "severity": "info"
+    },
+    {
+      "id": "AE-045",
+      "area": "4 CSV export",
+      "name": "the export ends with the final \"Invoice Details\" column",
+      "status": "PASS",
+      "detail": "e,Status,Submitted,Collected At,Collected By,Invoice Details",
+      "severity": "info"
+    },
+    {
+      "id": "AE-046",
+      "area": "4 CSV export",
+      "name": "the export carries the QA record and its claim code",
+      "status": "PASS",
+      "detail": "row present",
+      "severity": "info"
+    },
+    {
+      "id": "AE-047",
+      "area": "8 API access",
+      "name": "the signed-in session exposes a usable access token",
+      "status": "PASS",
+      "detail": "token present",
+      "severity": "info"
+    },
+    {
+      "id": "AE-048",
+      "area": "7 isolation",
+      "name": "another branch's admin URL shows the 403 wall (pashupati1)",
+      "status": "PASS",
+      "detail": "403 This dashboard belongs to another shop Your account is signed in, but it does not admi",
+      "severity": "info"
+    },
+    {
+      "id": "AE-049",
+      "area": "7 isolation",
+      "name": "the 403 wall leaks no other-branch data (pashupati1)",
+      "status": "PASS",
+      "detail": "no metrics on the wall",
+      "severity": "info"
+    },
+    {
+      "id": "AE-050",
+      "area": "7 isolation",
+      "name": "another branch's admin URL shows the 403 wall (pashupati2)",
+      "status": "PASS",
+      "detail": "403 This dashboard belongs to another shop Your account is signed in, but it does not admi",
+      "severity": "info"
+    },
+    {
+      "id": "AE-051",
+      "area": "7 isolation",
+      "name": "the 403 wall leaks no other-branch data (pashupati2)",
+      "status": "PASS",
+      "detail": "no metrics on the wall",
+      "severity": "info"
+    },
+    {
+      "id": "AE-052",
+      "area": "8 API access",
+      "name": "direct API read of pashupati1's submissions with this account returns nothing",
+      "status": "PASS",
+      "detail": "0 row(s), status 200",
+      "severity": "info"
+    },
+    {
+      "id": "AE-053",
+      "area": "8 API access",
+      "name": "direct API read of pashupati1's store_admins with this account returns nothing",
+      "status": "PASS",
+      "detail": "0 row(s), status 200",
+      "severity": "info"
+    },
+    {
+      "id": "AE-054",
+      "area": "8 API access",
+      "name": "pashupati1's gift names are public by design (wheel content) and carry no customer fields",
+      "status": "PASS",
+      "detail": "anon rows=8, customer fields present=false",
+      "severity": "info"
+    },
+    {
+      "id": "AE-055",
+      "area": "8 API access",
+      "name": "direct API read of pashupati2's submissions with this account returns nothing",
+      "status": "PASS",
+      "detail": "0 row(s), status 200",
+      "severity": "info"
+    },
+    {
+      "id": "AE-056",
+      "area": "8 API access",
+      "name": "direct API read of pashupati2's store_admins with this account returns nothing",
+      "status": "PASS",
+      "detail": "0 row(s), status 200",
+      "severity": "info"
+    },
+    {
+      "id": "AE-057",
+      "area": "8 API access",
+      "name": "pashupati2's gift names are public by design (wheel content) and carry no customer fields",
+      "status": "PASS",
+      "detail": "anon rows=8, customer fields present=false",
+      "severity": "info"
+    },
+    {
+      "id": "AE-058",
+      "area": "8 API access",
+      "name": "the platform-admins table is unreachable with a branch account",
+      "status": "PASS",
+      "detail": "0 row(s)",
+      "severity": "info"
+    },
+    {
+      "id": "AE-059",
+      "area": "9 logout",
+      "name": "sign-out leaves the workspace",
+      "status": "PASS",
+      "detail": "https://jriq.in/vendor/login",
+      "severity": "info"
+    },
+    {
+      "id": "AE-060",
+      "area": "9 logout",
+      "name": "the protected route cannot be reopened with the ended session",
+      "status": "PASS",
+      "detail": "https://jriq.in/vendor/login",
+      "severity": "info"
+    },
+    {
+      "id": "AE-061",
+      "area": "9 logout",
+      "name": "the gated page shows the sign-in screen, not shop data",
+      "status": "PASS",
+      "detail": "Pashupati GODOWLIA · Shop Owner Dashboard Sign in to manage your campa",
+      "severity": "info"
+    },
+    {
+      "id": "AE-062",
+      "area": "5 persistence",
+      "name": "the saved review URL survived logout and re-login",
+      "status": "PASS",
+      "detail": "field=\"https://www.google.com/search?q=QA-REVIEW-URL-TEST\"",
+      "severity": "info"
+    },
+    {
+      "id": "AE-063",
+      "area": "5 persistence",
+      "name": "the review URL of record is restored after the test",
+      "status": "PASS",
+      "detail": "null",
+      "severity": "info"
+    },
+    {
+      "id": "AE-064",
+      "area": "5 persistence",
+      "name": "the campaign badge of record is restored after the test",
+      "status": "PASS",
+      "detail": "\"\"",
+      "severity": "info"
+    }
+  ]
+}

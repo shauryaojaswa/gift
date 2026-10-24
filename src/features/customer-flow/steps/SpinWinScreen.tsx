@@ -134,6 +134,7 @@ export function SpinWinScreen() {
         onSpinRequested={canSpin ? handleSpinRequested : undefined}
         size={wheelSize}
         disabled={!canSpin}
+        spinDurationMs={store.spinDurationMs}
         rimColor={theme.wheelStroke}
         accentColor={hslToString(theme.primary)}
         ringFill={hslToString({ h: theme.secondary.h, s: theme.secondary.s * 0.5, l: 0.94 })}

@@ -73,7 +73,7 @@ const STORE_IDS = {
 }
 const ALL_SLUGS = Object.keys(STORE_IDS)
 if (!SLUG || !ALL_SLUGS.includes(SLUG)) {
-  console.error('Usage: node scripts/pashupati-e2e.mjs --phase <phase> --slug <pashupati1|pashupati2|pashupati>')
+  console.error('Usage: node scripts/pashupati-e2e.mjs --phase <config|admin|journey|settings|all> --slug <pashupati1|pashupati2|pashupati> [--slot <pre|post>] [--headed]')
   process.exit(2)
 }
 
@@ -105,6 +105,15 @@ const REVIEW_SENTENCES = [
   'The collection had many beautiful options.',
   'My visit was a pleasant experience.',
 ]
+// Per-location Google review URLs of record (verified listings, distinct per
+// branch). The third location has no Google Business Profile of its own yet:
+// its field stays NULL until the owner supplies the real link - never another
+// branch's URL, never invented.
+const APPROVED_REVIEW_URLS = {
+  pashupati1: 'https://www.google.com/search?hl=en-in&gl=in&q=Pashupati+a+unit+of+BSKK+LLP#lrd=0x398e3128434bb691:0x96988d31a11155ac,3',
+  pashupati2: 'https://www.google.com/search?hl=en-in&gl=in&q=Pashupati+a+unit+of+benaras+Swarn+Kala+Kendra+llp+Lohta#lrd=0x398e2de6beabada3:0x5e7aa4810675d71f,3',
+  pashupati: null,
+}
 
 // ------------------------------------------------------------- check + output
 let pass = 0
@@ -158,6 +167,22 @@ const shotDir = join(OUT, SLUG)
 mkdirSync(shotDir, { recursive: true })
 async function shot(page, name) {
   await page.screenshot({ path: join(shotDir, `${name}.png`), fullPage: true }).catch(() => {})
+}
+// Owner sign-in uses the configured Admin ID on the app's "Email or login ID"
+// field (the backend resolves the login ID to the auth account, Supabase Auth
+// verifies the password - the ONLY credential store). Current builds render the
+// field as type=text autocomplete=username; older builds as type=email.
+const LOGIN_FIELD = 'input[autocomplete="username"], input[type="email"]'
+async function signInAs(page, creds) {
+  const box = page.locator(LOGIN_FIELD).first()
+  if (!(await box.isVisible().catch(() => false))) {
+    const link = page.getByRole('link', { name: /sign in/i }).first()
+    if (await link.isVisible().catch(() => false)) await link.click().catch(() => {})
+  }
+  await box.waitFor({ state: 'visible', timeout: 20000 })
+  await box.fill(creds.adminId ?? creds.email)
+  await page.locator('input[type="password"]').first().fill(creds.password)
+  await page.getByRole('button', { name: 'Sign in' }).click()
 }
 
 // ------------------------------------------------------------------ data read
@@ -213,15 +238,7 @@ async function configPhase() {
 
   // 1. owner sign-in --------------------------------------------------------
   await page.goto(`${BASE}/${SLUG}/admin`, { waitUntil: 'domcontentloaded' })
-  const emailBox = page.locator('input[type="email"]')
-  if (!(await emailBox.isVisible().catch(() => false))) {
-    const signIn = page.getByRole('link', { name: /sign in/i }).first()
-    if (await signIn.isVisible().catch(() => false)) await signIn.click()
-    await page.waitForSelector('input[type="email"]', { timeout: 15000 })
-  }
-  await page.fill('input[type="email"]', creds.email)
-  await page.fill('input[type="password"]', creds.password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await signInAs(page, creds)
   await page.waitForSelector('nav[aria-label="Vendor navigation"]', { timeout: 20000 })
   check('owner signs in and reaches the workspace', true, page.url())
   await shot(page, 'admin-01-dashboard')
@@ -640,6 +657,13 @@ async function journeyPhase() {
   await spinReveal(AMOUNT, false, 'run1', true)
   await spinReveal(AMOUNT2, true, 'run2', false)
 
+  // Hand this run's identifiers to the settings post-slot (vendor Customers
+  // panel verification of exactly these two submissions).
+  writeFileSync(
+    join(shotDir, 'last-journey.json'),
+    JSON.stringify({ run, name, phone, invoiceTag: `INV-${run}-RUN1` }, null, 2),
+  )
+
   await browser.close()
 }
 
@@ -693,15 +717,7 @@ async function adminPhase() {
 
   // owner sign-in -> Campaign (gift configuration) --------------------------
   await page.goto(`${BASE}/${SLUG}/admin`, { waitUntil: 'domcontentloaded' })
-  const emailBox = page.locator('input[type="email"]')
-  if (!(await emailBox.isVisible().catch(() => false))) {
-    const signIn = page.getByRole('link', { name: /sign in/i }).first()
-    if (await signIn.isVisible().catch(() => false)) await signIn.click()
-    await page.waitForSelector('input[type="email"]', { timeout: 15000 })
-  }
-  await page.fill('input[type="email"]', creds.email)
-  await page.fill('input[type="password"]', creds.password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await signInAs(page, creds)
   await page.waitForSelector('nav[aria-label="Vendor navigation"]', { timeout: 20000 })
   await page.getByRole('link', { name: 'Rewards & Tiers' }).first().click()
   await page.waitForSelector('h1:has-text("Campaign")', { timeout: 15000 })
@@ -779,13 +795,11 @@ async function adminPhase() {
   const openCampaign = async () => {
     await page.goto(`${BASE}/${SLUG}/admin/rewards`, { waitUntil: 'domcontentloaded' })
     await Promise.race([
-      page.waitForSelector('input[type="email"]', { timeout: 15000 }),
+      page.waitForSelector(LOGIN_FIELD, { timeout: 15000 }),
       page.waitForSelector('nav[aria-label="Vendor navigation"]', { timeout: 15000 }),
     ]).catch(() => {})
-    if (await page.locator('input[type="email"]').isVisible().catch(() => false)) {
-      await page.fill('input[type="email"]', creds.email)
-      await page.fill('input[type="password"]', creds.password)
-      await page.getByRole('button', { name: 'Sign in' }).click()
+    if (await page.locator(LOGIN_FIELD).first().isVisible().catch(() => false)) {
+      await signInAs(page, creds)
       await page.waitForSelector('nav[aria-label="Vendor navigation"]', { timeout: 20000 })
     }
     if (!(await page.locator('h1:has-text("Campaign")').isVisible().catch(() => false))) {
@@ -807,6 +821,38 @@ async function adminPhase() {
   // check compares the restored state with the store's real configuration.
   const before = await snapshotAll()
   const baseline = await dbState()
+
+  // empty/invalid gift fields never create selectable blank rewards ---------
+  {
+    const first = segments[0]
+    await page.locator('section[aria-labelledby="rewards-heading"]')
+      .getByText(first.name, { exact: true }).first()
+      .locator('xpath=ancestor::div[.//button[normalize-space()="Edit"]][1]')
+      .getByRole('button', { name: 'Edit' })
+      .click()
+    const form = page.locator(
+      'xpath=//h3[normalize-space()="Edit reward"]/ancestor::div[.//button[normalize-space()="Save reward"]][1]',
+    )
+    await form.waitFor({ timeout: 10000 })
+    await form.locator('input.field-input').nth(0).fill('')
+    await page.getByRole('button', { name: 'Save reward' }).click()
+    const errShown = await page.getByText('Reward name is required.')
+      .first().waitFor({ timeout: 8000 }).then(() => true).catch(() => false)
+    check('empty gift name is rejected before saving (no blank reward can be created)', errShown)
+    const st0 = await dbState()
+    check('rejected empty name leaves the database byte-identical',
+      JSON.stringify(st0) === JSON.stringify(baseline),
+      JSON.stringify({ before: baseline.names, after: st0.names }))
+    await shot(page, 'admin-00-empty-name-rejected')
+    // close the editor saving the unchanged original name
+    await form.locator('input.field-input').nth(0).fill(first.name)
+    await page.getByRole('button', { name: 'Save reward' }).click()
+    await page.waitForSelector('h3:has-text("Edit reward")', { state: 'detached', timeout: 15000 })
+    // fresh render of the saved list before the rename round
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('h1:has-text("Campaign")', { timeout: 15000 })
+    await page.getByText(first.name, { exact: true }).first().waitFor({ timeout: 10000 })
+  }
 
   // steps 3-6: temporary test names in every field, saved, persisted -------
   for (const s of segments) {
@@ -883,12 +929,320 @@ async function adminPhase() {
   await browser.close()
 }
 
+// ============================================================ SETTINGS PHASE
+// Vendor Store Settings - the editable Google Review URL field (spec section 3)
+// and the section-7 admin-to-customer workflow's settings steps, split in two
+// slots around the journey phase:
+//   --slot pre  : sign in with the configured admin credentials; the field
+//                 shows the saved URL (blank when unconfigured, never
+//                 invented); an invalid URL is rejected before saving and is
+//                 not persisted; a blank value saves as NULL and reloads
+//                 blank; a unique test URL saves and persists across a reload
+//                 while the other two stores stay byte-identical; this owner
+//                 is walled (403) out of the other stores' dashboards.
+//   --slot post : the vendor Customers panel shows the journey's two fresh
+//                 submissions (record, reward, invoice details, collection
+//                 status), the CSV export ends with "Invoice Details", then
+//                 the review URL is restored to its value of record (NULL for
+//                 the third location) and isolation is re-proven.
+async function settingsPhase(forceSlot = null) {
+  const slot = (forceSlot ?? argValue('--slot', 'pre')).toLowerCase()
+  console.log(`\n=== SETTINGS (${slot}) PHASE ${SLUG} @ ${BASE} ===`)
+  const creds = JSON.parse(readFileSync(CREDS_FILE, 'utf8'))[SLUG]
+  const before = await snapshotAll()
+  const dbUrl = async () => (await storeRows(SLUG)).store.google_review_url
+  const reviewUrls = async () => {
+    const out = {}
+    for (const s of ALL_SLUGS) out[s] = (await storeRows(s)).store.google_review_url
+    return out
+  }
+  const reviewBefore = await reviewUrls()
+  const baselinePath = join(shotDir, 'review-url-baseline.json')
+
+  const browser = await chromium.launch({ headless: !HEADED })
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+
+  const signIn = async () => {
+    await page.goto(`${BASE}/${SLUG}/admin`, { waitUntil: 'domcontentloaded' })
+    await signInAs(page, creds)
+    await page.waitForSelector('nav[aria-label="Vendor navigation"]', { timeout: 20000 })
+  }
+  const openSettings = async () => {
+    await page.getByRole('link', { name: 'Store Settings' }).first().click()
+    await page.waitForSelector('h1:has-text("Store Branding")', { timeout: 15000 })
+    await page.locator('input[type="url"]').waitFor({ timeout: 10000 })
+  }
+  const urlField = () => page.locator('input[type="url"]')
+  const saveSettings = async (expectSaved = true) => {
+    await page.getByRole('button', { name: 'Save Settings' }).click()
+    if (expectSaved) {
+      await page.locator('[role="status"]').filter({ hasText: /saved/i }).first()
+        .waitFor({ timeout: 10000 }).catch(() => {})
+    }
+  }
+
+  // ------------------------------------------------------------------ pre slot
+  if (slot === 'pre') {
+    await signIn()
+    check('[pre] sign-in with the configured admin credentials succeeds', true)
+    await openSettings()
+    await shot(page, 'settings-pre-01-open')
+
+    const initialDb = await dbUrl()
+    check('[pre] Google Review URL field is available in Store Settings',
+      (await urlField().count()) === 1, `count=${await urlField().count()}`)
+    check('[pre] field shows the currently saved URL (blank when unconfigured)',
+      (await urlField().inputValue()) === (initialDb ?? ''), JSON.stringify({ shown: await urlField().inputValue(), initialDb }))
+
+    // invalid URL: rejected before saving, nothing persisted
+    await urlField().fill('not a valid url')
+    await saveSettings(false)
+    const alert = page.locator('[role="alert"]')
+    await alert.first().waitFor({ timeout: 8000 }).catch(() => {})
+    const alertText = (await alert.count()) ? await alert.first().innerText() : ''
+    check('[pre] invalid URL is rejected with a clear validation message', /valid/i.test(alertText), alertText)
+    check('[pre] invalid URL is not persisted', (await dbUrl()) === initialDb, JSON.stringify(await dbUrl()))
+    await shot(page, 'settings-pre-02-invalid')
+
+    // blank value saves as NULL and reloads blank (the third location's state)
+    await urlField().fill('')
+    await saveSettings()
+    check('[pre] blank value saves as NULL and the field stays available',
+      (await dbUrl()) === null, JSON.stringify(await dbUrl()))
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('h1:has-text("Store Branding")', { timeout: 15000 })
+    check('[pre] blank value reloads blank after save', (await urlField().inputValue()) === '',
+      await urlField().inputValue())
+
+    // unique test URL: save -> persists -> reload shows it again
+    const run = randomBytes(2).toString('hex').toUpperCase()
+    const testUrl = `https://www.google.com/search?q=QA-REVIEW-URL-TEST-${SLUG}-${run}`
+    await urlField().fill(testUrl)
+    await saveSettings()
+    check('[pre] unique test review URL saves', (await dbUrl()) === testUrl, JSON.stringify(await dbUrl()))
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('h1:has-text("Store Branding")', { timeout: 15000 })
+    check('[pre] saved test review URL is shown again after reload',
+      (await urlField().inputValue()) === testUrl, await urlField().inputValue())
+    await shot(page, 'settings-pre-03-testurl')
+
+    // the pre-test value of record (restored verbatim by the post slot)
+    check('[pre] review URL of record matches the approved per-location value',
+      initialDb === APPROVED_REVIEW_URLS[SLUG],
+      JSON.stringify({ initialDb, approved: APPROVED_REVIEW_URLS[SLUG] }))
+    writeFileSync(baselinePath, JSON.stringify({
+      baseline: initialDb, testUrl, at: new Date().toISOString(),
+    }, null, 2))
+
+    // cross-account wall: this owner must not see another store's dashboard
+    // (review settings, gift configuration or customer data)
+    for (const other of ALL_SLUGS.filter((s) => s !== SLUG)) {
+      for (const surface of ['settings', 'customers']) {
+        await page.goto(`${BASE}/${other}/admin/${surface}`, { waitUntil: 'domcontentloaded' })
+        await page.waitForTimeout(1500)
+        const body = await page.evaluate(() => document.body.innerText)
+        const otherUrl = (await storeRows(other)).store.google_review_url
+        check(`[pre] cross-account: ${other}'s ${surface} refused for ${SLUG}'s owner (403, zero shop data)`,
+          body.includes('403') && /another shop/i.test(body)
+            && (await urlField().count()) === 0
+            && !(otherUrl && body.includes(otherUrl))
+            && !body.includes('QA Pashupati'),
+          body.slice(0, 160))
+        await shot(page, `settings-pre-04-forbidden-${other}-${surface}`)
+      }
+    }
+
+    // cross-store: the other two stores are byte-identical throughout
+    const after = await snapshotAll()
+    for (const other of ALL_SLUGS.filter((s) => s !== SLUG)) {
+      check(`[pre] independence: ${other} untouched by ${SLUG} review-settings testing`,
+        JSON.stringify(before[other]) === JSON.stringify(after[other]),
+        JSON.stringify({ before: before[other], after: after[other] }))
+    }
+    // section 7 step 4: the other two stores' REVIEW SETTINGS are unchanged
+    const reviewAfter = await reviewUrls()
+    for (const other of ALL_SLUGS.filter((s) => s !== SLUG)) {
+      check(`[pre] ${other}'s review URL unchanged (${reviewBefore[other] ?? 'null'})`,
+        reviewAfter[other] === reviewBefore[other],
+        JSON.stringify({ before: reviewBefore[other], after: reviewAfter[other] }))
+    }
+    await browser.close()
+    return
+  }
+
+  // ----------------------------------------------------------------- post slot
+  const handoffPath = join(shotDir, 'last-journey.json')
+  if (!existsSync(handoffPath)) {
+    throw new Error(`last-journey.json missing - run the journey phase first (${handoffPath})`)
+  }
+  const { name: qName, phone: qPhone, invoiceTag } = JSON.parse(readFileSync(handoffPath, 'utf8'))
+  const { baseline, testUrl } = JSON.parse(readFileSync(baselinePath, 'utf8'))
+
+  await signIn()
+  check('[post] sign-in with the configured admin credentials succeeds', true)
+
+  // vendor Customers panel: the journey's two fresh submissions -------------
+  await page.getByRole('link', { name: 'Customers' }).first().click()
+  await page.waitForSelector('h1:has-text("Customers")', { timeout: 15000 })
+  await page.getByLabel('Search customers').fill(qPhone)
+  // wait for the debounced search to actually filter: every listed row then
+  // belongs to the searched phone (never count rows before the filter lands)
+  await page.waitForFunction(
+    (phone) => {
+      const rows = Array.from(document.querySelectorAll('tbody tr'))
+      return rows.length > 0 && rows.every((r) => (r.textContent ?? '').includes(phone))
+    },
+    qPhone,
+    { timeout: 15000 },
+  ).catch(() => {})
+  const rowLoc = page.locator('tbody tr')
+  await rowLoc.first().waitFor({ timeout: 15000 })
+  const rowCount = await rowLoc.count()
+  check("[post] vendor Customers panel lists the journey's two fresh submissions",
+    rowCount === 2, `rows=${rowCount}`)
+  await shot(page, 'settings-post-01-customers')
+
+  const { data: subs } = await db
+    .from('submissions')
+    .select('customer_name, customer_phone, purchase_amount, invoice_details, reward_label, coupon_code, collection_status, collected_by')
+    .eq('store_id', STORE_IDS[SLUG])
+    .eq('customer_phone', qPhone)
+    .order('created_at', { ascending: false })
+  const invSub = (subs ?? []).find((s) => s.invoice_details === invoiceTag)
+  const blankSub = (subs ?? []).find((s) => s.invoice_details === null)
+  check('[post] both journey submissions persisted with the expected invoice values (filled + NULL)',
+    !!invSub && !!blankSub, JSON.stringify(subs))
+
+  const rowsBlob = (await rowLoc.allInnerTexts()).join('\n')
+  check('[post] rows show customer, purchase amount, reward and claim code of both submissions',
+    rowsBlob.includes(qName)
+      && (subs ?? []).every((s) => rowsBlob.includes(s.reward_label) && rowsBlob.includes(s.coupon_code ?? '')),
+    rowsBlob.slice(0, 300))
+  check('[post] fresh submissions show their collection status (Awaiting / Collected)',
+    (rowsBlob.match(/Awaiting|Collected/g) ?? []).length >= 2, rowsBlob.slice(0, 300))
+
+  // detail drawer: record + reward + invoice details -------------------------
+  const invRow = rowLoc.filter({ hasText: invSub?.coupon_code ?? '\u0000' }).first()
+  await invRow.getByRole('button', { name: qName }).click()
+  const drawer = page.locator('[role="dialog"][aria-label="Customer detail"]')
+  await drawer.waitFor({ timeout: 10000 })
+  const invDrawer = await drawer.innerText()
+  check('[post] customer record shows the invoice details exactly as submitted',
+    invDrawer.includes('Invoice details') && invDrawer.includes(invoiceTag)
+      && invDrawer.includes(invSub?.reward_label ?? '\u0000') && invDrawer.includes(invSub?.coupon_code ?? '\u0000'),
+    invDrawer.slice(0, 300))
+  await shot(page, 'settings-post-02-drawer-invoice')
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
+
+  const blankRow = rowLoc.filter({ hasText: blankSub?.coupon_code ?? '\u0000' }).first()
+  await blankRow.getByRole('button', { name: qName }).click()
+  await drawer.waitFor({ timeout: 10000 })
+  const blankDrawer = await drawer.innerText()
+  check('[post] blank invoice submission shows "Not provided" (stored as NULL)',
+    blankDrawer.includes('Invoice details') && blankDrawer.includes('Not provided'), blankDrawer.slice(0, 300))
+  await shot(page, 'settings-post-03-drawer-noinvoice')
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
+
+  // collection status is vendor-managed -------------------------------------
+  const invRowLoc = rowLoc.filter({ hasText: invSub?.coupon_code ?? '\u0000' }).first()
+  const markBtn = invRowLoc.getByRole('button', { name: 'Mark collected' })
+  if (await markBtn.count()) {
+    await markBtn.click()
+  }
+  await invRowLoc.getByText('Collected', { exact: true }).first().waitFor({ timeout: 10000 })
+  // collected_by is persisted as the acting vendor account's auth id
+  const { data: userRows } = await db.auth.admin.listUsers()
+  const ownerId = (userRows?.users ?? []).find((u) => u.email?.toLowerCase() === creds.email.toLowerCase())?.id ?? null
+  const collected = await db
+    .from('submissions')
+    .select('collection_status, collected_by')
+    .eq('store_id', STORE_IDS[SLUG])
+    .eq('customer_phone', qPhone)
+    .eq('invoice_details', invoiceTag)
+    .single()
+  check('[post] vendor can mark a claim collected; status + collected_by persist',
+    collected.data?.collection_status === 'collected' && !!ownerId && collected.data?.collected_by === ownerId,
+    JSON.stringify({ row: collected.data, ownerId }))
+  await shot(page, 'settings-post-04-collected')
+
+  // CSV export: the final "Invoice Details" column ---------------------------
+  const dlPromise = page.waitForEvent('download', { timeout: 15000 }).catch(() => null)
+  await page.getByRole('button', { name: 'Export CSV' }).click()
+  const dl = await dlPromise
+  if (dl) {
+    const csv = readFileSync(await dl.path(), 'utf8')
+    const header = (csv.split(/\r?\n/)[0] ?? '').trim()
+    check('[post] CSV export ends with the final "Invoice Details" column',
+      /(^|,)"?Invoice Details"?$/.test(header), header)
+    check('[post] CSV export carries the submitted invoice value and claim codes',
+      csv.includes(invoiceTag) && (subs ?? []).every((s) => csv.includes(s.coupon_code ?? '')),
+      csv.slice(0, 200))
+  } else {
+    blockedCheck('[post] CSV export download capture - browser download event not observed', '')
+  }
+
+  // restore the review URL of record -----------------------------------------
+  check('[post] review URL of record matches the approved per-location value',
+    baseline === APPROVED_REVIEW_URLS[SLUG],
+    JSON.stringify({ baseline, approved: APPROVED_REVIEW_URLS[SLUG] }))
+  await openSettings()
+  const cur = await urlField().inputValue()
+  if (cur === testUrl || cur === (baseline ?? '')) {
+    await urlField().fill(baseline ?? '')
+    await saveSettings()
+    check('[post] review URL restored to its value of record (NULL for the third location)',
+      (await dbUrl()) === (baseline ?? null), JSON.stringify(await dbUrl()))
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('h1:has-text("Store Branding")', { timeout: 15000 })
+    check('[post] restored review URL is shown again after reload',
+      (await urlField().inputValue()) === (baseline ?? ''), await urlField().inputValue())
+    await shot(page, 'settings-post-05-restored')
+  } else {
+    // The URL changed outside the test window (e.g. the owner edited it):
+    // never overwrite an owner's own change - report it instead.
+    check('[post] review URL left untouched (changed outside the test window)', true, `current=${cur}`)
+    await shot(page, 'settings-post-05-untouched')
+  }
+
+  // final isolation + resting state ------------------------------------------
+  const after = await snapshotAll()
+  for (const other of ALL_SLUGS.filter((s) => s !== SLUG)) {
+    check(`[post] independence: ${other} untouched by ${SLUG} settings/panel testing`,
+      JSON.stringify(before[other]) === JSON.stringify(after[other]),
+      JSON.stringify({ before: before[other], after: after[other] }))
+  }
+  check('[post] own store gift configuration untouched by settings testing',
+    JSON.stringify(before[SLUG]) === JSON.stringify(after[SLUG]),
+    JSON.stringify({ before: before[SLUG], after: after[SLUG] }))
+  // section 7 step 4: the other two stores' REVIEW SETTINGS are unchanged
+  const reviewAfter = await reviewUrls()
+  for (const other of ALL_SLUGS.filter((s) => s !== SLUG)) {
+    check(`[post] ${other}'s review URL unchanged (${reviewBefore[other] ?? 'null'})`,
+      reviewAfter[other] === reviewBefore[other],
+      JSON.stringify({ before: reviewBefore[other], after: reviewAfter[other] }))
+  }
+
+  await browser.close()
+}
+
 // ===================================================================== driver
 const started = new Date().toISOString()
 try {
-  if (PHASE === 'config' || PHASE === 'all') await configPhase()
-  if (PHASE === 'admin' || PHASE === 'all') await adminPhase()
-  if (PHASE === 'journey' || PHASE === 'all') await journeyPhase()
+  if (PHASE === 'all') {
+    await settingsPhase('pre')
+    await configPhase()
+    await adminPhase()
+    await journeyPhase()
+    await settingsPhase('post')
+  } else {
+    if (PHASE === 'config') await configPhase()
+    if (PHASE === 'admin') await adminPhase()
+    if (PHASE === 'journey') await journeyPhase()
+    if (PHASE === 'settings') await settingsPhase()
+  }
 } catch (e) {
   fail += 1
   findings.push({ name: 'harness error', detail: e?.message ?? String(e) })

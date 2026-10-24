@@ -1,0 +1,11 @@
+{
+  "slug": "pashupati2",
+  "phase": "settings",
+  "base": "https://jriq.in",
+  "started": "2026-10-19T22:23:56.733Z",
+  "finished": "2026-10-19T22:24:27.000Z",
+  "pass": 18,
+  "fail": 0,
+  "blocked": 0,
+  "findings": []
+}

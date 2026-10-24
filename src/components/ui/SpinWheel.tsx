@@ -26,6 +26,12 @@ interface SpinWheelProps {
   accentColor?: string
   /** Backdrop fill behind the rim (defaults to the house cream-gold). */
   ringFill?: string
+  /**
+   * Per-store spin animation duration in ms (stores.spin_duration_ms).
+   * Defaults to SPIN_DURATION_MS (5000 - the shared, released default).
+   * Presentation timing only; the reveal settles after SPIN_REVEAL_SETTLE_MS.
+   */
+  spinDurationMs?: number
 }
 
 function describeAnnulus(
@@ -51,9 +57,11 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * Spin timing - pinned by tests. The spin animation runs for exactly 6 seconds
- * before the gift is revealed (plus the 400ms reveal settle). Customers who ask
- * their system for reduced motion still get the spin, just shorter and gentler.
+ * Spin timing - pinned by tests. The shared spin animation runs for exactly 5
+ * seconds before the gift is revealed (plus the 400ms reveal settle); a store
+ * may override the duration via the `spinDurationMs` prop (BCY's spec: the
+ * spin completes in approximately six seconds). Customers who ask their
+ * system for reduced motion still get the spin, just shorter and gentler.
  */
 export const SPIN_DURATION_MS = 5000
 export const SPIN_FULL_SPINS = 8
@@ -72,6 +80,7 @@ export function SpinWheel({
   rimColor = 'hsl(39 42% 68%)',
   accentColor = 'hsl(350 48% 27%)',
   ringFill = 'hsl(39 34% 94%)',
+  spinDurationMs,
 }: SpinWheelProps) {
   const [rotation, setRotation] = useState(0)
   const rotationRef = useRef(rotation)
@@ -113,7 +122,7 @@ export function SpinWheel({
       segments.length,
       prefersReducedMotion()
         ? { fullSpins: SPIN_REDUCED_MOTION_FULL_SPINS, durationMs: SPIN_REDUCED_MOTION_DURATION_MS }
-        : { fullSpins: SPIN_FULL_SPINS, durationMs: SPIN_DURATION_MS },
+        : { fullSpins: SPIN_FULL_SPINS, durationMs: spinDurationMs ?? SPIN_DURATION_MS },
     )
     const targetAngle = startAngle + normalizeSpinDelta(startAngle, finalRotation, fullSpins)
 
@@ -142,7 +151,7 @@ export function SpinWheel({
         resultTimerRef.current = null
       }
     }
-  }, [targetSegment, segments.length, onSpinComplete])
+  }, [targetSegment, segments.length, onSpinComplete, spinDurationMs])
 
   const handleSpin = () => {
     if (canSpin && onSpinRequested) onSpinRequested()

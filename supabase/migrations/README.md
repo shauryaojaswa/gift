@@ -8,6 +8,15 @@ Canonical apply order (filename order; each is idempotent and additive):
 | 2 | `20261010203000_managed_tenant_foundation.sql` | Collection tracking columns (`collection_status`, `collected_at`, `collected_by uuid`), `request_id`, tier/reward extensions, rate limiting, `platform_admins`, subscriptions, RLS policies, `storage` bucket + policies, and the RPCs `submit_customer_entry`, `mark_submission_collected`, `save_store_tiers` |
 | 3 | `20261010203100_submissions_collection_index.sql` | `(store_id, collection_status)` index for dashboard "awaiting collection" counts |
 
+Later additive migrations (same apply discipline - filename order, idempotent):
+
+| Order | File | Purpose |
+|---|---|---|
+| 4 | `20261019120000_store_gift_columns.sql` | Per-store eight-field gift editor: `stores.gift_columns`, `save_store_gift_columns`, gift-pool-tolerant `submit_customer_entry` |
+| 5 | `20261019150000_admin_login_id.sql` | Shop name as admin login ID: `store_admins.login_id` + backend resolution RPC `resolve_admin_login` (Supabase Auth stays the only credential store) |
+| 6 | `20261019150100_store_spin_duration.sql` | Per-store wheel animation duration `stores.spin_duration_ms` (NULL = shared 5000ms default; BCY = 6000ms) |
+| 7 | `20261019170000_store_location_label.sql` | Branch label for the shop-owner admin `stores.location_label` (NULL = no label; admin-facing only, the customer strapline stays in `stores.subtitle`) |
+
 ## Reconciliation record (2026-10-14)
 
 `0001_add_gift_collection_tracking.sql` was removed (superseded by migration 2):
@@ -29,6 +38,21 @@ supabase db push
 
 # or paste the three files, in order, into the Supabase SQL Editor.
 ```
+
+## New-table grant discipline (audit SEC-10)
+
+Supabase grants `anon`/`authenticated` full DML on tables it creates by default, and
+`ALTER TABLE ... ADD COLUMN` does not change existing grants. Any migration that
+**creates** a table must therefore state its grants explicitly, in the same file:
+
+```sql
+revoke all on table public.<new_table> from anon, authenticated;
+grant select on table public.<new_table> to anon;      -- only if it is a public read
+-- authenticated access comes from the table's own RLS policies
+```
+
+Read-only customer-page tables (`stores`, `rewards`, `reward_tiers`) are intentionally
+public; tenant data (`submissions`, `store_admins`, platform tables) is not.
 
 Then seed a store: `../seed_jolly_enterprises.sql` (creates the
 `jolly-enterprises` store, its rewards and reward tiers).

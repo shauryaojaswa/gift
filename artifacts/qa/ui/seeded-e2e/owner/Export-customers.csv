@@ -1,0 +1,3 @@
+Customer,Phone,Purchase Amount (INR),Bracket,Reward,Claim Code,Status,Submitted,Collected At,Collected By
+QA Seed Walkthrough B,9876512002,7000,"₹5,000 and above",QA Gift shreemanali B,GIFT-1439A08D,Awaiting,2026-10-18T08:15:03.295956+00:00,,
+QA Seed Walkthrough,9876512001,3000,"₹1,000 – ₹4,998",QA Gift shreemanali A,GIFT-FB6CE702,Collected,2026-10-18T08:13:03.057503+00:00,2026-10-18T08:24:08.907494+00:00,de60e0aa-8a50-4024-b601-7b3d4c5a610f

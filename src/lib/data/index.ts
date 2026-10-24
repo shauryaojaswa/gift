@@ -1,8 +1,7 @@
 import { LocalDataProvider } from './local'
 import { SupabaseDataProvider } from './supabase'
 import { createSupabaseClient } from '../supabase'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../database.types'
+import type { SupabaseClientLike } from '../supabase'
 import type { DataProvider } from './types'
 import type { StoreConfig } from '../../types'
 import { ALL_STORES, JOLLY_ENTERPRISES } from '../stores'
@@ -22,14 +21,14 @@ export { LocalDataProvider } from './local'
 export { SupabaseDataProvider } from './supabase'
 
 let provider: DataProvider | null = null
-let client: SupabaseClient<Database> | null = null
+let client: SupabaseClientLike | null = null
 
 /**
  * The shared Supabase client (same auth session as the data provider).
  * Returns null in demo mode — Supabase-backed features (platform admin,
  * gift selection) are unavailable without a configured project.
  */
-export function getSupabaseClient(): SupabaseClient<Database> | null {
+export function getSupabaseClient(): SupabaseClientLike | null {
   if (client) return client
   const url = import.meta.env.VITE_SUPABASE_URL
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY

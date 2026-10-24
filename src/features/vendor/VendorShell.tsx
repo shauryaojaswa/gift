@@ -84,13 +84,17 @@ function VendorShellInner() {
       return <NotFound message="Your account is not linked to a shop yet." />
     }
     if (store.slug !== urlSlug) {
-      return <Forbidden storeSlug={store.slug} />
+      return <Forbidden storeSlug={store.slug} onSignOut={signOut} />
     }
   }
 
   const base = urlSlug ? `/${urlSlug}/admin` : '/vendor'
   const items = navItems(base)
   const storeName = store?.name ?? 'Your Store'
+  // Branch label (e.g. "Vijaya Road", "Lohta", "Godowlia"): brands that run
+  // several branches under one trade name would otherwise look identical in
+  // the admin, so the branch sits next to the shop name.
+  const branchLabel = store?.locationLabel ?? null
 
   return (
     <div className="w-full max-w-6xl pb-20 lg:pb-0">
@@ -107,13 +111,13 @@ function VendorShellInner() {
       <div className="flex flex-col gap-6 lg:flex-row">
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-6 flex flex-col gap-4">
-            <StoreBadge name={storeName} logoUrl={store?.logoUrl ?? null} />
+            <StoreBadge name={storeName} logoUrl={store?.logoUrl ?? null} branchLabel={branchLabel} />
             <SidebarNav items={items} onSignOut={signOut} />
           </div>
         </aside>
 
         <main className="min-w-0 flex-1">
-          <MobileTopBar storeName={storeName} logoUrl={store?.logoUrl ?? null} onSignOut={signOut} />
+          <MobileTopBar storeName={storeName} logoUrl={store?.logoUrl ?? null} branchLabel={branchLabel} onSignOut={signOut} />
           <div className="pt-4 lg:pt-0">
             <Outlet />
           </div>
@@ -125,7 +129,7 @@ function VendorShellInner() {
   )
 }
 
-function StoreBadge({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
+function StoreBadge({ name, logoUrl, branchLabel }: { name: string; logoUrl?: string | null; branchLabel?: string | null }) {
   // Shop logo (object-fit: contain - never cropped or stretched) with the
   // designed no-logo fallback preserved: shops without a usable logo keep the
   // generic store mark, and a broken logo URL falls back per URL so one shop's
@@ -151,7 +155,12 @@ function StoreBadge({ name, logoUrl }: { name: string; logoUrl?: string | null }
       )}
       <div className="min-w-0">
         <p className="font-display text-sm font-bold leading-tight text-ink">{name}</p>
-        <p className="text-xs text-muted">Shop Owner</p>
+        <p className="text-xs text-muted">
+          {branchLabel ? (
+            <span className="font-semibold uppercase tracking-wide text-ink">{branchLabel}</span>
+          ) : null}
+          {branchLabel ? ' · ' : null}Shop Owner
+        </p>
       </div>
     </div>
   )
@@ -190,10 +199,10 @@ function SidebarNav({ items, onSignOut }: { items: NavItem[]; onSignOut: () => v
   )
 }
 
-function MobileTopBar({ storeName, logoUrl, onSignOut }: { storeName: string; logoUrl?: string | null; onSignOut: () => void }) {
+function MobileTopBar({ storeName, logoUrl, branchLabel, onSignOut }: { storeName: string; logoUrl?: string | null; branchLabel?: string | null; onSignOut: () => void }) {
   return (
     <div className="flex items-center justify-between border-b border-border-soft pb-3 lg:hidden">
-      <StoreBadge name={storeName} logoUrl={logoUrl} />
+      <StoreBadge name={storeName} logoUrl={logoUrl} branchLabel={branchLabel} />
       <button
         type="button"
         onClick={onSignOut}

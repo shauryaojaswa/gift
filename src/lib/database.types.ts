@@ -454,6 +454,7 @@ export type Database = {
           gift_columns: Json | null
           google_review_url: string | null
           id: string
+          location_label: string | null
           logo_url: string | null
           min_spin_amount: number
           name: string
@@ -462,6 +463,7 @@ export type Database = {
           review_link_owner_editable: boolean
           secondary_color: string | null
           slug: string
+          spin_duration_ms: number | null
           status: string
           subtitle: string | null
           updated_at: string
@@ -473,6 +475,7 @@ export type Database = {
           gift_columns?: Json | null
           google_review_url?: string | null
           id?: string
+          location_label?: string | null
           logo_url?: string | null
           min_spin_amount?: number
           name: string
@@ -481,6 +484,7 @@ export type Database = {
           review_link_owner_editable?: boolean
           secondary_color?: string | null
           slug: string
+          spin_duration_ms?: number | null
           status?: string
           subtitle?: string | null
           updated_at?: string
@@ -492,6 +496,7 @@ export type Database = {
           gift_columns?: Json | null
           google_review_url?: string | null
           id?: string
+          location_label?: string | null
           logo_url?: string | null
           min_spin_amount?: number
           name?: string
@@ -500,6 +505,7 @@ export type Database = {
           review_link_owner_editable?: boolean
           secondary_color?: string | null
           slug?: string
+          spin_duration_ms?: number | null
           status?: string
           subtitle?: string | null
           updated_at?: string
@@ -745,6 +751,10 @@ export type Database = {
       rename_store_slug: {
         Args: { p_new_slug: string; p_store_id: string }
         Returns: undefined
+      }
+      resolve_admin_login: {
+        Args: { p_login_id: string }
+        Returns: string
       }
       save_store_gift_columns: {
         Args: { p_draft: string[]; p_publish?: boolean; p_store_slug: string }

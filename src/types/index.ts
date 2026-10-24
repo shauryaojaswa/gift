@@ -79,12 +79,25 @@ export interface StoreConfig {
   slug: string
   name: string
   subtitle: string
+  /**
+   * Branch/location label for a brand that runs several branches under one
+   * trade name (e.g. "Vijaya Road", "Lohta", "Godowlia"). Shown in the
+   * shop-owner admin so the branches are told apart at a glance; the
+   * customer-facing strapline stays in `subtitle`.
+   */
+  locationLabel?: string | null
   logoUrl: string
   primaryColor: string
   secondaryColor: string
   googleReviewUrl: string | null
   campaignBadge: string | null
   minSpinAmount: number
+  /**
+   * Optional per-store spin animation duration (ms). Absent = the shared
+   * default SPIN_DURATION_MS (5000). Presentation timing only - the reward
+   * engine is unaffected. (BCY's spec: the spin completes in ~6 seconds.)
+   */
+  spinDurationMs?: number
   /** Platform control: whether the owner may edit the Google review link. Absent = allowed. */
   reviewLinkOwnerEditable?: boolean
   /** Lifecycle status — non-active shops show the inactive page and accept no entries. */

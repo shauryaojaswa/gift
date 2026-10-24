@@ -37,14 +37,14 @@ function AdminLoginInner() {
         </CardHeader>
         <CardBody>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-            <FormField label="Email" error={null}>
+            <FormField label="Email or login ID" error={null}>
               <input
-                type="email"
+                type="text"
                 className="field-input py-3 text-base"
-                placeholder="you@store.com"
+                placeholder="you@store.com or your shop name"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                autoComplete="username"
                 autoFocus
                 required
               />

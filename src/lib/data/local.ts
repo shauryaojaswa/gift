@@ -173,7 +173,7 @@ export class LocalDataProvider implements DataProvider {
     } satisfies RewardAssignment
   }
 
-  async signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  async signInAdmin(login: string, password: string): Promise<{ ok: boolean; error?: string }> {
     // LOCAL PREVIEW ONLY — never compiled into production.
     //
     // On the local dev server (import.meta.env.DEV === true) with the
@@ -184,14 +184,14 @@ export class LocalDataProvider implements DataProvider {
     // localStorage provider also never holds real shared data. Real
     // deployments use SupabaseDataProvider.signInAdmin (Supabase Auth) instead.
     if (import.meta.env.DEV) {
-      if (!email.trim()) {
+      if (!login.trim()) {
         return { ok: false, error: 'Enter any email to start the local preview.' }
       }
       void password // local preview does not verify a password
-      writeJSON(ADMIN_KEY, { id: 'local-demo', email: email.trim() })
+      writeJSON(ADMIN_KEY, { id: 'local-demo', email: login.trim() })
       return { ok: true }
     }
-    void email
+    void login
     void password
     return { ok: false, error: 'Admin sign-in requires a configured Supabase project.' }
   }

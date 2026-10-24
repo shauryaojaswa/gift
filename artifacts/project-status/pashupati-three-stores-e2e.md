@@ -302,3 +302,66 @@ coordination facts, not product defects):
 Cross-store isolation held throughout: every admin round trip proved the other two
 stores' rows byte-unchanged, and the final database read shows all three stores on the
 approved 8 gifts + 8 brackets with `gift_columns` NULL.
+
+## Final production task (2026-10-19, later session) — admin credentials, review-URL
+## settings field, full admin-to-customer workflow
+
+Executed against the final live bundle **`index-C0VwjaAN.js`** (the origin advanced twice
+during this session — `index-Dh4HqAXG.js` → `index-C0VwjaAN.js` — as the parallel
+workstream shipped gift-columns, login-ID auth and per-store spin duration; every row
+below was re-proven against the final bundle). Full per-store matrices live in
+`artifacts/qa/QA-REPORT.md` §K; this is the condensed result.
+
+### What was implemented
+
+1. **Admin credentials (brief §2)** — the platform's authentication gained a login-ID
+   surface ("Email or login ID" → `resolve_admin_login` → Supabase Auth) during this
+   session. The required Admin IDs were configured through that existing system on the
+   owner membership rows: `Pashupati1` → pashupati1, `Pashupati2` → pashupati2,
+   `Pashupati` → pashupati. Each signs in to exactly its own panel; wrong password and
+   unknown IDs are refused. The password exists only in Supabase Auth — never in logs,
+   bundles (byte-verified) or reports.
+2. **Google Review URL field (brief §3)** — already shipped in the vendor Store Settings
+   panel (edit + save + HTTP(S) validation + blank→`NULL` + saved-value reload + tenant
+   isolation); no code change was needed. Verified live per store, including the
+   invalid-value rejection and the third-location blank workflow.
+3. **No deployment was needed** for the remaining brief items (they are auth/database
+   bookkeeping and already-live features) — per "do not repeat successful uploads of
+   identical assets", the served deployment was verified instead. Only
+   `scripts/pashupati-e2e.mjs` changed in the repo (new `settings` phase pre/post slots,
+   empty-gift-name probe, Admin-ID sign-in, journey→vendor-panel handoff) plus
+   self-contained provisioning scripts in `%TEMP%`.
+
+### Results (final bundle, per store)
+
+| | pashupati1 | pashupati2 — Lohta | pashupati — third location |
+|---|---|---|---|
+| Admin-ID sign-in to own panel | PASS | PASS | PASS |
+| Review URL field: validate / save / persist / restore-of-record | PASS (BSKK CID) | PASS (Lohta CID) | PASS (blank → `NULL`) |
+| Customer journey uses the store's own saved URL (unique test URL proven per store, then restored) | PASS | PASS | PASS (temporary only, restored `NULL`) |
+| Jewellery recommendations verbatim + copy + skip | PASS | PASS | PASS |
+| Gifts: edit 8 fields, wheel order, change-one, restore byte-identical | 15/15 | 15/15 | 15/15 |
+| Empty gift name rejected (no blank reward) | PASS | PASS | PASS |
+| Five-second spin (visible browser) | 5061 / 5104 ms | 5084 / 5061 ms | 5074 / 5076 ms |
+| Reward + claim code = backend engine | PASS | PASS | PASS |
+| Invoice details (filled + NULL) → vendor panel + CSV "Invoice Details" + 200-char limit | PASS | PASS | PASS |
+| Cross-store isolation (403 walls, review-URL invariance, row snapshots) | PASS | PASS | PASS |
+| Phase totals | pre 18/18 · journey 33/0/0 · admin 15/15 · post 18/18 | pre 18/18 · journey 33/0/0 · admin 15/15 · post 18/18 | pre 18/18 · journey 33/0/1 · admin 15/15 · post 18/18 |
+
+Deployment stack on the final bundle: byte-verify **52/52** · deploy-verify **11/11** ·
+live-config **10/10** · prod-smoke **35/35** · URL surfaces **6/6**.
+
+### Open items
+
+1. **Godowlia review URL** — the third location still has no distinct Google Business
+   Profile; `google_review_url` remains `NULL` and the CTA disabled until the owner
+   claims the listing or supplies the link.
+2. Blocked-external observations (Google anti-automation interstitial on tab-open;
+   occasional rAF stall on occluded headed windows) are environmental and were never
+   counted as passes — destinations were proven through the interstitial's `continue=`.
+
+### Final resting state (verified after all runs)
+
+All three stores: `status=active`, the approved 8-gift ladder in order, `spin_duration_ms`
+NULL (→ the 5000 ms default, measured above), review URLs = verified BSKK / verified
+Lohta / `NULL`, exactly one owner membership per store carrying the configured Admin ID.

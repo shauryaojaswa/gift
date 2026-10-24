@@ -92,7 +92,12 @@ export interface DataProvider {
   getStoreConfig(slug: string): Promise<StoreConfig | null>
   getAdminStoreConfig(): Promise<StoreConfig | null>
   createSubmission(input: CreateSubmissionInput): Promise<RewardAssignment>
-  signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }>
+  /**
+   * Sign in with an e-mail address or an admin login ID (e.g. the shop name).
+   * Login IDs are resolved to the auth account by the backend; passwords only
+   * ever pass through to the authentication provider.
+   */
+  signInAdmin(login: string, password: string): Promise<{ ok: boolean; error?: string }>
   signOut(): Promise<void>
   getSession(): Promise<AdminSession | null>
   listSubmissions(opts: ListOptions): Promise<ListResult>

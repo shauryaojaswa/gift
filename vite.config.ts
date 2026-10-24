@@ -3,7 +3,22 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => ({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      // The storefront's first paint waits on the Supabase API: preconnecting
+      // the API origin moves DNS + TLS setup off the critical path. Injected
+      // only when the build actually targets a Supabase project (a demo build
+      // has no API origin and must not emit a broken preconnect).
+      name: 'jriq-preconnect-api',
+      transformIndexHtml(html) {
+        const api = process.env.VITE_SUPABASE_URL
+        if (!api) return html
+        const tag = `<link rel="preconnect" href="${api}" crossorigin />`
+        return html.includes(tag) ? html : html.replace('</head>', `  ${tag}\n  </head>`)
+      },
+    },
+  ],
   // Base path per deployment target — never edit this file to switch targets:
   //   npm run build       -> GitHub Pages (https://shauryaojaswa.github.io/gift/)
   //   npm run build:root  -> jriq.in domain root (https://jriq.in/)

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClientLike } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 import { validateLogoFile } from '@/lib/logo-upload'
 
@@ -7,7 +7,7 @@ import { validateLogoFile } from '@/lib/logo-upload'
  * SECURITY DEFINER RPCs that verify `is_platform_admin()` server-side — the UI
  * is never the security boundary. Tenant isolation is enforced by RLS.
  */
-export type PlatformClient = SupabaseClient<Database>
+export type PlatformClient = SupabaseClientLike
 
 /**
  * Optional gift-option schema extensions. The declared-value / stock columns

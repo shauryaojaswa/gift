@@ -1,0 +1,75 @@
+{
+  "tag": "staging2",
+  "base": "http://127.0.0.1:4173",
+  "startedAt": "2026-10-17T14:45:16.278Z",
+  "thresholds": {
+    "lcpMs": 2500,
+    "cls": 0.1,
+    "apiP95Ms": 1000,
+    "errorRatePct": 1,
+    "navP95Ms": 3000
+  },
+  "proposedThresholds": true,
+  "phases": {
+    "wheel": {
+      "frames": 387,
+      "avgFrameMs": 16.73,
+      "approxFps": 59.8,
+      "jankyFramesOver34ms": 1,
+      "jankPct": 0.3,
+      "worstFrameMs": 50
+    },
+    "readramp": [
+      {
+        "concurrency": 1,
+        "total": 8,
+        "wallMs": 4426,
+        "throughputPerSec": 1.8,
+        "errorRatePct": 0,
+        "latency": {
+          "n": 8,
+          "p50": 579,
+          "p90": 1005,
+          "p95": 1005,
+          "p99": 1005,
+          "max": 1005,
+          "min": 296
+        }
+      },
+      {
+        "concurrency": 32,
+        "total": 128,
+        "wallMs": 1868,
+        "throughputPerSec": 68.5,
+        "errorRatePct": 0,
+        "latency": {
+          "n": 128,
+          "p50": 220,
+          "p90": 579,
+          "p95": 592,
+          "p99": 598,
+          "max": 614,
+          "min": 175
+        }
+      },
+      {
+        "concurrency": 64,
+        "total": 256,
+        "wallMs": 1820,
+        "throughputPerSec": 140.7,
+        "errorRatePct": 0,
+        "latency": {
+          "n": 256,
+          "p50": 254,
+          "p90": 563,
+          "p95": 656,
+          "p99": 807,
+          "max": 811,
+          "min": 179
+        }
+      }
+    ]
+  },
+  "resourcesAfter": "WorkingSet64=2947629056 CPU=1058",
+  "finishedAt": "2026-10-17T14:45:42.510Z"
+}

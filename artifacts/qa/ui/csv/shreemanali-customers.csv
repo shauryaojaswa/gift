@@ -1,0 +1,6 @@
+Customer,Phone,Purchase Amount (INR),Bracket,Reward,Claim Code,Status,Submitted,Collected At,Collected By
+QA Parallel 8 MVCHDMKQ,9182367174,2000,"₹1,000 – ₹4,998",QA Gift shreemanali A,GIFT-FC730711,Collected,2026-10-17T14:17:45.868199+00:00,2026-10-17T14:23:48.048546+00:00,3f57dadb-7d2b-4bec-952a-e3622a90021a
+QA Parallel 5 MVCHDMKQ,9517581708,5000,"₹5,000 and above",QA Gift shreemanali B,GIFT-E48D1141,Collected,2026-10-17T14:17:45.546045+00:00,2026-10-17T14:23:49.430345+00:00,3f57dadb-7d2b-4bec-952a-e3622a90021a
+QA Parallel 2 MVCHDMKQ,9197983384,2000,"₹1,000 – ₹4,998",QA Gift shreemanali A,GIFT-2378A815,Awaiting,2026-10-17T14:17:45.545037+00:00,,
+QA Parallel 11 MVCHDMKQ,9718162910,5000,"₹5,000 and above",QA Gift shreemanali B,GIFT-88D802DE,Awaiting,2026-10-17T14:17:45.530267+00:00,,
+QA Engine Two MVCHDMKQ,9330783904,5000,"₹5,000 and above",QA Gift shreemanali B,GIFT-182E32DD,Awaiting,2026-10-17T14:17:37.248822+00:00,,

@@ -148,8 +148,9 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
             </div>
           </div>
 
-          <FormField label="Store display name">
+          <FormField label="Store display name" id="vendor-store-name">
             <input
+              id="vendor-store-name"
               className="field-input py-2"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -157,8 +158,9 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
             />
           </FormField>
 
-          <FormField label="Subtitle">
+          <FormField label="Subtitle" id="vendor-store-subtitle">
             <input
+              id="vendor-store-subtitle"
               className="field-input py-2"
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
@@ -204,6 +206,7 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
 
           <FormField
             label="Google Review URL"
+            id="vendor-store-review-url"
             hint={
               store.reviewLinkOwnerEditable === false
                 ? 'Managed by the platform administrator for this shop.'
@@ -211,6 +214,7 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
             }
           >
             <input
+              id="vendor-store-review-url"
               className="field-input py-2"
               type="url"
               value={googleReviewUrl}
@@ -220,8 +224,13 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
             />
           </FormField>
 
-          <FormField label="Store slug" hint="Public route identifier — kept stable for your QR code.">
-            <input className="field-input bg-border-soft py-2 text-muted" value={store.slug} readOnly />
+          <FormField label="Store slug" id="vendor-store-slug" hint="Public route identifier — kept stable for your QR code.">
+            <input
+              id="vendor-store-slug"
+              className="field-input bg-border-soft py-2 text-muted"
+              value={store.slug}
+              readOnly
+            />
           </FormField>
 
           {formError && <p className="text-xs text-red-600" role="alert">{formError}</p>}
@@ -263,16 +272,18 @@ function SettingsForm({ store, reload }: { store: StoreConfig; reload: () => voi
         </CardHeader>
         {showAdvanced && (
           <CardBody className="flex flex-col gap-3">
-            <FormField label="Campaign badge" hint="Shown on the customer-facing campaign page">
+            <FormField label="Campaign badge" id="vendor-store-badge" hint="Shown on the customer-facing campaign page">
               <input
+                id="vendor-store-badge"
                 className="field-input py-2"
                 value={campaignBadge}
                 onChange={(e) => setCampaignBadge(e.target.value)}
                 placeholder="e.g. SPIN & WIN"
               />
             </FormField>
-            <FormField label="Minimum qualifying purchase (₹)">
+            <FormField label="Minimum qualifying purchase (₹)" id="vendor-store-min-purchase">
               <input
+                id="vendor-store-min-purchase"
                 className="field-input py-2"
                 type="number"
                 min={0}
